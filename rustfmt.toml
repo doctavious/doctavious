@@ -1,0 +1,8 @@
+edition = "2021"
+max_width = 100
+reorder_imports = true
+
+
+# Nightly only features
+imports_granularity = "Module"
+group_imports = "StdExternalCrate"

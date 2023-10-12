@@ -12,3 +12,20 @@ Cargo.lock
 
 # MSVC Windows builds of rustc generate these, which store debugging information
 *.pdb
+
+.DS_Store
+
+.idea
+.vscode
+*.ignore
+/.env
+
+# Added by cargo
+
+/target
+
+
+# vim temp files
+.*.swp
+.*.swo
+.vim
