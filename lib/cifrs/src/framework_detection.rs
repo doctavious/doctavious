@@ -1,9 +1,12 @@
-use std::convert::identity;
-
 use std::fs;
-use regex::{Error, Regex, RegexBuilder};
+
+use regex::RegexBuilder;
 use serde_json::Value;
 use serde_derive::{Serialize};
+use crate::CifrsResult;
+use crate::framework::{FrameworkDetectionItem, FrameworkInfo, FrameworkMatchingStrategy, FrameworkSupport};
+use crate::projects::csproj::CSProj;
+use crate::projects::project_file::ProjectFile;
 
 // use crate::commands::build::projects::csproj::CSProj;
 // use crate::commands::build::framework::{FrameworkDetectionItem, FrameworkInfo, FrameworkMatchingStrategy, FrameworkSupport};
@@ -175,7 +178,7 @@ fn check(framework: &FrameworkInfo, item: &FrameworkDetectionItem) -> Option<Mat
     }
 }
 
-fn has_dependency(project_type: &ProjectFile, content: String, dependency: &str) -> DoctaviousResult<bool> {
+fn has_dependency(project_type: &ProjectFile, content: String, dependency: &str) -> CifrsResult<bool> {
     let found = match project_type {
         ProjectFile::CargoToml => {
             let root: toml::Value = toml::from_str(content.as_str())?;

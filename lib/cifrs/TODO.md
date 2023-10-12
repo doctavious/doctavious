@@ -1,0 +1,6 @@
+- Can we move move configuration to YAML files similar to how linguist works?
+- Can we support overriding cifrs detection via git attributes similar to linguist
+- Should CLI be specifically baked into Doctavious CLI or should it also be a separate CLI? Would need to determine how to make that work but I think we need to anyway if we want to incorporate Snippext into Doctavous CLI. Some work to review
+  - OCLIF
+  - Cargo and their plugin system
+- 
