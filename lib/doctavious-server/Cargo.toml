@@ -1,0 +1,21 @@
+[package]
+name = "doctavious-server"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[dependencies]
+anyhow = { workspace = true }
+axum = { workspace = true, features = ["headers", "http2", "macros", "multipart", "ws"] }
+figment = { workspace = true, features = ["env", "json", "toml", "serde_json", "test", "serde_yaml"] }
+futures = { workspace = true, default-features = false, features = ["compat", "io-compat"], package = "futures" }
+mime = { workspace = true }
+# lets play with this a bit and see how it does. Otherwise swap in for our own Storage/Objects implmentation
+# given the free tier of Cloudflare's R2 storage I would like to add that
+opendal = { workspace = true, features = ["layers-otel-trace", "layers-metrics", "layers-tracing"] }
+serde = { workspace = true, features = ["derive"]}
+tokio = { workspace = true, features = ["fs", "macros", "rt", "rt-multi-thread", "tracing", "io-util", "signal"] }
+thiserror = { workspace = true }
+tracing-opentelemetry = { workspace = true }
+ulid = { workspace = true }
+uuid = { workspace = true, features = ["v4"] }
