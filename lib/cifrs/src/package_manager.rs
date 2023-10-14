@@ -8,11 +8,11 @@ use crate::framework::{FrameworkDetectionItem, FrameworkDetector, FrameworkMatch
 pub enum PackageManager {
     Cargo,
     Go,
-    NPM,
+    Npm,
     Nuget,
     Poetry,
-    PIP,
-    PNPM,
+    Pip,
+    Pnpm,
     Bundler,
     Yarn,
 }
@@ -48,10 +48,10 @@ impl<'a> PackageManager {
     pub const ALL: &'a [PackageManager] = &[
         PackageManager::Cargo,
         PackageManager::Go,
-        PackageManager::NPM,
+        PackageManager::Npm,
         PackageManager::Poetry,
-        PackageManager::PIP,
-        PackageManager::PNPM,
+        PackageManager::Pip,
+        PackageManager::Pnpm,
         PackageManager::Bundler,
         PackageManager::Yarn,
     ];
@@ -86,7 +86,7 @@ impl<'a> PackageManager {
                     },
                 }
             },
-            PackageManager::NPM => {
+            PackageManager::Npm => {
                 PackageManagerInfo {
                     name: "npm",
                     install_command: "npm install",
@@ -136,7 +136,7 @@ impl<'a> PackageManager {
                     },
                 }
             }
-            PackageManager::PIP => {
+            PackageManager::Pip => {
                 PackageManagerInfo {
                     name: "pip",
                     install_command: "pip install",
@@ -151,7 +151,7 @@ impl<'a> PackageManager {
                     },
                 }
             }
-            PackageManager::PNPM => {
+            PackageManager::Pnpm => {
                 PackageManagerInfo {
                     name: "pnpm",
                     install_command: "pnpm install",

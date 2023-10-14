@@ -211,7 +211,7 @@ pub(crate) fn read_config_files<T>(files: &Vec<&'static str>) -> CifrsResult<T>
     for file in files {
         let path = Path::new(&file);
         if let Some(extension) = path.extension() {
-            if let Ok(content) = fs::read_to_string(&file) {
+            if let Ok(content) = fs::read_to_string(file) {
                 return match extension.to_str() {
                     Some("json") => T::from_json(content.as_str()),
                     Some("yaml") | Some("yml") => T::from_yaml(content.as_str()),
@@ -228,5 +228,5 @@ pub(crate) fn read_config_files<T>(files: &Vec<&'static str>) -> CifrsResult<T>
     }
 
     // TODO (Sean): better error message / handling
-    return Err(CifrsError::MissingFrameworkConfig());
+    Err(CifrsError::MissingFrameworkConfig())
 }

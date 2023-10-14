@@ -115,8 +115,8 @@ impl Language {
         match self {
             Language::CSharp => &[PackageManager::Nuget],
             Language::Go => &[PackageManager::Go],
-            Language::Javascript => &[PackageManager::NPM, PackageManager::PNPM, PackageManager::Yarn],
-            Language::Python => &[PackageManager::Poetry, PackageManager::PIP],
+            Language::Javascript => &[PackageManager::Npm, PackageManager::Pnpm, PackageManager::Yarn],
+            Language::Python => &[PackageManager::Poetry, PackageManager::Pip],
             Language::Ruby => &[PackageManager::Bundler],
             Language::Rust => &[PackageManager::Cargo]
         }
@@ -147,8 +147,8 @@ impl Language {
                 LanguageInfo {
                     name: "JavaScript",
                     package_managers: SupportedPackageManagers {
-                        supported: vec![PackageManager::NPM, PackageManager::PNPM, PackageManager::Yarn],
-                        fallback: PackageManager::NPM,
+                        supported: vec![PackageManager::Npm, PackageManager::Pnpm, PackageManager::Yarn],
+                        fallback: PackageManager::Npm,
                     }
                 }
             },
@@ -156,8 +156,8 @@ impl Language {
                 LanguageInfo {
                     name: "Python",
                     package_managers: SupportedPackageManagers {
-                        supported: vec![PackageManager::Poetry, PackageManager::PIP],
-                        fallback: PackageManager::PIP,
+                        supported: vec![PackageManager::Poetry, PackageManager::Pip],
+                        fallback: PackageManager::Pip,
                     }
                 }
             },

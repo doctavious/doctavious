@@ -7,6 +7,7 @@ mod js_module;
 mod language;
 mod package_manager;
 mod projects;
+mod frameworks;
 
 #[remain::sorted]
 #[derive(Debug, Error)]
@@ -17,6 +18,9 @@ pub enum CifrsError {
 
     #[error("glob parsing pattern error: {0}")]
     GlobPattern(#[from] PatternError),
+
+    #[error("Invalid config: {0}")]
+    InvalidConfig(String),
 
     /// Error that may occur while I/O operations.
     #[error("IO error: {0}")]

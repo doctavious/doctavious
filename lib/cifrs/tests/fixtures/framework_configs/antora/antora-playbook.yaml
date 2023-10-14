@@ -1,0 +1,5 @@
+site:
+    title: Test
+
+output:
+    dir: ./launch

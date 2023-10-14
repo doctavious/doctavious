@@ -41,7 +41,7 @@ pub(crate) struct MatchResult {
 }
 
 
-pub(crate) fn detect_framework<'a>(frameworks: Vec<Box<dyn FrameworkSupport>>) -> Option<Box<dyn FrameworkSupport>> {
+pub(crate) fn detect_framework(frameworks: Vec<Box<dyn FrameworkSupport>>) -> Option<Box<dyn FrameworkSupport>> {
     for framework in frameworks {
         let m = matches(framework.get_info());
         // TODO: return MatchResult?
@@ -59,13 +59,13 @@ fn matches(framework: &FrameworkInfo) -> Option<MatchResult> {
     match &framework.detection.matching_strategy {
         FrameworkMatchingStrategy::All => {
             for detector in &framework.detection.detectors {
-                results.push(check(&framework, detector));
+                results.push(check(framework, detector));
             }
         }
         FrameworkMatchingStrategy::Any => {
             let mut matched = None;
             for item in &framework.detection.detectors {
-                let result = check(&framework, item);
+                let result = check(framework, item);
                 if result.is_some() {
                     matched = result;
                     break;
@@ -195,7 +195,7 @@ fn has_dependency(project_type: &ProjectFile, content: String, dependency: &str)
             content.contains(&format!("gem '{}'", dependency))
         }
         ProjectFile::GoMod => {
-            content.contains(&format!("{}", dependency))
+            content.contains(&dependency.to_string())
         }
         ProjectFile::PackageJson => {
             let root: Value = serde_json::from_str(content.as_str())?;

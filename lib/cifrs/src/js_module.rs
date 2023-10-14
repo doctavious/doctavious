@@ -28,7 +28,7 @@ pub(crate) trait PropertyAccessor<'a> {
 
     fn get_property_with_value(&'a self, ident: &'static str, val: &'static str) -> Option<&'a KeyValueProp> {
         if let Some(prop) = self.get_property(ident) {
-            if let Some(kv_val) = get_value_from_kv_as_string(&prop) {
+            if let Some(kv_val) = get_value_from_kv_as_string(prop) {
                 if kv_val == val {
                     return Some(prop);
                 }
@@ -166,8 +166,7 @@ impl<'a> PropertyAccessor<'a> for ArrayLit {
     fn get_property(&'a self, ident: &'static str) -> Option<&'a KeyValueProp> {
         // TODO: see how this performs against the for loop
         self.elems.iter()
-            .filter(|e| e.is_some())
-            .map(|e| e.as_ref().unwrap())
+            .filter_map(|e| e.as_ref())
             .find_map(|expr| expr.get_property(ident))
         // for elem in &self.elems {
         //     if let Some(exp) = elem {
@@ -221,15 +220,14 @@ pub fn parse_js_module(filename: FileName, src: String) -> CifrsResult<Program> 
                 },
                 |handler| {
                     let fm = cm.new_source_file(filename, src);
-                    let result = c.parse_js(
+                    c.parse_js(
                         fm,
                         handler,
                         EsVersion::Es2020,
                         Syntax::Es(EsConfig::default()),
                         swc::config::IsModule::Bool(true),
                         None,
-                    );
-                    result
+                    )
                 },
             )
         })?;
@@ -266,7 +264,7 @@ pub(crate) fn get_call_expression<'a>(program: &'a Program, ident: &'static str)
                     if let Some(callee) = call.callee.as_expr() {
                         if let Some(callee_ident) = callee.as_ident() {
                             if callee_ident.sym.as_ref() == ident {
-                                return Some(&call);
+                                return Some(call);
                             }
                         }
                     }
@@ -383,18 +381,16 @@ pub(crate) fn find_array_element<'a>(
     property_ident: &'static str,
     val: &'static str
 ) -> Option<&'a ObjectLit> {
-    for elem in &arr.elems {
-        if let Some(exp) = elem {
-            if let Some(o) = exp.expr.as_object() {
-                for op in &o.props {
-                    if let Some(op2) = op.as_prop() {
-                        if let Some(kv) = op2.as_key_value() {
-                            if let Some(ident) = kv.key.as_ident() {
-                                if ident.sym.as_ref() == property_ident {
-                                    if let Some(kv_val) = get_value_from_kv_as_string(kv) {
-                                        if kv_val == val {
-                                            return Some(o);
-                                        }
+    for exp_or_spread in arr.elems.iter().flatten() {
+        if let Some(o) = exp_or_spread.expr.as_object() {
+            for op in &o.props {
+                if let Some(op2) = op.as_prop() {
+                    if let Some(kv) = op2.as_key_value() {
+                        if let Some(ident) = kv.key.as_ident() {
+                            if ident.sym.as_ref() == property_ident {
+                                if let Some(kv_val) = get_value_from_kv_as_string(kv) {
+                                    if kv_val == val {
+                                        return Some(o);
                                     }
                                 }
                             }
@@ -413,7 +409,7 @@ pub(crate) fn is_call_ident(call: &CallExpr, ident: &'static str) -> bool {
             return callee_ident.sym.as_ref() == ident;
         }
     }
-    return false;
+    false
 }
 
 // TODO: add method that just gets specific string via get_string_property_value

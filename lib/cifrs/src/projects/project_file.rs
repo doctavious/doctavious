@@ -172,10 +172,10 @@ impl ProjectFile {
             ProjectFile::CSProj => &[PackageManager::Nuget],
             ProjectFile::GemFile => &[PackageManager::Bundler],
             ProjectFile::GoMod => &[PackageManager::Go],
-            ProjectFile::PackageJson => &[PackageManager::NPM, PackageManager::PNPM, PackageManager::Yarn],
-            ProjectFile::PipFile => &[PackageManager::PIP],
-            ProjectFile::PyProject => &[PackageManager::PIP, PackageManager::Poetry],
-            ProjectFile::RequirementsTxt => &[PackageManager::PIP]
+            ProjectFile::PackageJson => &[PackageManager::Npm, PackageManager::Pnpm, PackageManager::Yarn],
+            ProjectFile::PipFile => &[PackageManager::Pip],
+            ProjectFile::PyProject => &[PackageManager::Pip, PackageManager::Poetry],
+            ProjectFile::RequirementsTxt => &[PackageManager::Pip]
         }
     }
 
@@ -210,30 +210,27 @@ impl ProjectFile {
                     println!("path...{:?}", file.unwrap());
                 }
 
-                for entry in glob("**/*.csproj")? {
-                    if let Ok(entry) = entry {
-                        println!("entry...{:?}", entry);
-                        if let Some(path_str) = entry.to_str() {
-                            let content = fs::read_to_string(path_str)?;
-                            let result: Result<CSProj, _> = serde_xml_rs::from_str(content.as_str());
-                            // match result {
-                            //     Ok(r) => {
-                            //         println!("got project...{:?}", r);
-                            //     }
-                            //     Err(e) => {
-                            //         println!("serde error...{:?}", e);
-                            //     }
-                            // }
-                            if let Ok(build_proj) = result {
-                                println!("build proj...{:?}", build_proj);
-                                for item_group in build_proj.item_groups {
-                                    // could also do item_group.package_references.unwrap_or_default()
-                                    if let Some(package_references ) = item_group.package_references {
-                                        for pkref in package_references {
-                                            if dependency == pkref.include {
-                                                has_dependency = true;
-                                                break;
-                                            }
+                for entry in glob("**/*.csproj")?.flatten() {
+                    if let Some(path_str) = entry.to_str() {
+                        let content = fs::read_to_string(path_str)?;
+                        let result: Result<CSProj, _> = serde_xml_rs::from_str(content.as_str());
+                        // match result {
+                        //     Ok(r) => {
+                        //         println!("got project...{:?}", r);
+                        //     }
+                        //     Err(e) => {
+                        //         println!("serde error...{:?}", e);
+                        //     }
+                        // }
+                        if let Ok(build_proj) = result {
+                            println!("build proj...{:?}", build_proj);
+                            for item_group in build_proj.item_groups {
+                                // could also do item_group.package_references.unwrap_or_default()
+                                if let Some(package_references ) = item_group.package_references {
+                                    for pkref in package_references {
+                                        if dependency == pkref.include {
+                                            has_dependency = true;
+                                            break;
                                         }
                                     }
                                 }
