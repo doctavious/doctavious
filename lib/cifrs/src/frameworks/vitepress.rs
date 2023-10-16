@@ -6,19 +6,26 @@
 // do we allow to customize the script we look for? ex: instead of 'build' we look for 'docs:build'
 // package.json
 
+use serde::Deserialize;
+use swc_ecma_ast::Program;
 
-
-use serde::{Deserialize};
-use swc_ecma_ast::{Program};
-use crate::{CifrsError, CifrsResult};
-use crate::framework::{ConfigurationFileDeserialization, FrameworkBuildSettings, FrameworkDetectionItem, FrameworkDetector, FrameworkInfo, FrameworkMatchingStrategy, FrameworkSupport, read_config_files};
+use crate::framework::{
+    read_config_files, ConfigurationFileDeserialization, FrameworkBuildSettings,
+    FrameworkDetectionItem, FrameworkDetector, FrameworkInfo, FrameworkMatchingStrategy,
+    FrameworkSupport,
+};
 use crate::js_module::PropertyAccessor;
 use crate::language::Language;
+use crate::{CifrsError, CifrsResult};
 
 #[derive(Deserialize)]
-struct VitePressConfig { output: Option<String> }
+struct VitePressConfig {
+    output: Option<String>,
+}
 
-pub struct VitePress { info: FrameworkInfo }
+pub struct VitePress {
+    info: FrameworkInfo,
+}
 
 impl VitePress {
     fn new(configs: Option<Vec<&'static str>>) -> Self {
@@ -30,9 +37,7 @@ impl VitePress {
                 language: Language::Javascript,
                 detection: FrameworkDetector {
                     matching_strategy: FrameworkMatchingStrategy::All,
-                    detectors: vec![
-                        FrameworkDetectionItem::Dependency { name: "vitepress"}
-                    ]
+                    detectors: vec![FrameworkDetectionItem::Dependency { name: "vitepress" }],
                 },
                 build: FrameworkBuildSettings {
                     command: "vitepress build docs",
@@ -46,15 +51,13 @@ impl VitePress {
 
 impl Default for VitePress {
     fn default() -> Self {
-        VitePress::new(
-            Some(vec![
-                ".vitepress/config.cjs",
-                ".vitepress/config.js",
-                ".vitepress/config.mjs",
-                ".vitepress/config.mts",
-                ".vitepress/config.ts"
-            ])
-        )
+        VitePress::new(Some(vec![
+            ".vitepress/config.cjs",
+            ".vitepress/config.js",
+            ".vitepress/config.mjs",
+            ".vitepress/config.mts",
+            ".vitepress/config.ts",
+        ]))
     }
 }
 
@@ -83,15 +86,12 @@ impl FrameworkSupport for VitePress {
 }
 
 impl ConfigurationFileDeserialization for VitePressConfig {
-
     fn from_js_module(program: &Program) -> CifrsResult<Self> {
         println!("{}", serde_json::to_string(&program)?);
         if let Some(module) = program.as_module() {
             let output = module.get_property_as_string("outDir");
             if output.is_some() {
-                return Ok(Self {
-                    output
-                });
+                return Ok(Self { output });
             }
             // for item in &module.body {
             //     if let Some(Decl(decl)) = item.as_stmt() {
@@ -126,8 +126,8 @@ impl ConfigurationFileDeserialization for VitePressConfig {
 
 #[cfg(test)]
 mod tests {
-    use crate::framework::FrameworkSupport;
     use super::VitePress;
+    use crate::framework::FrameworkSupport;
 
     #[test]
     fn test_vitepress() {
@@ -141,7 +141,5 @@ mod tests {
             let output = vitepress.get_output_dir();
             assert_eq!(output, String::from("build"))
         }
-
     }
-
 }

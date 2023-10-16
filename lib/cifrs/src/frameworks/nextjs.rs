@@ -5,16 +5,25 @@
 // .next -> default directory
 // change be changed via distDir
 
-use serde::{Deserialize};
-use swc_ecma_ast::{Program};
-use crate::{CifrsError, CifrsResult};
-use crate::framework::{ConfigurationFileDeserialization, FrameworkBuildSettings, FrameworkDetectionItem, FrameworkDetector, FrameworkInfo, FrameworkMatchingStrategy, FrameworkSupport, read_config_files};
+use serde::Deserialize;
+use swc_ecma_ast::Program;
+
+use crate::framework::{
+    read_config_files, ConfigurationFileDeserialization, FrameworkBuildSettings,
+    FrameworkDetectionItem, FrameworkDetector, FrameworkInfo, FrameworkMatchingStrategy,
+    FrameworkSupport,
+};
 use crate::js_module::PropertyAccessor;
 use crate::language::Language;
+use crate::{CifrsError, CifrsResult};
 #[derive(Deserialize)]
-struct NextJSConfig { output: String }
+struct NextJSConfig {
+    output: String,
+}
 
-pub struct NextJS { info: FrameworkInfo }
+pub struct NextJS {
+    info: FrameworkInfo,
+}
 
 impl NextJS {
     fn new(configs: Option<Vec<&'static str>>) -> Self {
@@ -26,16 +35,14 @@ impl NextJS {
                 language: Language::Javascript,
                 detection: FrameworkDetector {
                     matching_strategy: FrameworkMatchingStrategy::All,
-                    detectors: vec![
-                        FrameworkDetectionItem::Dependency { name: "next"}
-                    ]
+                    detectors: vec![FrameworkDetectionItem::Dependency { name: "next" }],
                 },
                 build: FrameworkBuildSettings {
                     command: "next build",
                     command_args: None,
                     output_directory: ".next",
                 },
-            }
+            },
         }
     }
 }
@@ -69,14 +76,11 @@ impl FrameworkSupport for NextJS {
 }
 
 impl ConfigurationFileDeserialization for NextJSConfig {
-
     fn from_js_module(program: &Program) -> CifrsResult<Self> {
         // TODO: try and simplify
         if let Some(module) = program.as_module() {
             if let Some(output) = module.get_property_as_string("distDir") {
-                return Ok(Self {
-                    output
-                });
+                return Ok(Self { output });
             }
             // for item in &module.body {
             //     if let Some(Decl(decl)) = item.as_stmt() {
@@ -112,21 +116,19 @@ impl ConfigurationFileDeserialization for NextJSConfig {
 
 #[cfg(test)]
 mod tests {
-    use crate::framework::FrameworkSupport;
     use super::NextJS;
+    use crate::framework::FrameworkSupport;
 
     #[test]
     fn test_nextjs() {
         for config in [
             "tests/fixtures/framework_configs/nextjs/next_js_v1.mjs",
-            "tests/fixtures/framework_configs/nextjs/next_js_v2.mjs"
+            "tests/fixtures/framework_configs/nextjs/next_js_v2.mjs",
         ] {
             let nextjs = NextJS::new(Some(vec![config]));
 
             let output = nextjs.get_output_dir();
             assert_eq!(output, String::from("build"))
         }
-
     }
-
 }

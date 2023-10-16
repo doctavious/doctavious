@@ -8,14 +8,23 @@
 // /public
 // can be changed via publishDir
 
-use serde::{Deserialize};
-use crate::framework::{ConfigurationFileDeserialization, FrameworkBuildArg, FrameworkBuildArgs, FrameworkBuildSettings, FrameworkDetectionItem, FrameworkDetector, FrameworkInfo, FrameworkMatchingStrategy, FrameworkSupport, read_config_files};
+use serde::Deserialize;
+
+use crate::framework::{
+    read_config_files, ConfigurationFileDeserialization, FrameworkBuildArg, FrameworkBuildArgs,
+    FrameworkBuildSettings, FrameworkDetectionItem, FrameworkDetector, FrameworkInfo,
+    FrameworkMatchingStrategy, FrameworkSupport,
+};
 use crate::language::Language;
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
-struct HugoConfig { publish_dir: Option<String> }
+struct HugoConfig {
+    publish_dir: Option<String>,
+}
 
-pub struct Hugo { info: FrameworkInfo }
+pub struct Hugo {
+    info: FrameworkInfo,
+}
 
 impl Hugo {
     fn new(configs: Option<Vec<&'static str>>) -> Self {
@@ -27,9 +36,9 @@ impl Hugo {
                 language: Language::Go,
                 detection: FrameworkDetector {
                     matching_strategy: FrameworkMatchingStrategy::All,
-                    detectors: vec![
-                        FrameworkDetectionItem::Config { content: Some("baseURL") }
-                    ]
+                    detectors: vec![FrameworkDetectionItem::Config {
+                        content: Some("baseURL"),
+                    }],
                 },
                 build: FrameworkBuildSettings {
                     command: "hugo",
@@ -37,31 +46,32 @@ impl Hugo {
                         source: None,
                         config: Some(FrameworkBuildArg::Option {
                             short: "",
-                            long: "--config"
+                            long: "--config",
                         }),
                         output: Some(FrameworkBuildArg::Option {
                             short: "",
                             long: "--destination",
-                        })
+                        }),
                     }),
                     output_directory: "/public",
                 },
-            }
+            },
         }
     }
 }
 
 impl Default for Hugo {
     fn default() -> Self {
-        Hugo::new(
-            Some(Vec::from([
-                "config.json", "config.toml", "config.yaml",
-                "hugo.json", "hugo.toml", "hugo.yaml"
-            ]))
-        )
+        Hugo::new(Some(Vec::from([
+            "config.json",
+            "config.toml",
+            "config.yaml",
+            "hugo.json",
+            "hugo.toml",
+            "hugo.yaml",
+        ])))
     }
 }
-
 
 impl FrameworkSupport for Hugo {
     fn get_info(&self) -> &FrameworkInfo {
@@ -91,17 +101,16 @@ impl ConfigurationFileDeserialization for HugoConfig {}
 
 #[cfg(test)]
 mod tests {
-    use crate::framework::FrameworkSupport;
     use super::Hugo;
+    use crate::framework::FrameworkSupport;
 
     #[test]
     fn test_hugo() {
-        let hugo = Hugo::new(
-            Some(vec!["tests/fixtures/framework_configs/hugo/config.toml"])
-        );
+        let hugo = Hugo::new(Some(vec![
+            "tests/fixtures/framework_configs/hugo/config.toml",
+        ]));
 
         let output = hugo.get_output_dir();
         assert_eq!(output, "build")
     }
-
 }

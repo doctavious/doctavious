@@ -3,17 +3,28 @@
 // _site
 // docfx build [-o:<output_path>] [-t:<template folder>]
 
-use serde::{Deserialize};
-use crate::framework::{ConfigurationFileDeserialization, FrameworkBuildArg, FrameworkBuildArgs, FrameworkBuildSettings, FrameworkDetectionItem, FrameworkDetector, FrameworkInfo, FrameworkMatchingStrategy, FrameworkSupport, read_config_files};
+use serde::Deserialize;
+
+use crate::framework::{
+    read_config_files, ConfigurationFileDeserialization, FrameworkBuildArg, FrameworkBuildArgs,
+    FrameworkBuildSettings, FrameworkDetectionItem, FrameworkDetector, FrameworkInfo,
+    FrameworkMatchingStrategy, FrameworkSupport,
+};
 use crate::language::Language;
 
 #[derive(Deserialize)]
-struct DocFxConfigBuild { dest: String }
+struct DocFxConfigBuild {
+    dest: String,
+}
 
 #[derive(Deserialize)]
-struct DocFxConfig { build: DocFxConfigBuild }
+struct DocFxConfig {
+    build: DocFxConfigBuild,
+}
 
-pub struct DocFx { info: FrameworkInfo }
+pub struct DocFx {
+    info: FrameworkInfo,
+}
 
 impl DocFx {
     fn new(configs: Option<Vec<&'static str>>) -> Self {
@@ -25,9 +36,7 @@ impl DocFx {
                 language: Language::CSharp, // F# will be supported in the future.
                 detection: FrameworkDetector {
                     matching_strategy: FrameworkMatchingStrategy::All,
-                    detectors: vec![
-                        FrameworkDetectionItem::Config { content: None }
-                    ]
+                    detectors: vec![FrameworkDetectionItem::Config { content: None }],
                 },
                 build: FrameworkBuildSettings {
                     command: "docfx build",
@@ -36,12 +45,12 @@ impl DocFx {
                         config: None,
                         output: Some(FrameworkBuildArg::Option {
                             short: "-o",
-                            long: ""
-                        })
+                            long: "",
+                        }),
                     }),
                     output_directory: "_site",
                 },
-            }
+            },
         }
     }
 }
@@ -60,9 +69,7 @@ impl FrameworkSupport for DocFx {
     fn get_output_dir(&self) -> String {
         if let Some(configs) = &self.info.configs {
             match read_config_files::<DocFxConfig>(configs) {
-                Ok(c) => {
-                    return c.build.dest
-                }
+                Ok(c) => return c.build.dest,
                 Err(e) => {
                     // log warning/error
                     println!("{}", e);
@@ -83,12 +90,11 @@ mod tests {
 
     #[test]
     fn test_docfx() {
-        let docfx = DocFx::new(
-            Some(vec!["tests/fixtures/framework_configs/docfx/docfx.json"])
-        );
+        let docfx = DocFx::new(Some(vec![
+            "tests/fixtures/framework_configs/docfx/docfx.json",
+        ]));
 
         let output = docfx.get_output_dir();
         assert_eq!(output, "dist")
     }
-
 }

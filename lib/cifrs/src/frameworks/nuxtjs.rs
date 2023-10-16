@@ -8,17 +8,25 @@
 // nuxt generate
 // dist/
 
-use serde::{Deserialize};
-use swc_ecma_ast::{Program};
-use crate::{CifrsError, CifrsResult};
+use serde::Deserialize;
+use swc_ecma_ast::Program;
 
-use crate::framework::{ConfigurationFileDeserialization, FrameworkBuildSettings, FrameworkDetectionItem, FrameworkDetector, FrameworkInfo, FrameworkMatchingStrategy, FrameworkSupport, read_config_files};
+use crate::framework::{
+    read_config_files, ConfigurationFileDeserialization, FrameworkBuildSettings,
+    FrameworkDetectionItem, FrameworkDetector, FrameworkInfo, FrameworkMatchingStrategy,
+    FrameworkSupport,
+};
 use crate::js_module::PropertyAccessor;
 use crate::language::Language;
+use crate::{CifrsError, CifrsResult};
 #[derive(Deserialize)]
-struct NuxtJSConfig { output: Option<String> }
+struct NuxtJSConfig {
+    output: Option<String>,
+}
 
-pub struct NuxtJS { info: FrameworkInfo }
+pub struct NuxtJS {
+    info: FrameworkInfo,
+}
 
 impl NuxtJS {
     fn new(configs: Option<Vec<&'static str>>) -> Self {
@@ -31,16 +39,16 @@ impl NuxtJS {
                 detection: FrameworkDetector {
                     matching_strategy: FrameworkMatchingStrategy::All,
                     detectors: vec![
-                        FrameworkDetectionItem::Dependency { name: "nuxt"},
-                        FrameworkDetectionItem::Dependency { name: "nuxt-edge"}
-                    ]
+                        FrameworkDetectionItem::Dependency { name: "nuxt" },
+                        FrameworkDetectionItem::Dependency { name: "nuxt-edge" },
+                    ],
                 },
                 build: FrameworkBuildSettings {
                     command: "nuxt build",
                     command_args: None,
                     output_directory: ".nuxt",
                 },
-            }
+            },
         }
     }
 }
@@ -50,7 +58,6 @@ impl Default for NuxtJS {
         NuxtJS::new(Some(Vec::from(["nuxt.config.js"])))
     }
 }
-
 
 impl FrameworkSupport for NuxtJS {
     fn get_info(&self) -> &FrameworkInfo {
@@ -77,14 +84,11 @@ impl FrameworkSupport for NuxtJS {
 }
 
 impl ConfigurationFileDeserialization for NuxtJSConfig {
-
     fn from_js_module(program: &Program) -> CifrsResult<Self> {
         if let Some(module) = program.as_module() {
             let output = module.get_property_as_string("buildDir");
             if output.is_some() {
-                return Ok(Self {
-                    output
-                });
+                return Ok(Self { output });
             }
             // for item in &module.body {
             //     if let Some(ExportDefaultExpr(export_expression)) = item.as_module_decl() {
@@ -105,8 +109,8 @@ impl ConfigurationFileDeserialization for NuxtJSConfig {
 
 #[cfg(test)]
 mod tests {
-    use crate::framework::FrameworkSupport;
     use super::NuxtJS;
+    use crate::framework::FrameworkSupport;
 
     #[test]
     fn test_nuxtjs() {
@@ -116,7 +120,5 @@ mod tests {
             let output = nuxtjs.get_output_dir();
             assert_eq!(output, String::from("build"))
         }
-
     }
-
 }

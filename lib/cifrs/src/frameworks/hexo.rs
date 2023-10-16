@@ -5,17 +5,25 @@
 // hexo generate
 // hexo --config custom.yml
 
-use serde::{Deserialize};
-use crate::framework::{ConfigurationFileDeserialization, FrameworkBuildArg, FrameworkBuildArgs, FrameworkBuildSettings, FrameworkDetectionItem, FrameworkDetector, FrameworkInfo, FrameworkMatchingStrategy, FrameworkSupport, read_config_files};
+use serde::Deserialize;
+
+use crate::framework::{
+    read_config_files, ConfigurationFileDeserialization, FrameworkBuildArg, FrameworkBuildArgs,
+    FrameworkBuildSettings, FrameworkDetectionItem, FrameworkDetector, FrameworkInfo,
+    FrameworkMatchingStrategy, FrameworkSupport,
+};
 use crate::language::Language;
 
 #[derive(Deserialize)]
-struct HexoConfig { public_dir: Option<String> }
+struct HexoConfig {
+    public_dir: Option<String>,
+}
 
-pub struct Hexo { info: FrameworkInfo }
+pub struct Hexo {
+    info: FrameworkInfo,
+}
 
 impl Hexo {
-
     fn new(configs: Option<Vec<&'static str>>) -> Self {
         Self {
             info: FrameworkInfo {
@@ -25,9 +33,7 @@ impl Hexo {
                 language: Language::Javascript,
                 detection: FrameworkDetector {
                     matching_strategy: FrameworkMatchingStrategy::All,
-                    detectors: vec![
-                        FrameworkDetectionItem::Dependency { name: "hexo"}
-                    ]
+                    detectors: vec![FrameworkDetectionItem::Dependency { name: "hexo" }],
                 },
                 build: FrameworkBuildSettings {
                     command: "hexo generate",
@@ -35,16 +41,15 @@ impl Hexo {
                         source: None,
                         config: Some(FrameworkBuildArg::Option {
                             short: "",
-                            long: "--config"
+                            long: "--config",
                         }),
-                        output: None
+                        output: None,
                     }),
                     output_directory: "public",
                 },
-            }
+            },
         }
     }
-
 }
 
 impl Default for Hexo {
@@ -81,17 +86,16 @@ impl ConfigurationFileDeserialization for HexoConfig {}
 
 #[cfg(test)]
 mod tests {
-    use crate::framework::FrameworkSupport;
     use super::Hexo;
+    use crate::framework::FrameworkSupport;
 
     #[test]
     fn test_hexo() {
-        let hexo = Hexo::new(
-            Some(vec!["tests/fixtures/framework_configs/hexo/_config.yml"])
-        );
+        let hexo = Hexo::new(Some(vec![
+            "tests/fixtures/framework_configs/hexo/_config.yml",
+        ]));
 
         let output = hexo.get_output_dir();
         assert_eq!(output, "build")
     }
-
 }

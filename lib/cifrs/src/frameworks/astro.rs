@@ -4,18 +4,23 @@
 // outDir: './my-custom-build-directory'
 // defaults to "./dist"
 
+use serde::Deserialize;
+use swc_ecma_ast::Program;
 
-use serde::{Deserialize};
-use swc_ecma_ast::{Program};
-use crate::{CifrsError, CifrsResult};
-use crate::framework::{ConfigurationFileDeserialization, FrameworkBuildArg, FrameworkBuildArgs, FrameworkBuildSettings, FrameworkDetectionItem, FrameworkDetector, FrameworkInfo, FrameworkMatchingStrategy, FrameworkSupport, read_config_files};
+use crate::framework::{
+    read_config_files, ConfigurationFileDeserialization, FrameworkBuildArg, FrameworkBuildArgs,
+    FrameworkBuildSettings, FrameworkDetectionItem, FrameworkDetector, FrameworkInfo,
+    FrameworkMatchingStrategy, FrameworkSupport,
+};
 use crate::js_module::{get_call_expression, get_call_string_property};
 use crate::language::Language;
+use crate::{CifrsError, CifrsResult};
 
-pub struct Astro { info: FrameworkInfo }
+pub struct Astro {
+    info: FrameworkInfo,
+}
 
 impl Astro {
-
     fn new(configs: Option<Vec<&'static str>>) -> Self {
         Self {
             info: FrameworkInfo {
@@ -25,9 +30,7 @@ impl Astro {
                 language: Language::Javascript,
                 detection: FrameworkDetector {
                     matching_strategy: FrameworkMatchingStrategy::All,
-                    detectors: vec![
-                        FrameworkDetectionItem::Dependency { name: "astro" }
-                    ]
+                    detectors: vec![FrameworkDetectionItem::Dependency { name: "astro" }],
                 },
                 build: FrameworkBuildSettings {
                     command: "astro build",
@@ -41,7 +44,7 @@ impl Astro {
                     }),
                     output_directory: "./dist",
                 },
-            }
+            },
         }
     }
 }
@@ -60,9 +63,7 @@ impl FrameworkSupport for Astro {
     fn get_output_dir(&self) -> String {
         if let Some(configs) = &self.info.configs {
             match read_config_files::<AstroConfig>(configs) {
-                Ok(c) => {
-                    return c.output
-                }
+                Ok(c) => return c.output,
                 Err(e) => {
                     // log warning/error
                     println!("{}", e);
@@ -75,18 +76,17 @@ impl FrameworkSupport for Astro {
 }
 
 #[derive(Deserialize)]
-struct AstroConfig { output: String }
+struct AstroConfig {
+    output: String,
+}
 
 impl ConfigurationFileDeserialization for AstroConfig {
-
     fn from_js_module(program: &Program) -> CifrsResult<Self> {
         // TODO: do we care what its called?
         let define_config = get_call_expression(program, "defineConfig");
         if let Some(define_config) = define_config {
             if let Some(val) = get_call_string_property(define_config, "outDir") {
-                return Ok(Self {
-                    output: val
-                });
+                return Ok(Self { output: val });
             }
         }
 
@@ -94,20 +94,18 @@ impl ConfigurationFileDeserialization for AstroConfig {
     }
 }
 
-
 #[cfg(test)]
 mod tests {
-    use crate::framework::FrameworkSupport;
     use super::Astro;
+    use crate::framework::FrameworkSupport;
 
     #[test]
     fn test_astro() {
-        let astro = Astro::new(
-            Some(vec!["tests/fixtures/framework_configs/astro/astro.config.mjs"])
-        );
+        let astro = Astro::new(Some(vec![
+            "tests/fixtures/framework_configs/astro/astro.config.mjs",
+        ]));
 
         let output = astro.get_output_dir();
         assert_eq!(output, "./build")
     }
-
 }

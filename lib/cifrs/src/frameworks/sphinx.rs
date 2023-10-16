@@ -5,13 +5,19 @@
 // BUILDDIR env var
 
 use std::env;
-use crate::framework::{ConfigurationFileDeserialization, FrameworkBuildArg, FrameworkBuildArgs, FrameworkBuildSettings, FrameworkDetectionItem, FrameworkDetector, FrameworkInfo, FrameworkMatchingStrategy, FrameworkSupport};
+
+use crate::framework::{
+    ConfigurationFileDeserialization, FrameworkBuildArg, FrameworkBuildArgs,
+    FrameworkBuildSettings, FrameworkDetectionItem, FrameworkDetector, FrameworkInfo,
+    FrameworkMatchingStrategy, FrameworkSupport,
+};
 use crate::language::Language;
 
-pub struct Sphinx { info: FrameworkInfo }
+pub struct Sphinx {
+    info: FrameworkInfo,
+}
 
 impl Sphinx {
-
     fn new(configs: Option<Vec<&'static str>>) -> Self {
         Self {
             info: FrameworkInfo {
@@ -21,16 +27,20 @@ impl Sphinx {
                 language: Language::Python,
                 detection: FrameworkDetector {
                     matching_strategy: FrameworkMatchingStrategy::All,
-                    detectors: vec![
-                        FrameworkDetectionItem::Config { content: None }
-                    ]
+                    detectors: vec![FrameworkDetectionItem::Config { content: None }],
                 },
                 build: FrameworkBuildSettings {
                     command: "sphinx-build",
                     command_args: Some(FrameworkBuildArgs {
-                        source: Some(FrameworkBuildArg::Arg{ index: 1, default_value: Some("docs") }),
+                        source: Some(FrameworkBuildArg::Arg {
+                            index: 1,
+                            default_value: Some("docs"),
+                        }),
                         config: None,
-                        output: Some(FrameworkBuildArg::Arg {index: 2, default_value: None }) // TODO: should we default?
+                        output: Some(FrameworkBuildArg::Arg {
+                            index: 2,
+                            default_value: None,
+                        }), // TODO: should we default?
                     }),
                     // TODO: must be passed in to command which presents a problem if we dont know
                     // where the build script is
@@ -39,7 +49,6 @@ impl Sphinx {
             },
         }
     }
-
 }
 
 impl Default for Sphinx {
@@ -66,14 +75,14 @@ impl FrameworkSupport for Sphinx {
 
 #[cfg(test)]
 mod tests {
-    use crate::framework::FrameworkSupport;
     use super::Sphinx;
+    use crate::framework::FrameworkSupport;
 
     #[test]
     fn test_sphinx() {
-        let sphinx = Sphinx::new(
-            Some(vec!["tests/fixtures/framework_configs/sphinx/config.py"])
-        );
+        let sphinx = Sphinx::new(Some(vec![
+            "tests/fixtures/framework_configs/sphinx/config.py",
+        ]));
 
         let output = sphinx.get_output_dir();
         assert_eq!(output, "docs/_build")
@@ -82,13 +91,12 @@ mod tests {
     #[test]
     fn should_use_env_var_when_present() {
         temp_env::with_var("BUILDDIR", Some("build"), || {
-            let sphinx = Sphinx::new(
-                Some(vec!["tests/fixtures/framework_configs/sphinx/config.py"])
-            );
+            let sphinx = Sphinx::new(Some(vec![
+                "tests/fixtures/framework_configs/sphinx/config.py",
+            ]));
 
             let output = sphinx.get_output_dir();
             assert_eq!(output, "build")
         });
     }
-
 }

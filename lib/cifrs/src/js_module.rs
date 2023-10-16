@@ -1,14 +1,17 @@
 /// This contains a set of helper functions for traversing JS program modules
-
 // TODO (Sean): I really dislike this implementation. There needs to be a better way
 // SWC might have something built in for traversing their AST or could likely implement Visitor
 // Can also look at OXC (https://github.com/web-infra-dev/oxc) as well instead of SWC
-
 use std::sync::Arc;
-use swc::{HandlerOpts, try_with_handler};
-use swc_common::{FileName, GLOBALS, SourceMap};
-use swc_ecma_ast::{Expr, Lit, Program, ModuleDecl, PropOrSpread, TplElement, VarDeclarator, CallExpr, Function, ObjectLit, ArrayLit, Prop, KeyValueProp, EsVersion, ExprOrSpread, ModuleItem, Stmt, AssignExpr, FnExpr, Decl, Module, BlockStmt};
+
+use swc::{try_with_handler, HandlerOpts};
+use swc_common::{FileName, SourceMap, GLOBALS};
 use swc_ecma_ast::Stmt::{Decl as DeclStmt, Expr as ExprStmt};
+use swc_ecma_ast::{
+    ArrayLit, AssignExpr, BlockStmt, CallExpr, Decl, EsVersion, Expr, ExprOrSpread, FnExpr,
+    Function, KeyValueProp, Lit, Module, ModuleDecl, ModuleItem, ObjectLit, Program, Prop,
+    PropOrSpread, Stmt, TplElement, VarDeclarator,
+};
 use swc_ecma_parser::{EsConfig, Syntax};
 
 use crate::CifrsResult;
@@ -18,15 +21,16 @@ use crate::CifrsResult;
 // - property - get properties / get property by key or key/value
 // - find methods?
 
-
 // variable = expression
 
-
 pub(crate) trait PropertyAccessor<'a> {
-
     fn get_property(&'a self, ident: &'static str) -> Option<&'a KeyValueProp>;
 
-    fn get_property_with_value(&'a self, ident: &'static str, val: &'static str) -> Option<&'a KeyValueProp> {
+    fn get_property_with_value(
+        &'a self,
+        ident: &'static str,
+        val: &'static str,
+    ) -> Option<&'a KeyValueProp> {
         if let Some(prop) = self.get_property(ident) {
             if let Some(kv_val) = get_value_from_kv_as_string(prop) {
                 if kv_val == val {
@@ -38,32 +42,32 @@ pub(crate) trait PropertyAccessor<'a> {
     }
 
     fn get_property_as_array(&'a self, ident: &'static str) -> Option<&'a ArrayLit> {
-        self.get_property(ident).and_then(|prop| prop.value.as_array())
+        self.get_property(ident)
+            .and_then(|prop| prop.value.as_array())
     }
 
     fn get_property_as_obj(&'a self, ident: &'static str) -> Option<&'a ObjectLit> {
-        self.get_property(ident).and_then(|prop| prop.value.as_object())
+        self.get_property(ident)
+            .and_then(|prop| prop.value.as_object())
     }
 
     fn get_property_as_string(&'a self, ident: &'static str) -> Option<String> {
-        self.get_property(ident).and_then(get_value_from_kv_as_string)
+        self.get_property(ident)
+            .and_then(get_value_from_kv_as_string)
     }
-
 }
 
 impl<'a> PropertyAccessor<'a> for Module {
     fn get_property(&'a self, ident: &'static str) -> Option<&'a KeyValueProp> {
-        self.body.iter()
-            .find_map(|item| item.get_property(ident))
+        self.body.iter().find_map(|item| item.get_property(ident))
     }
 }
-
 
 impl<'a> PropertyAccessor<'a> for ModuleItem {
     fn get_property(&'a self, ident: &'static str) -> Option<&'a KeyValueProp> {
         match self {
             ModuleItem::ModuleDecl(m) => m.get_property(ident),
-            ModuleItem::Stmt(s) => s.get_property(ident)
+            ModuleItem::Stmt(s) => s.get_property(ident),
         }
     }
 }
@@ -72,10 +76,8 @@ impl<'a> PropertyAccessor<'a> for ModuleDecl {
     fn get_property(&'a self, ident: &'static str) -> Option<&'a KeyValueProp> {
         match self {
             // TODO: look at ExportDecl and ExportDefaultDecl
-            ModuleDecl::ExportDefaultExpr(e) => {
-                e.expr.get_property(ident)
-            },
-            _ => None
+            ModuleDecl::ExportDefaultExpr(e) => e.expr.get_property(ident),
+            _ => None,
         }
     }
 }
@@ -86,7 +88,7 @@ impl<'a> PropertyAccessor<'a> for Stmt {
             Stmt::Return(r) => r.arg.as_ref().and_then(|expr| expr.get_property(ident)),
             DeclStmt(d) => d.get_property(ident),
             Stmt::Expr(e) => e.expr.get_property(ident),
-            _ => None
+            _ => None,
         }
     }
 }
@@ -95,11 +97,11 @@ impl<'a> PropertyAccessor<'a> for Decl {
     fn get_property(&'a self, ident: &'static str) -> Option<&'a KeyValueProp> {
         match self {
             // TODO: might need to do Decl::Fn
-            Decl::Var(v) =>  {
-                v.decls.iter()
-                    .find_map(|declarator| declarator.get_property(ident))
-            }
-            _ => None
+            Decl::Var(v) => v
+                .decls
+                .iter()
+                .find_map(|declarator| declarator.get_property(ident)),
+            _ => None,
         }
     }
 }
@@ -124,7 +126,7 @@ impl<'a> PropertyAccessor<'a> for Expr {
             Expr::Call(c) => c.get_property(ident),
             Expr::Fn(f) => f.get_property(ident),
             Expr::Object(o) => o.get_property(ident),
-            _ => None
+            _ => None,
         }
     }
 }
@@ -149,10 +151,12 @@ impl<'a> PropertyAccessor<'a> for CallExpr {
     }
 }
 
-
 impl<'a> PropertyAccessor<'a> for FnExpr {
     fn get_property(&'a self, ident: &'static str) -> Option<&'a KeyValueProp> {
-        self.function.body.as_ref().and_then(|body| body.get_property(ident))
+        self.function
+            .body
+            .as_ref()
+            .and_then(|body| body.get_property(ident))
     }
 }
 
@@ -165,7 +169,8 @@ impl<'a> PropertyAccessor<'a> for BlockStmt {
 impl<'a> PropertyAccessor<'a> for ArrayLit {
     fn get_property(&'a self, ident: &'static str) -> Option<&'a KeyValueProp> {
         // TODO: see how this performs against the for loop
-        self.elems.iter()
+        self.elems
+            .iter()
             .filter_map(|e| e.as_ref())
             .find_map(|expr| expr.get_property(ident))
         // for elem in &self.elems {
@@ -182,8 +187,7 @@ impl<'a> PropertyAccessor<'a> for ArrayLit {
 
 impl<'a> PropertyAccessor<'a> for ObjectLit {
     fn get_property(&'a self, ident: &'static str) -> Option<&'a KeyValueProp> {
-        self.props.iter()
-            .find_map(|ps| ps.get_property(ident))
+        self.props.iter().find_map(|ps| ps.get_property(ident))
     }
 }
 
@@ -191,16 +195,19 @@ impl<'a> PropertyAccessor<'a> for PropOrSpread {
     fn get_property(&'a self, ident: &'static str) -> Option<&'a KeyValueProp> {
         return match self {
             PropOrSpread::Spread(_) => None,
-            PropOrSpread::Prop(p) => {
-                p.as_key_value().and_then(|kv| kv.get_property(ident))
-            }
-        }
+            PropOrSpread::Prop(p) => p.as_key_value().and_then(|kv| kv.get_property(ident)),
+        };
     }
 }
 
 impl<'a> PropertyAccessor<'a> for KeyValueProp {
     fn get_property(&'a self, ident: &'static str) -> Option<&'a KeyValueProp> {
-        if self.key.as_ident().filter(|kv_ident| kv_ident.sym.as_ref() == ident).is_some() {
+        if self
+            .key
+            .as_ident()
+            .filter(|kv_ident| kv_ident.sym.as_ref() == ident)
+            .is_some()
+        {
             return Some(self);
         }
 
@@ -211,32 +218,33 @@ impl<'a> PropertyAccessor<'a> for KeyValueProp {
 pub fn parse_js_module(filename: FileName, src: String) -> CifrsResult<Program> {
     let cm = Arc::<SourceMap>::default();
     let c = swc::Compiler::new(cm.clone());
-    let output = GLOBALS
-        .set(&Default::default(), || {
-            try_with_handler(
-                cm.clone(),
-                HandlerOpts {
-                    ..Default::default()
-                },
-                |handler| {
-                    let fm = cm.new_source_file(filename, src);
-                    c.parse_js(
-                        fm,
-                        handler,
-                        EsVersion::Es2020,
-                        Syntax::Es(EsConfig::default()),
-                        swc::config::IsModule::Bool(true),
-                        None,
-                    )
-                },
-            )
-        })?;
+    let output = GLOBALS.set(&Default::default(), || {
+        try_with_handler(
+            cm.clone(),
+            HandlerOpts {
+                ..Default::default()
+            },
+            |handler| {
+                let fm = cm.new_source_file(filename, src);
+                c.parse_js(
+                    fm,
+                    handler,
+                    EsVersion::Es2020,
+                    Syntax::Es(EsConfig::default()),
+                    swc::config::IsModule::Bool(true),
+                    None,
+                )
+            },
+        )
+    })?;
 
     Ok(output)
 }
 
-
-pub(crate) fn get_variable_declaration<'a>(program: &'a Program, ident: &'static str) -> Option<&'a VarDeclarator> {
+pub(crate) fn get_variable_declaration<'a>(
+    program: &'a Program,
+    ident: &'static str,
+) -> Option<&'a VarDeclarator> {
     if let Some(module) = program.as_module() {
         for item in &module.body {
             if let Some(DeclStmt(decl)) = item.as_stmt() {
@@ -255,7 +263,10 @@ pub(crate) fn get_variable_declaration<'a>(program: &'a Program, ident: &'static
     None
 }
 
-pub(crate) fn get_call_expression<'a>(program: &'a Program, ident: &'static str) -> Option<&'a CallExpr> {
+pub(crate) fn get_call_expression<'a>(
+    program: &'a Program,
+    ident: &'static str,
+) -> Option<&'a CallExpr> {
     if let Some(module) = program.as_module() {
         for item in &module.body {
             if let Some(ModuleDecl::ExportDefaultExpr(e)) = item.as_module_decl() {
@@ -274,7 +285,6 @@ pub(crate) fn get_call_expression<'a>(program: &'a Program, ident: &'static str)
     }
     None
 }
-
 
 pub(crate) fn get_assignment_function(program: &Program) -> Option<&Function> {
     if let Some(module) = program.as_module() {
@@ -301,9 +311,9 @@ pub(crate) fn get_assignment_obj(program: &Program) -> Option<&ObjectLit> {
                 if let Some(assign) = expression.as_assign() {
                     let rhs = &*assign.right;
                     let obj = match rhs {
-                        Expr::Object(o) =>  Some(o),
+                        Expr::Object(o) => Some(o),
                         Expr::Fn(f) => get_function_return_obj(&f.function),
-                        _ => None
+                        _ => None,
                     };
                     if obj.is_some() {
                         return obj;
@@ -344,7 +354,10 @@ pub(crate) fn get_call_string_property(call: &CallExpr, property: &'static str) 
 // TODO: can this be generic
 // tuple enum variants (and also tuple structs) can be called like functions, so they implement Fn traits and can be passed where a function is expected.
 // where F: 'static + Fn(String) -> Message
-pub(crate) fn get_obj_property<'a>(obj: &'a ObjectLit, property_ident: &'static str) -> Option<&'a ObjectLit> {
+pub(crate) fn get_obj_property<'a>(
+    obj: &'a ObjectLit,
+    property_ident: &'static str,
+) -> Option<&'a ObjectLit> {
     for prop in &obj.props {
         if let Some(p) = prop.as_prop() {
             if let Some(kv) = (*p).as_key_value() {
@@ -360,7 +373,10 @@ pub(crate) fn get_obj_property<'a>(obj: &'a ObjectLit, property_ident: &'static 
     None
 }
 
-pub(crate) fn get_array_property<'a>(obj: &'a ObjectLit, property_ident: &'static str) -> Option<&'a ArrayLit> {
+pub(crate) fn get_array_property<'a>(
+    obj: &'a ObjectLit,
+    property_ident: &'static str,
+) -> Option<&'a ArrayLit> {
     for prop in &obj.props {
         if let Some(p) = prop.as_prop() {
             if let Some(kv) = (*p).as_key_value() {
@@ -379,7 +395,7 @@ pub(crate) fn get_array_property<'a>(obj: &'a ObjectLit, property_ident: &'stati
 pub(crate) fn find_array_element<'a>(
     arr: &'a ArrayLit,
     property_ident: &'static str,
-    val: &'static str
+    val: &'static str,
 ) -> Option<&'a ObjectLit> {
     for exp_or_spread in arr.elems.iter().flatten() {
         if let Some(o) = exp_or_spread.expr.as_object() {
@@ -415,7 +431,10 @@ pub(crate) fn is_call_ident(call: &CallExpr, ident: &'static str) -> bool {
 // TODO: add method that just gets specific string via get_string_property_value
 // TODO: could also do one that takes in a struct and a property
 // could even go one further and do vec of object keys, with property, to do a recursive call to get to property
-pub(crate) fn get_variable_properties<'a>(variable: &'a VarDeclarator, property: &'static str) -> Option<&'a Vec<PropOrSpread>> {
+pub(crate) fn get_variable_properties<'a>(
+    variable: &'a VarDeclarator,
+    property: &'static str,
+) -> Option<&'a Vec<PropOrSpread>> {
     if let Some(init_decl) = &variable.init {
         if let Some(init_decl_obj) = init_decl.as_object() {
             for prop_spread in &init_decl_obj.props {
@@ -436,7 +455,10 @@ pub(crate) fn get_variable_properties<'a>(variable: &'a VarDeclarator, property:
     None
 }
 
-pub(crate) fn get_variable_property_as_string(variable: &VarDeclarator, property: &'static str) -> Option<String> {
+pub(crate) fn get_variable_property_as_string(
+    variable: &VarDeclarator,
+    property: &'static str,
+) -> Option<String> {
     if let Some(init_decl) = &variable.init {
         if let Some(init_decl_obj) = init_decl.as_object() {
             return get_string_property_value(&init_decl_obj.props, property);
@@ -445,7 +467,10 @@ pub(crate) fn get_variable_property_as_string(variable: &VarDeclarator, property
     None
 }
 
-pub(crate) fn get_string_property_value(properties: &Vec<PropOrSpread>, key: &'static str) -> Option<String> {
+pub(crate) fn get_string_property_value(
+    properties: &Vec<PropOrSpread>,
+    key: &'static str,
+) -> Option<String> {
     for prop_spread in properties {
         if let Some(prop) = prop_spread.as_prop() {
             if let Some(kv) = (*prop).as_key_value() {
@@ -472,27 +497,27 @@ pub(crate) fn get_string_from_property(prop: &Prop) -> Option<String> {
     None
 }
 
-
 pub(crate) fn get_value_from_kv_as_string(kv: &KeyValueProp) -> Option<String> {
     return match &*kv.value {
-        Expr::Lit(l) => {
-            match l {
-                Lit::Str(v) => Some(v.value.to_string()),
-                Lit::Bool(v) => Some(v.value.to_string()),
-                Lit::Null(_) => None,
-                Lit::Num(v) => Some(v.to_string()),
-                Lit::BigInt(v) => Some(v.value.to_string()),
-                Lit::Regex(v) => Some(v.exp.to_string()),
-                Lit::JSXText(v) => Some(v.value.to_string())
-            }
-        }
+        Expr::Lit(l) => match l {
+            Lit::Str(v) => Some(v.value.to_string()),
+            Lit::Bool(v) => Some(v.value.to_string()),
+            Lit::Null(_) => None,
+            Lit::Num(v) => Some(v.to_string()),
+            Lit::BigInt(v) => Some(v.value.to_string()),
+            Lit::Regex(v) => Some(v.exp.to_string()),
+            Lit::JSXText(v) => Some(v.value.to_string()),
+        },
         Expr::Tpl(tpl) => {
-            return if let Some(TplElement { cooked: Some(atom), .. }) = &tpl.quasis.first() {
+            return if let Some(TplElement {
+                cooked: Some(atom), ..
+            }) = &tpl.quasis.first()
+            {
                 Some(atom.to_string())
             } else {
                 None
             }
         }
-        _ => None
+        _ => None,
     };
 }

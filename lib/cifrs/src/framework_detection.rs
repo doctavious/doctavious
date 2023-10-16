@@ -1,12 +1,15 @@
 use std::fs;
 
 use regex::RegexBuilder;
+use serde_derive::Serialize;
 use serde_json::Value;
-use serde_derive::{Serialize};
-use crate::CifrsResult;
-use crate::framework::{FrameworkDetectionItem, FrameworkInfo, FrameworkMatchingStrategy, FrameworkSupport};
+
+use crate::framework::{
+    FrameworkDetectionItem, FrameworkInfo, FrameworkMatchingStrategy, FrameworkSupport,
+};
 use crate::projects::csproj::CSProj;
 use crate::projects::project_file::ProjectFile;
+use crate::CifrsResult;
 
 // use crate::commands::build::projects::csproj::CSProj;
 // use crate::commands::build::framework::{FrameworkDetectionItem, FrameworkInfo, FrameworkMatchingStrategy, FrameworkSupport};
@@ -23,25 +26,23 @@ use crate::projects::project_file::ProjectFile;
 //     // check
 // }
 
-
-
 // Return matched Framework
 // which should have framework info
 // as well as project
 pub(crate) struct MatchedFramework<'a> {
     pub framework_info: &'a FrameworkInfo,
-    pub project: Option<ProjectFile>
+    pub project: Option<ProjectFile>,
 }
 
 #[derive(Clone, Copy, Serialize)]
 pub(crate) struct MatchResult {
-    pub project: Option<ProjectFile>
-    // dependency -- could also do a dependency/version struct tuple and have an array of them
-    // detected_version: String
+    pub project: Option<ProjectFile>, // dependency -- could also do a dependency/version struct tuple and have an array of them
+                                      // detected_version: String
 }
 
-
-pub(crate) fn detect_framework(frameworks: Vec<Box<dyn FrameworkSupport>>) -> Option<Box<dyn FrameworkSupport>> {
+pub(crate) fn detect_framework(
+    frameworks: Vec<Box<dyn FrameworkSupport>>,
+) -> Option<Box<dyn FrameworkSupport>> {
     for framework in frameworks {
         let m = matches(framework.get_info());
         // TODO: return MatchResult?
@@ -76,7 +77,7 @@ fn matches(framework: &FrameworkInfo) -> Option<MatchResult> {
         }
     }
 
-    if  results.iter().all(|&r| r.is_some()) {
+    if results.iter().all(|&r| r.is_some()) {
         return *results.first().unwrap();
     }
 
@@ -91,9 +92,7 @@ fn check(framework: &FrameworkInfo, item: &FrameworkDetectionItem) -> Option<Mat
                 for config in configs {
                     if let Ok(file_content) = fs::read_to_string(config) {
                         if let Some(content) = content {
-                            let regex = RegexBuilder::new(content)
-                                .multi_line(true)
-                                .build();
+                            let regex = RegexBuilder::new(content).multi_line(true).build();
                             match regex {
                                 Ok(regex) => {
                                     if regex.is_match(file_content.as_str()) {
@@ -150,15 +149,10 @@ fn check(framework: &FrameworkInfo, item: &FrameworkDetectionItem) -> Option<Mat
             }
             None
         }
-        FrameworkDetectionItem::File {
-            path,
-            content,
-        } => {
+        FrameworkDetectionItem::File { path, content } => {
             if let Ok(file_content) = fs::read_to_string(path) {
                 if let Some(content) = content {
-                    let regex = RegexBuilder::new(content)
-                        .multi_line(true)
-                        .build();
+                    let regex = RegexBuilder::new(content).multi_line(true).build();
                     match regex {
                         Ok(regex) => {
                             if regex.is_match(file_content.as_str()) {
@@ -178,7 +172,11 @@ fn check(framework: &FrameworkInfo, item: &FrameworkDetectionItem) -> Option<Mat
     }
 }
 
-fn has_dependency(project_type: &ProjectFile, content: String, dependency: &str) -> CifrsResult<bool> {
+fn has_dependency(
+    project_type: &ProjectFile,
+    content: String,
+    dependency: &str,
+) -> CifrsResult<bool> {
     let found = match project_type {
         ProjectFile::CargoToml => {
             let root: toml::Value = toml::from_str(content.as_str())?;
@@ -191,12 +189,8 @@ fn has_dependency(project_type: &ProjectFile, content: String, dependency: &str)
             let build_proj: CSProj = serde_xml_rs::from_str(content.as_str())?;
             build_proj.has_package_reference(dependency)
         }
-        ProjectFile::GemFile => {
-            content.contains(&format!("gem '{}'", dependency))
-        }
-        ProjectFile::GoMod => {
-            content.contains(&dependency.to_string())
-        }
+        ProjectFile::GemFile => content.contains(&format!("gem '{}'", dependency)),
+        ProjectFile::GoMod => content.contains(&dependency.to_string()),
         ProjectFile::PackageJson => {
             let root: Value = serde_json::from_str(content.as_str())?;
             // TODO: do we want to check devDependencies
@@ -218,9 +212,7 @@ fn has_dependency(project_type: &ProjectFile, content: String, dependency: &str)
                 .and_then(|o| o.get(dependency))
                 .is_some()
         }
-        ProjectFile::RequirementsTxt => {
-            content.contains(&format!("{}==", dependency))
-        }
+        ProjectFile::RequirementsTxt => content.contains(&format!("{}==", dependency)),
     };
 
     Ok(found)

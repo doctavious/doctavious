@@ -13,12 +13,10 @@ pub enum Language {
     Javascript,
     Python,
     Ruby,
-    Rust
+    Rust,
 }
 
-
 impl Language {
-
     // pub fn get_projects(&self) -> Vec<Proj> {
     //     match self {
     //         Language::DotNet => {
@@ -105,9 +103,13 @@ impl Language {
             // F# has .fsproj
             Language::Go => &[ProjectFile::GoMod],
             Language::Javascript => &[ProjectFile::PackageJson],
-            Language::Python => &[ProjectFile::PyProject, ProjectFile::PipFile, ProjectFile::RequirementsTxt],
+            Language::Python => &[
+                ProjectFile::PyProject,
+                ProjectFile::PipFile,
+                ProjectFile::RequirementsTxt,
+            ],
             Language::Ruby => &[ProjectFile::GemFile],
-            Language::Rust => &[ProjectFile::CargoToml]
+            Language::Rust => &[ProjectFile::CargoToml],
         }
     }
 
@@ -115,70 +117,66 @@ impl Language {
         match self {
             Language::CSharp => &[PackageManager::Nuget],
             Language::Go => &[PackageManager::Go],
-            Language::Javascript => &[PackageManager::Npm, PackageManager::Pnpm, PackageManager::Yarn],
+            Language::Javascript => &[
+                PackageManager::Npm,
+                PackageManager::Pnpm,
+                PackageManager::Yarn,
+            ],
             Language::Python => &[PackageManager::Poetry, PackageManager::Pip],
             Language::Ruby => &[PackageManager::Bundler],
-            Language::Rust => &[PackageManager::Cargo]
+            Language::Rust => &[PackageManager::Cargo],
         }
     }
 
     pub fn info(&self) -> LanguageInfo {
         match self {
             // F# supports paket
-            Language::CSharp => {
-                LanguageInfo {
-                    name: "C#",
-                    package_managers: SupportedPackageManagers {
-                        supported: vec![PackageManager::Nuget],
-                        fallback: PackageManager::Nuget,
-                    }
-                }
+            Language::CSharp => LanguageInfo {
+                name: "C#",
+                package_managers: SupportedPackageManagers {
+                    supported: vec![PackageManager::Nuget],
+                    fallback: PackageManager::Nuget,
+                },
             },
-            Language::Go => {
-                LanguageInfo {
-                    name: "Go",
-                    package_managers: SupportedPackageManagers {
-                        supported: vec![PackageManager::Go],
-                        fallback: PackageManager::Go,
-                    }
-                }
+            Language::Go => LanguageInfo {
+                name: "Go",
+                package_managers: SupportedPackageManagers {
+                    supported: vec![PackageManager::Go],
+                    fallback: PackageManager::Go,
+                },
             },
-            Language::Javascript => {
-                LanguageInfo {
-                    name: "JavaScript",
-                    package_managers: SupportedPackageManagers {
-                        supported: vec![PackageManager::Npm, PackageManager::Pnpm, PackageManager::Yarn],
-                        fallback: PackageManager::Npm,
-                    }
-                }
+            Language::Javascript => LanguageInfo {
+                name: "JavaScript",
+                package_managers: SupportedPackageManagers {
+                    supported: vec![
+                        PackageManager::Npm,
+                        PackageManager::Pnpm,
+                        PackageManager::Yarn,
+                    ],
+                    fallback: PackageManager::Npm,
+                },
             },
-            Language::Python => {
-                LanguageInfo {
-                    name: "Python",
-                    package_managers: SupportedPackageManagers {
-                        supported: vec![PackageManager::Poetry, PackageManager::Pip],
-                        fallback: PackageManager::Pip,
-                    }
-                }
+            Language::Python => LanguageInfo {
+                name: "Python",
+                package_managers: SupportedPackageManagers {
+                    supported: vec![PackageManager::Poetry, PackageManager::Pip],
+                    fallback: PackageManager::Pip,
+                },
             },
-            Language::Ruby => {
-                LanguageInfo {
-                    name: "Ruby",
-                    package_managers: SupportedPackageManagers {
-                        supported: vec![PackageManager::Bundler],
-                        fallback: PackageManager::Bundler,
-                    }
-                }
+            Language::Ruby => LanguageInfo {
+                name: "Ruby",
+                package_managers: SupportedPackageManagers {
+                    supported: vec![PackageManager::Bundler],
+                    fallback: PackageManager::Bundler,
+                },
             },
-            Language::Rust => {
-                LanguageInfo {
-                    name: "Rust",
-                    package_managers: SupportedPackageManagers {
-                        supported: vec![PackageManager::Cargo],
-                        fallback: PackageManager::Cargo,
-                    }
-                }
-            }
+            Language::Rust => LanguageInfo {
+                name: "Rust",
+                package_managers: SupportedPackageManagers {
+                    supported: vec![PackageManager::Cargo],
+                    fallback: PackageManager::Cargo,
+                },
+            },
         }
     }
 }
@@ -195,22 +193,19 @@ impl Language {
 //     pub default_manager: PackageManager
 // }
 
-
 // LanguageDefinition
 pub struct LanguageInfo {
     // id
     pub name: &'static str,
-    pub package_managers: SupportedPackageManagers
+    pub package_managers: SupportedPackageManagers,
 }
-
-
 
 // Random idea for type to encapsulate
 // PackageManagement
 // PackageManagers
 pub struct SupportedPackageManagers {
     supported: Vec<PackageManager>,
-    fallback: PackageManager
+    fallback: PackageManager,
 }
 
 // impl SupportedPackageManagers {

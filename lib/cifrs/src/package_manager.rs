@@ -1,4 +1,4 @@
-use serde_derive::{Serialize};
+use serde_derive::Serialize;
 
 use crate::framework::{FrameworkDetectionItem, FrameworkDetector, FrameworkMatchingStrategy};
 
@@ -33,16 +33,13 @@ pub struct PackageManagerInfo {
 
     // TODO: should we use something specific to package managers?
     // maybe it makes more sense as a trait?
-    pub detection: FrameworkDetector
+    pub detection: FrameworkDetector,
 }
 
 // pub enum ProjectPaths {
 //     WellKnown(Vec<&'static str>),
 //     Glob(Vec<&'static str>)
 // }
-
-
-
 
 impl<'a> PackageManager {
     pub const ALL: &'a [PackageManager] = &[
@@ -58,19 +55,23 @@ impl<'a> PackageManager {
 
     pub fn info(&self) -> PackageManagerInfo {
         match self {
-            PackageManager::Cargo => {
-                PackageManagerInfo {
-                    name: "cargo",
-                    install_command: "cargo add",
-                    lock_file: "Cargo.lock",
-                    detection: FrameworkDetector {
-                        matching_strategy: FrameworkMatchingStrategy::Any,
-                        detectors: vec![
-                            FrameworkDetectionItem::File { path: "Cargo.lock", content: None },
-                            FrameworkDetectionItem::File { path: "Cargo.toml", content: None }
-                        ]
-                    },
-                }
+            PackageManager::Cargo => PackageManagerInfo {
+                name: "cargo",
+                install_command: "cargo add",
+                lock_file: "Cargo.lock",
+                detection: FrameworkDetector {
+                    matching_strategy: FrameworkMatchingStrategy::Any,
+                    detectors: vec![
+                        FrameworkDetectionItem::File {
+                            path: "Cargo.lock",
+                            content: None,
+                        },
+                        FrameworkDetectionItem::File {
+                            path: "Cargo.toml",
+                            content: None,
+                        },
+                    ],
+                },
             },
             PackageManager::Go => {
                 PackageManagerInfo {
@@ -80,12 +81,13 @@ impl<'a> PackageManager {
                     lock_file: "go.sum",
                     detection: FrameworkDetector {
                         matching_strategy: FrameworkMatchingStrategy::Any,
-                        detectors: vec![
-                            FrameworkDetectionItem::File { path: "go.sum", content: None },
-                        ]
+                        detectors: vec![FrameworkDetectionItem::File {
+                            path: "go.sum",
+                            content: None,
+                        }],
                     },
                 }
-            },
+            }
             PackageManager::Npm => {
                 PackageManagerInfo {
                     name: "npm",
@@ -97,108 +99,124 @@ impl<'a> PackageManager {
                     detection: FrameworkDetector {
                         matching_strategy: FrameworkMatchingStrategy::Any,
                         detectors: vec![
-                            FrameworkDetectionItem::File { path: "package-lock.json", content: None },
+                            FrameworkDetectionItem::File {
+                                path: "package-lock.json",
+                                content: None,
+                            },
                             FrameworkDetectionItem::File {
                                 path: "package.json",
-                                content: Some(r#""packageManager":\\s*"npm@.*"""#)
-                            }
-                        ]
-                    },
-                }
-            }
-            PackageManager::Nuget => {
-                PackageManagerInfo {
-                    name: "nuget",
-                    install_command: "dotnet add",
-                    lock_file: "packages.lock.json",
-                    detection: FrameworkDetector {
-                        matching_strategy: FrameworkMatchingStrategy::Any,
-                        detectors: vec![
-                            FrameworkDetectionItem::File { path: "packages.lock.json", content: None },
-                        ]
-                    },
-                }
-            }
-            PackageManager::Poetry => {
-                PackageManagerInfo {
-                    name: "poetry",
-                    install_command: "poetry install",
-                    lock_file: "poetry.lock",
-                    detection: FrameworkDetector {
-                        matching_strategy: FrameworkMatchingStrategy::Any,
-                        detectors: vec![
-                            FrameworkDetectionItem::File { path: "poetry.lock", content: None },
-                            FrameworkDetectionItem::File {
-                                path: "pyproject.toml",
-                                content: Some("[tool.poetry]")
+                                content: Some(r#""packageManager":\\s*"npm@.*"""#),
                             },
-                        ]
+                        ],
                     },
                 }
             }
-            PackageManager::Pip => {
-                PackageManagerInfo {
-                    name: "pip",
-                    install_command: "pip install",
-                    lock_file: "pipfile.lock",
-                    detection: FrameworkDetector {
-                        matching_strategy: FrameworkMatchingStrategy::Any,
-                        detectors: vec![
-                            FrameworkDetectionItem::File { path: "pipfile.lock", content: None },
-                            FrameworkDetectionItem::File { path: "pipfile", content: None },
-                            FrameworkDetectionItem::File { path: "requirements.txt", content: None },
-                        ]
-                    },
-                }
-            }
-            PackageManager::Pnpm => {
-                PackageManagerInfo {
-                    name: "pnpm",
-                    install_command: "pnpm install",
-                    lock_file: "pnpm-lock.yaml",
-                    detection: FrameworkDetector {
-                        matching_strategy: FrameworkMatchingStrategy::Any,
-                        detectors: vec![
-                            FrameworkDetectionItem::File { path: "pnpm-lock.yaml", content: None },
-                            FrameworkDetectionItem::File {
-                                path: "package.json",
-                                content: Some(r#""packageManager":\\s*"pnpm@.*""#)
-                            },
-                        ]
-                    },
-                }
-            }
-            PackageManager::Bundler => {
-                PackageManagerInfo {
-                    name: "bundler",
-                    install_command: "bundle install",
-                    lock_file: "Gemfile.lock",
-                    detection: FrameworkDetector {
-                        matching_strategy: FrameworkMatchingStrategy::Any,
-                        detectors: vec![
-                            FrameworkDetectionItem::File { path: "Gemfile.lock", content: None },
-                            FrameworkDetectionItem::File { path: "Gemfile", content: None },
-                        ]
-                    },
-                }
-            }
-            PackageManager::Yarn => {
-                PackageManagerInfo {
-                    name: "yarn",
-                    install_command: "yarn install",
-                    lock_file: "yarn.lock",
-                    detection: FrameworkDetector {
-                        matching_strategy: FrameworkMatchingStrategy::Any,
-                        detectors: vec![
-                            FrameworkDetectionItem::File { path: "yarn.lock", content: None },
-                            FrameworkDetectionItem::File {
-                                path: "package.json",
-                                content: Some(r#""packageManager":\\s*"yarn@.*""#)
-                            },
-                        ]
-                    },
-                }
-            }
+            PackageManager::Nuget => PackageManagerInfo {
+                name: "nuget",
+                install_command: "dotnet add",
+                lock_file: "packages.lock.json",
+                detection: FrameworkDetector {
+                    matching_strategy: FrameworkMatchingStrategy::Any,
+                    detectors: vec![FrameworkDetectionItem::File {
+                        path: "packages.lock.json",
+                        content: None,
+                    }],
+                },
+            },
+            PackageManager::Poetry => PackageManagerInfo {
+                name: "poetry",
+                install_command: "poetry install",
+                lock_file: "poetry.lock",
+                detection: FrameworkDetector {
+                    matching_strategy: FrameworkMatchingStrategy::Any,
+                    detectors: vec![
+                        FrameworkDetectionItem::File {
+                            path: "poetry.lock",
+                            content: None,
+                        },
+                        FrameworkDetectionItem::File {
+                            path: "pyproject.toml",
+                            content: Some("[tool.poetry]"),
+                        },
+                    ],
+                },
+            },
+            PackageManager::Pip => PackageManagerInfo {
+                name: "pip",
+                install_command: "pip install",
+                lock_file: "pipfile.lock",
+                detection: FrameworkDetector {
+                    matching_strategy: FrameworkMatchingStrategy::Any,
+                    detectors: vec![
+                        FrameworkDetectionItem::File {
+                            path: "pipfile.lock",
+                            content: None,
+                        },
+                        FrameworkDetectionItem::File {
+                            path: "pipfile",
+                            content: None,
+                        },
+                        FrameworkDetectionItem::File {
+                            path: "requirements.txt",
+                            content: None,
+                        },
+                    ],
+                },
+            },
+            PackageManager::Pnpm => PackageManagerInfo {
+                name: "pnpm",
+                install_command: "pnpm install",
+                lock_file: "pnpm-lock.yaml",
+                detection: FrameworkDetector {
+                    matching_strategy: FrameworkMatchingStrategy::Any,
+                    detectors: vec![
+                        FrameworkDetectionItem::File {
+                            path: "pnpm-lock.yaml",
+                            content: None,
+                        },
+                        FrameworkDetectionItem::File {
+                            path: "package.json",
+                            content: Some(r#""packageManager":\\s*"pnpm@.*""#),
+                        },
+                    ],
+                },
+            },
+            PackageManager::Bundler => PackageManagerInfo {
+                name: "bundler",
+                install_command: "bundle install",
+                lock_file: "Gemfile.lock",
+                detection: FrameworkDetector {
+                    matching_strategy: FrameworkMatchingStrategy::Any,
+                    detectors: vec![
+                        FrameworkDetectionItem::File {
+                            path: "Gemfile.lock",
+                            content: None,
+                        },
+                        FrameworkDetectionItem::File {
+                            path: "Gemfile",
+                            content: None,
+                        },
+                    ],
+                },
+            },
+            PackageManager::Yarn => PackageManagerInfo {
+                name: "yarn",
+                install_command: "yarn install",
+                lock_file: "yarn.lock",
+                detection: FrameworkDetector {
+                    matching_strategy: FrameworkMatchingStrategy::Any,
+                    detectors: vec![
+                        FrameworkDetectionItem::File {
+                            path: "yarn.lock",
+                            content: None,
+                        },
+                        FrameworkDetectionItem::File {
+                            path: "package.json",
+                            content: Some(r#""packageManager":\\s*"yarn@.*""#),
+                        },
+                    ],
+                },
+            },
         }
     }
 
@@ -265,10 +283,6 @@ impl<'a> PackageManager {
     // }
 }
 
-
-
-
-
 // impl FromStr for PackageManager {
 //     type Err = String;
 //     fn from_str(s: &str) -> Result<Self, Self::Err> {
@@ -281,7 +295,6 @@ impl<'a> PackageManager {
 //         }
 //     }
 // }
-
 
 // JavaScript
 // npm - package-lock.json, package.json

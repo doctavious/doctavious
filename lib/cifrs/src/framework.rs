@@ -1,20 +1,18 @@
 use std::fs;
 use std::path::Path;
-use serde::Deserialize;
 
+use serde::Deserialize;
 use serde_derive::Serialize;
 use swc_ecma_ast::Program;
 
-use crate::{CifrsError, CifrsResult};
 use crate::js_module::parse_js_module;
 use crate::language::Language;
-
+use crate::{CifrsError, CifrsResult};
 
 // FrameworkDefinition
 #[derive(Serialize)]
 pub struct FrameworkInfo {
     // id: String,
-
     /// Name of the framework
     ///
     /// # Examples
@@ -39,11 +37,9 @@ pub struct FrameworkInfo {
     pub detection: FrameworkDetector,
 
     pub build: FrameworkBuildSettings,
-
 }
 
 impl FrameworkInfo {
-
     pub fn detected(&self) -> bool {
         let mut results = vec![];
         // let stop_on_first_found = FrameworkMatchingStrategy::Any == &self.detection.matching_strategy;
@@ -78,7 +74,7 @@ impl FrameworkInfo {
                     // }
                     false
                 }
-                _ => { false }
+                _ => false,
             };
 
             match &self.detection.matching_strategy {
@@ -97,40 +93,37 @@ impl FrameworkInfo {
         // use std::convert::identity might be more idiomatic here
         results.iter().all(|&r| r)
     }
-
 }
 
 // TODO: rename to FrameworkDetection?
 #[derive(Serialize)]
 pub struct FrameworkDetector {
     pub matching_strategy: FrameworkMatchingStrategy,
-    pub detectors: Vec<FrameworkDetectionItem>
+    pub detectors: Vec<FrameworkDetectionItem>,
 }
 
 #[derive(Debug, Serialize)]
 pub enum FrameworkDetectionItem {
-
     // TODO: see if this can replace Config
     File {
         path: &'static str,
-        content: Option<&'static str>
+        content: Option<&'static str>,
     },
 
     /// A matcher for a config file
     Config {
         /// Content that must be present in the config file
-        content: Option<&'static str>
+        content: Option<&'static str>,
     },
 
     /// A matcher for a dependency found in project file
-    Dependency { name: &'static str }
+    Dependency { name: &'static str },
 }
-
 
 #[derive(Serialize)]
 pub enum RequiredDependencies {
     All(Vec<&'static str>),
-    Any(Vec<&'static str>)
+    Any(Vec<&'static str>),
 }
 
 // TODO: change name?
@@ -141,16 +134,15 @@ pub enum FrameworkMatchingStrategy {
     All,
 
     /// Strategy where one match causes the framework to be detected
-    Any
+    Any,
 }
-
 
 #[derive(Serialize)]
 pub struct FrameworkBuildSettings {
     pub command: &'static str,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub command_args: Option<FrameworkBuildArgs>,
-    pub output_directory: &'static str
+    pub output_directory: &'static str,
 }
 
 #[derive(Serialize)]
@@ -160,20 +152,24 @@ pub struct FrameworkBuildArgs {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub config: Option<FrameworkBuildArg>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub output: Option<FrameworkBuildArg>
+    pub output: Option<FrameworkBuildArg>,
 }
 
 #[derive(Serialize)]
 pub enum FrameworkBuildArg {
     /// 0-based index of argument and default value
-    Arg { index: i8, default_value: Option<&'static str> },
+    Arg {
+        index: i8,
+        default_value: Option<&'static str>,
+    },
     // TODO: do we care short or long? how about use vec/array?
-    Option { short: &'static str, long: &'static str }
+    Option {
+        short: &'static str,
+        long: &'static str,
+    },
 }
 
-
 pub trait FrameworkSupport {
-
     fn get_info(&self) -> &FrameworkInfo;
 
     fn get_output_dir(&self) -> String {
@@ -187,7 +183,6 @@ pub trait FrameworkSupport {
 // to various serde implementations that support more strait forward deserialization formats
 // and provide a custom implementation for cases were we need to get data from JS modules
 pub trait ConfigurationFileDeserialization: for<'a> Deserialize<'a> {
-
     fn from_json(s: &str) -> CifrsResult<Self> {
         Ok(serde_json::from_str(s)?)
     }
@@ -206,7 +201,8 @@ pub trait ConfigurationFileDeserialization: for<'a> Deserialize<'a> {
 }
 
 pub(crate) fn read_config_files<T>(files: &Vec<&'static str>) -> CifrsResult<T>
-    where T: ConfigurationFileDeserialization
+where
+    T: ConfigurationFileDeserialization,
 {
     for file in files {
         let path = Path::new(&file);
@@ -221,8 +217,10 @@ pub(crate) fn read_config_files<T>(files: &Vec<&'static str>) -> CifrsResult<T>
                         return T::from_js_module(&program);
                     }
                     // TODO (Sean): we should just skip or warn
-                    _ => Err(CifrsError::UnknownFrameworkExtension(extension.to_string_lossy().to_string()))
-                }
+                    _ => Err(CifrsError::UnknownFrameworkExtension(
+                        extension.to_string_lossy().to_string(),
+                    )),
+                };
             }
         }
     }

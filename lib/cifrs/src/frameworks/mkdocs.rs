@@ -2,13 +2,22 @@
 // site --> default
 // change be changed via site_dir
 
-use serde::{Deserialize};
-use crate::framework::{ConfigurationFileDeserialization, FrameworkBuildArg, FrameworkBuildArgs, FrameworkBuildSettings, FrameworkDetectionItem, FrameworkDetector, FrameworkInfo, FrameworkMatchingStrategy, FrameworkSupport, read_config_files};
+use serde::Deserialize;
+
+use crate::framework::{
+    read_config_files, ConfigurationFileDeserialization, FrameworkBuildArg, FrameworkBuildArgs,
+    FrameworkBuildSettings, FrameworkDetectionItem, FrameworkDetector, FrameworkInfo,
+    FrameworkMatchingStrategy, FrameworkSupport,
+};
 use crate::language::Language;
 #[derive(Deserialize)]
-struct MKDocsConfig { site_dir: Option<String> }
+struct MKDocsConfig {
+    site_dir: Option<String>,
+}
 
-pub struct MKDocs { info: FrameworkInfo }
+pub struct MKDocs {
+    info: FrameworkInfo,
+}
 
 impl MKDocs {
     fn new(configs: Option<Vec<&'static str>>) -> Self {
@@ -20,9 +29,7 @@ impl MKDocs {
                 language: Language::Python,
                 detection: FrameworkDetector {
                     matching_strategy: FrameworkMatchingStrategy::All,
-                    detectors: vec![
-                        FrameworkDetectionItem::Dependency { name: "mkdocs" }
-                    ]
+                    detectors: vec![FrameworkDetectionItem::Dependency { name: "mkdocs" }],
                 },
                 build: FrameworkBuildSettings {
                     command: "mkdocs build",
@@ -30,16 +37,16 @@ impl MKDocs {
                         source: None,
                         config: Some(FrameworkBuildArg::Option {
                             short: "-f",
-                            long: "--config-file"
+                            long: "--config-file",
                         }),
                         output: Some(FrameworkBuildArg::Option {
                             short: "-d",
-                            long: "--site-dir"
-                        })
+                            long: "--site-dir",
+                        }),
                     }),
                     output_directory: "site",
                 },
-            }
+            },
         }
     }
 }
@@ -49,7 +56,6 @@ impl Default for MKDocs {
         MKDocs::new(Some(Vec::from(["mkdocs.yml"])))
     }
 }
-
 
 impl FrameworkSupport for MKDocs {
     fn get_info(&self) -> &FrameworkInfo {
@@ -79,17 +85,16 @@ impl ConfigurationFileDeserialization for MKDocsConfig {}
 
 #[cfg(test)]
 mod tests {
-    use crate::framework::FrameworkSupport;
     use super::MKDocs;
+    use crate::framework::FrameworkSupport;
 
     #[test]
     fn test_hugo() {
-        let mkdocs = MKDocs::new(
-            Some(vec!["tests/fixtures/framework_configs/mkdocs/mkdocs.yml"])
-        );
+        let mkdocs = MKDocs::new(Some(vec![
+            "tests/fixtures/framework_configs/mkdocs/mkdocs.yml",
+        ]));
 
         let output = mkdocs.get_output_dir();
         assert_eq!(output, "build")
     }
-
 }

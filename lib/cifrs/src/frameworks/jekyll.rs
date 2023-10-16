@@ -5,13 +5,22 @@
 // destination: DIR
 // jekyll build -d, --destination DIR
 
-use serde::{Deserialize};
-use crate::framework::{ConfigurationFileDeserialization, FrameworkBuildArg, FrameworkBuildArgs, FrameworkBuildSettings, FrameworkDetectionItem, FrameworkDetector, FrameworkInfo, FrameworkMatchingStrategy, FrameworkSupport, read_config_files};
+use serde::Deserialize;
+
+use crate::framework::{
+    read_config_files, ConfigurationFileDeserialization, FrameworkBuildArg, FrameworkBuildArgs,
+    FrameworkBuildSettings, FrameworkDetectionItem, FrameworkDetector, FrameworkInfo,
+    FrameworkMatchingStrategy, FrameworkSupport,
+};
 use crate::language::Language;
 #[derive(Deserialize)]
-struct JekyllConfig { destination: Option<String> }
+struct JekyllConfig {
+    destination: Option<String>,
+}
 
-pub struct Jekyll { info: FrameworkInfo }
+pub struct Jekyll {
+    info: FrameworkInfo,
+}
 
 impl Jekyll {
     fn new(configs: Option<Vec<&'static str>>) -> Self {
@@ -25,8 +34,11 @@ impl Jekyll {
                     matching_strategy: FrameworkMatchingStrategy::Any,
                     detectors: vec![
                         FrameworkDetectionItem::Dependency { name: "jekyll" },
-                        FrameworkDetectionItem::File { path: "Gemfile", content: Some("jekyll_plugins") }
-                    ]
+                        FrameworkDetectionItem::File {
+                            path: "Gemfile",
+                            content: Some("jekyll_plugins"),
+                        },
+                    ],
                 },
                 build: FrameworkBuildSettings {
                     // bundle exec jekyll build
@@ -39,24 +51,21 @@ impl Jekyll {
                         }),
                         output: Some(FrameworkBuildArg::Option {
                             short: "-d",
-                            long: "--destination"
-                        })
+                            long: "--destination",
+                        }),
                     }),
                     output_directory: "_site",
                 },
-            }
+            },
         }
     }
 }
 
 impl Default for Jekyll {
     fn default() -> Self {
-        Jekyll::new(
-            Some(Vec::from(["_config.yml", "_config.toml"]))
-        )
+        Jekyll::new(Some(Vec::from(["_config.yml", "_config.toml"])))
     }
 }
-
 
 impl FrameworkSupport for Jekyll {
     fn get_info(&self) -> &FrameworkInfo {
@@ -84,20 +93,18 @@ impl FrameworkSupport for Jekyll {
 
 impl ConfigurationFileDeserialization for JekyllConfig {}
 
-
 #[cfg(test)]
 mod tests {
-    use crate::framework::FrameworkSupport;
     use super::Jekyll;
+    use crate::framework::FrameworkSupport;
 
     #[test]
     fn test_jekyll() {
-        let jekyll = Jekyll::new(
-            Some(vec!["tests/fixtures/framework_configs/jekyll/_config.yml"])
-        );
+        let jekyll = Jekyll::new(Some(vec![
+            "tests/fixtures/framework_configs/jekyll/_config.yml",
+        ]));
 
         let output = jekyll.get_output_dir();
         assert_eq!(output, "build")
     }
-
 }

@@ -1,17 +1,16 @@
-use std::{env, fs};
 use std::path::PathBuf;
+use std::{env, fs};
 
 use glob::glob;
-use serde_derive::{Serialize};
+use serde_derive::Serialize;
 use serde_json::Value;
-use crate::CifrsResult;
 
 use crate::package_manager::PackageManager;
 use crate::projects::csproj::CSProj;
+use crate::CifrsResult;
 
 // TODO: lets create a projects module and put this along side CSProj given their relationship
 // I think we should put them closer in proximity
-
 
 // This would allow us to split existence from dependency
 // ProjectFile
@@ -22,11 +21,10 @@ use crate::projects::csproj::CSProj;
 pub struct Proj {
     pub path: PathBuf,
     pub project_type: ProjectFile,
-    pub content: String
+    pub content: String,
 }
 
 impl Proj {
-
     // pub(crate) fn new(
     //     path: PathBuf,
     //     project_type: ProjectFile,
@@ -101,9 +99,6 @@ impl Proj {
     // }
 }
 
-
-
-
 // impl would have a get_project_files() -> Vec<ProjectFiles>
 
 // Manifest
@@ -130,7 +125,6 @@ pub enum ProjectFile {
 // }
 
 impl ProjectFile {
-
     // pub fn file_name(&self) -> &str {
     //     match self {
     //         ProjectFile::GemFile => "Gemfile",
@@ -141,28 +135,25 @@ impl ProjectFile {
     //     }
     // }
 
-
     pub fn get_project_paths(&self) -> Vec<PathBuf> {
         match self {
             ProjectFile::CSProj => {
                 let glob_result = glob("**/*.csproj");
                 match glob_result {
-                    Ok(paths) => {
-                        paths.into_iter().filter_map(|p| p.ok()).collect()
-                    },
+                    Ok(paths) => paths.into_iter().filter_map(|p| p.ok()).collect(),
                     Err(e) => {
                         // TODO: log
                         vec![]
                     }
                 }
-            },
+            }
             ProjectFile::GoMod => vec![PathBuf::from("go.mod")],
             ProjectFile::PackageJson => vec![PathBuf::from("package.json")],
             ProjectFile::PipFile => vec![PathBuf::from("pipfile")],
             ProjectFile::PyProject => vec![PathBuf::from("pyproject.toml")],
             ProjectFile::RequirementsTxt => vec![PathBuf::from("requirements.txt")],
             ProjectFile::GemFile => vec![PathBuf::from("Gemfile")],
-            ProjectFile::CargoToml => vec![PathBuf::from("cargo.toml")]
+            ProjectFile::CargoToml => vec![PathBuf::from("cargo.toml")],
         }
     }
 
@@ -172,10 +163,14 @@ impl ProjectFile {
             ProjectFile::CSProj => &[PackageManager::Nuget],
             ProjectFile::GemFile => &[PackageManager::Bundler],
             ProjectFile::GoMod => &[PackageManager::Go],
-            ProjectFile::PackageJson => &[PackageManager::Npm, PackageManager::Pnpm, PackageManager::Yarn],
+            ProjectFile::PackageJson => &[
+                PackageManager::Npm,
+                PackageManager::Pnpm,
+                PackageManager::Yarn,
+            ],
             ProjectFile::PipFile => &[PackageManager::Pip],
             ProjectFile::PyProject => &[PackageManager::Pip, PackageManager::Poetry],
-            ProjectFile::RequirementsTxt => &[PackageManager::Pip]
+            ProjectFile::RequirementsTxt => &[PackageManager::Pip],
         }
     }
 
@@ -226,7 +221,7 @@ impl ProjectFile {
                             println!("build proj...{:?}", build_proj);
                             for item_group in build_proj.item_groups {
                                 // could also do item_group.package_references.unwrap_or_default()
-                                if let Some(package_references ) = item_group.package_references {
+                                if let Some(package_references) = item_group.package_references {
                                     for pkref in package_references {
                                         if dependency == pkref.include {
                                             has_dependency = true;
@@ -280,24 +275,25 @@ impl ProjectFile {
 
         Ok(found)
     }
-
 }
 
 #[cfg(test)]
 mod tests {
     use std::fs::File;
-    use std::{env, fs, io, panic};
+    // use crate::commands::build::package_manager::ProjectFile;
+    use std::io::Write;
     use std::panic::{RefUnwindSafe, UnwindSafe};
     use std::path::{Path, PathBuf};
     use std::sync::Mutex;
-    use swc::atoms::once_cell;
+    use std::{env, fs, io, panic};
+
     use once_cell::sync::Lazy;
-    use tempfile::TempDir;
-    // use crate::commands::build::package_manager::ProjectFile;
-    use std::io::Write;
     use serial_test::serial;
-    use crate::CifrsResult;
+    use swc::atoms::once_cell;
+    use tempfile::TempDir;
+
     use crate::projects::project_file::ProjectFile;
+    use crate::CifrsResult;
     // use crate::commands::build::project_file::ProjectFile;
 
     static SERIAL_TEST: Lazy<Mutex<()>> = Lazy::new(Default::default);
@@ -367,7 +363,9 @@ python = "^3.7"
                 println!("path name: {}", path.unwrap().path().display())
             }
 
-            let found = ProjectFile::CSProj.has_dependency("Microsoft.Orleans.Server").unwrap();
+            let found = ProjectFile::CSProj
+                .has_dependency("Microsoft.Orleans.Server")
+                .unwrap();
             println!("dependency found: {}", found);
             assert!(found);
             Ok(())
@@ -380,8 +378,6 @@ python = "^3.7"
             }
         }
 
-
-
         // let found = ProjectFile::CSProj.has_dependency("Microsoft.Orleans.Server")?;
         // assert!(found);
 
@@ -390,12 +386,10 @@ python = "^3.7"
 
     // with_directory(path, || { closure })
 
-
-
     pub fn with_dir<P, F, R>(path: &P, closure: F) -> io::Result<R>
-        where
-            P: AsRef<Path>,
-            F: Fn() -> io::Result<R> + UnwindSafe + RefUnwindSafe,
+    where
+        P: AsRef<Path>,
+        F: Fn() -> io::Result<R> + UnwindSafe + RefUnwindSafe,
     {
         let guard = SERIAL_TEST.lock().unwrap();
         let original_dir = env::current_dir()?;

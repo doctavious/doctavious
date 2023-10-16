@@ -2,17 +2,28 @@
 // ./book -> default
 // change be changed via build.build-dir
 
-use serde::{Deserialize};
-use crate::framework::{ConfigurationFileDeserialization, FrameworkBuildArg, FrameworkBuildArgs, FrameworkBuildSettings, FrameworkDetectionItem, FrameworkDetector, FrameworkInfo, FrameworkMatchingStrategy, FrameworkSupport, read_config_files};
+use serde::Deserialize;
+
+use crate::framework::{
+    read_config_files, ConfigurationFileDeserialization, FrameworkBuildArg, FrameworkBuildArgs,
+    FrameworkBuildSettings, FrameworkDetectionItem, FrameworkDetector, FrameworkInfo,
+    FrameworkMatchingStrategy, FrameworkSupport,
+};
 use crate::language::Language;
 #[derive(Deserialize)]
 #[serde(rename_all = "kebab-case")]
-struct MDBookBuildOptions { build_dir: Option<String> }
+struct MDBookBuildOptions {
+    build_dir: Option<String>,
+}
 
 #[derive(Deserialize)]
-struct MDBookConfig { build: Option<MDBookBuildOptions> }
+struct MDBookConfig {
+    build: Option<MDBookBuildOptions>,
+}
 
-pub struct MDBook { info: FrameworkInfo }
+pub struct MDBook {
+    info: FrameworkInfo,
+}
 
 impl MDBook {
     fn new(configs: Option<Vec<&'static str>>) -> Self {
@@ -24,9 +35,7 @@ impl MDBook {
                 language: Language::Rust,
                 detection: FrameworkDetector {
                     matching_strategy: FrameworkMatchingStrategy::All,
-                    detectors: vec![
-                        FrameworkDetectionItem::Config { content: None }
-                    ]
+                    detectors: vec![FrameworkDetectionItem::Config { content: None }],
                 },
                 build: FrameworkBuildSettings {
                     command: "mdbook build",
@@ -35,12 +44,12 @@ impl MDBook {
                         config: None,
                         output: Some(FrameworkBuildArg::Option {
                             short: "-d",
-                            long: "--dest-dir"
-                        })
+                            long: "--dest-dir",
+                        }),
                     }),
                     output_directory: "./book",
                 },
-            }
+            },
         }
     }
 }
@@ -60,7 +69,7 @@ impl FrameworkSupport for MDBook {
         if let Some(configs) = &self.info.configs {
             match read_config_files::<MDBookConfig>(configs) {
                 Ok(c) => {
-                    if let Some(MDBookBuildOptions {build_dir: Some(v)}) = c.build {
+                    if let Some(MDBookBuildOptions { build_dir: Some(v) }) = c.build {
                         return v;
                     }
                 }
@@ -79,17 +88,16 @@ impl ConfigurationFileDeserialization for MDBookConfig {}
 
 #[cfg(test)]
 mod tests {
-    use crate::framework::FrameworkSupport;
     use super::MDBook;
+    use crate::framework::FrameworkSupport;
 
     #[test]
     fn test_mdbook() {
-        let book = MDBook::new(
-            Some(vec!["tests/fixtures/framework_configs/mdbook/book.toml"])
-        );
+        let book = MDBook::new(Some(vec![
+            "tests/fixtures/framework_configs/mdbook/book.toml",
+        ]));
 
         let output = book.get_output_dir();
         assert_eq!(output, "build")
     }
-
 }

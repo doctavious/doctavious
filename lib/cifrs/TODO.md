@@ -4,4 +4,8 @@
 - Should CLI be specifically baked into Doctavious CLI or should it also be a separate CLI? Would need to determine how to make that work but I think we need to anyway if we want to incorporate Snippext into Doctavous CLI. Some work to review
   - OCLIF
   - Cargo and their plugin system
-- 
+- Handling build systems
+  - https://github.com/netlify/build/tree/main/packages/build-info/src/build-systems
+  - https://github.com/vercel/vercel/tree/main/packages/fs-detectors/src/monorepos
+- handle monorepos
+  - https://github.com/vercel/vercel/tree/main/packages/fs-detectors/src/monorepos

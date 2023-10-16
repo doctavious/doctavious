@@ -3,7 +3,6 @@
 // build directory
 // Both build/serve commands take an output dir option, and there's even a --build option on the serve command. We don't plan to add output dir to the config sorry
 
-
 // docusaurus v1
 // docusaurus-start
 // website/siteConfig.js
@@ -17,29 +16,34 @@
 // return join(base, content[0].name);
 // }
 
-
 // docusaurus v2
 // docusaurus build --out-dir
 // docusaurus.config.js - doesnt contain output
 // defaults to build
 
-
 // TODO: support monorepo
 
-use serde::{Deserialize};
+use serde::Deserialize;
 
-use crate::framework::{ConfigurationFileDeserialization, FrameworkBuildArg, FrameworkBuildArgs, FrameworkBuildSettings, FrameworkDetectionItem, FrameworkDetector, FrameworkInfo, FrameworkMatchingStrategy, FrameworkSupport};
+use crate::framework::{
+    ConfigurationFileDeserialization, FrameworkBuildArg, FrameworkBuildArgs,
+    FrameworkBuildSettings, FrameworkDetectionItem, FrameworkDetector, FrameworkInfo,
+    FrameworkMatchingStrategy, FrameworkSupport,
+};
 use crate::language::Language;
 
 // TODO: given there is no option to override does it make sense to still enforce Deserialize
 // and ConfigurationFileDeserialization?
 // I suppose we can determine if gatsby-plugin-output is in the plugins and grab it from there
 #[derive(Deserialize)]
-struct DocusaurusV2Config { output: String }
+struct DocusaurusV2Config {
+    output: String,
+}
 
-pub struct DocusaurusV2 { info: FrameworkInfo }
+pub struct DocusaurusV2 {
+    info: FrameworkInfo,
+}
 impl DocusaurusV2 {
-
     // there is a saying that if things are hard to test then the design sucks (aka is wrong)
     // and that might be true here. Testing that we can get output directory from a config,
     // specifically a JS config, is hard. That is, configs have static names that we want to search
@@ -56,9 +60,9 @@ impl DocusaurusV2 {
                 language: Language::Javascript,
                 detection: FrameworkDetector {
                     matching_strategy: FrameworkMatchingStrategy::All,
-                    detectors: vec![
-                        FrameworkDetectionItem::Dependency { name: "@docusaurus/core"}
-                    ]
+                    detectors: vec![FrameworkDetectionItem::Dependency {
+                        name: "@docusaurus/core",
+                    }],
                 },
                 build: FrameworkBuildSettings {
                     command: "docusaurus build",
@@ -71,15 +75,14 @@ impl DocusaurusV2 {
                         output: Some(FrameworkBuildArg::Option {
                             short: "",
                             long: "--out-dir",
-                        })
+                        }),
                     }),
                     output_directory: "build",
                 },
-            }
+            },
         }
     }
 }
-
 
 impl Default for DocusaurusV2 {
     fn default() -> Self {
@@ -110,15 +113,15 @@ impl ConfigurationFileDeserialization for DocusaurusV2Config {}
 
 #[cfg(test)]
 mod tests {
-    use crate::framework::FrameworkSupport;
     use super::DocusaurusV2;
+    use crate::framework::FrameworkSupport;
 
     #[test]
     fn test_docusaurus() {
         // TODO: lets just put file contents in tests and write to tempdir + known file
-        let docusaurus = DocusaurusV2::new(
-            Some(vec!["tests/fixtures/framework_configs/docusaurus2/docusaurus.config.js"])
-        );
+        let docusaurus = DocusaurusV2::new(Some(vec![
+            "tests/fixtures/framework_configs/docusaurus2/docusaurus.config.js",
+        ]));
 
         let output = docusaurus.get_output_dir();
         assert_eq!(output, "build")

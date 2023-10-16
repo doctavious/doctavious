@@ -3,16 +3,16 @@ use thiserror::Error;
 
 mod framework;
 mod framework_detection;
+mod frameworks;
 mod js_module;
 mod language;
 mod package_manager;
 mod projects;
-mod frameworks;
+mod strategy;
 
 #[remain::sorted]
 #[derive(Debug, Error)]
 pub enum CifrsError {
-
     #[error(transparent)]
     Anyhow(#[from] anyhow::Error),
 

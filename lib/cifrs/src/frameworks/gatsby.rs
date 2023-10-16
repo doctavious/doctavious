@@ -5,23 +5,34 @@
 
 // gatsby build
 
-use serde::{Deserialize};
-use swc_ecma_ast::{Program};
-use crate::{CifrsError, CifrsResult};
-use crate::framework::{ConfigurationFileDeserialization, FrameworkBuildSettings, FrameworkDetectionItem, FrameworkDetector, FrameworkInfo, FrameworkMatchingStrategy, FrameworkSupport, read_config_files};
-use crate::js_module::{find_array_element, get_array_property, get_assignment_obj, get_obj_property, get_string_property_value};
+use serde::Deserialize;
+use swc_ecma_ast::Program;
+
+use crate::framework::{
+    read_config_files, ConfigurationFileDeserialization, FrameworkBuildSettings,
+    FrameworkDetectionItem, FrameworkDetector, FrameworkInfo, FrameworkMatchingStrategy,
+    FrameworkSupport,
+};
+use crate::js_module::{
+    find_array_element, get_array_property, get_assignment_obj, get_obj_property,
+    get_string_property_value,
+};
 use crate::language::Language;
+use crate::{CifrsError, CifrsResult};
 
 // TODO: given there is no option to override does it make sense to still enforce Deserialize
 // and ConfigurationFileDeserialization?
 // I suppose we can determine if gatsby-plugin-output is in the plugins and grab it from there
 #[derive(Deserialize)]
-struct GatsbyConfig { output: String }
+struct GatsbyConfig {
+    output: String,
+}
 
-pub struct Gatsby { info: FrameworkInfo }
+pub struct Gatsby {
+    info: FrameworkInfo,
+}
 
 impl Gatsby {
-
     fn new(configs: Option<Vec<&'static str>>) -> Self {
         Self {
             info: FrameworkInfo {
@@ -31,25 +42,21 @@ impl Gatsby {
                 language: Language::Javascript,
                 detection: FrameworkDetector {
                     matching_strategy: FrameworkMatchingStrategy::All,
-                    detectors: vec![
-                        FrameworkDetectionItem::Dependency { name: "gatsby"}
-                    ]
+                    detectors: vec![FrameworkDetectionItem::Dependency { name: "gatsby" }],
                 },
                 build: FrameworkBuildSettings {
                     command: "gatsby build",
                     command_args: None,
                     output_directory: "/public",
                 },
-            }
+            },
         }
     }
 }
 
 impl Default for Gatsby {
     fn default() -> Self {
-        Gatsby::new(
-            Some(Vec::from(["gatsby-config.js", "gatsby-config.ts"]))
-        )
+        Gatsby::new(Some(Vec::from(["gatsby-config.js", "gatsby-config.ts"])))
     }
 }
 
@@ -79,12 +86,14 @@ impl ConfigurationFileDeserialization for GatsbyConfig {
     fn from_js_module(program: &Program) -> CifrsResult<Self> {
         if let Some(obj) = get_assignment_obj(program) {
             if let Some(plugins) = get_array_property(obj, "plugins") {
-                if let Some(resolve_elem) = find_array_element(plugins, "resolve", "gatsby-plugin-output") {
+                if let Some(resolve_elem) =
+                    find_array_element(plugins, "resolve", "gatsby-plugin-output")
+                {
                     if let Some(options) = get_obj_property(resolve_elem, "options") {
-                        if let Some(output) = get_string_property_value(&options.props, "publicPath") {
-                            return Ok(Self {
-                                output
-                            });
+                        if let Some(output) =
+                            get_string_property_value(&options.props, "publicPath")
+                        {
+                            return Ok(Self { output });
                         }
                     }
                 }
@@ -97,17 +106,16 @@ impl ConfigurationFileDeserialization for GatsbyConfig {
 
 #[cfg(test)]
 mod tests {
-    use crate::framework::FrameworkSupport;
     use super::Gatsby;
+    use crate::framework::FrameworkSupport;
 
     #[test]
     fn test_gatsby() {
-        let gatsby = Gatsby::new(
-            Some(vec!["tests/fixtures/framework_configs/gatsby/gatsby-config.js"])
-        );
+        let gatsby = Gatsby::new(Some(vec![
+            "tests/fixtures/framework_configs/gatsby/gatsby-config.js",
+        ]));
 
         let output = gatsby.get_output_dir();
         assert_eq!(output, "dist")
     }
-
 }
