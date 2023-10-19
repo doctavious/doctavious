@@ -38,3 +38,13 @@ This prevents running the build, and your content is served directly.
 ## Commands
 
 should there be a command to get / show framework detection?
+
+
+
+
+
+// https://vercel.com/docs/project-configuration#project-configuration/install-command
+// https://github.com/vercel/vercel/search?p=3&q=InstallCommand
+// https://github.com/vercel/vercel/blob/6b23950b650011f612b62c1b2c79982cdee76bf9/packages/build-utils/src/types.ts
+// https://github.com/vercel/vercel/blob/6b23950b650011f612b62c1b2c79982cdee76bf9/packages/frameworks/src/frameworks.ts
+// https://github.com/vercel/vercel/tree/6b23950b650011f612b62c1b2c79982cdee76bf9/packages/fs-detectors

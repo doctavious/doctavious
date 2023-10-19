@@ -4,158 +4,290 @@
 # website
 # configs
 # languages
+# build - build settings
+#   command
+#   command_args: source / config / output
+#   build_arg:
+#    - Arg: index / default_value
+#    - option: short / long
+#   output_directory
 # Please keep this list alphabetized. Capitalization comes before lowercase.
 
-website:
-configs:
-  -
-languages:
-  -
+# TODO: do we need command_args?
 
-antora:
-  website: https://antora.org/
-  configs:
-    - antora-playbook.yaml
-    - antora-playbook.yml
-  languages:
-    - JavaScript
-astro:
-  website: https://astro.build
-  configs:
-    - astro.config.js
-    - astro.config.cjs
-    - astro.config.mjs
-    - astro.config.ts
-  languages:
-    - JavaScript
-docfx:
-  website: https://dotnet.github.io/docfx/
-  configs:
-    - docfx.json
-  languages:
-    - CSharp
-docusaurusv2:
-  website: https://docusaurus.io/
-  configs:
-    - docusaurus.config.js
-  languages:
-    - JavaScript
-eleventy:
-  website: https://www.11ty.dev/
-  configs:
-    - .eleventy.js
-    - eleventy.config.js
-    - eleventy.config.cjs
-  languages:
-    - JavaScript
-gatsby:
-  website: https://www.gatsbyjs.com/
-  configs:
-    - gatsby-config.js
-    - gatsby-config.ts
-  languages:
-    - JavaScript
-hexo:
-  website: https://hexo.io/
-  configs:
-    - _config.yaml
-    - _config.yml
-  languages:
-    - JavaScript
-hugo:
-  website: https://gohugo.io/
-  configs:
-    - config.json
-    - config.toml
-    - config.yaml
-    - config.yml
-    - hugo.json
-    - hugo.toml
-    - hugo.yaml
-    - hugo.yml
-  languages:
-    - Go
-jekyll:
-  website: https://jekyllrb.com/
-  configs:
-    - _config.yaml
-    - _config.yml
-    - _config.toml
-  languages:
-    - Ruby
-markdoc:
-  website: https://markdoc.dev/
-  languages:
-    - JavaScript
-mdbook:
-  website: https://rust-lang.github.io/mdBook/
-  configs:
-    - book.toml
-  languages:
-    - Rust
-mkdocs:
-  website: https://www.mkdocs.org/
-  configs:
-    - mkdocs.yaml
-    - mkdocs.yml
-  languages:
-    - Python
-nextjs:
-  website: https://nextjs.org/
-  configs:
-    - next.config.js
-    - next.config.mjs
-  languages:
-    - JavaScript
-nextra:
-  website: https://nextra.site/
-  configs:
-    - next.config.js
-  languages:
-    - JavaScript
-nuxtv2:
-  website: https://v2.nuxt.com/
-  configs:
-    - nuxt.config.js
-  languages:
-    - JavaScript
-nuxtv3:
-  website: https://nuxtjs.org/
-  configs:
-    - nuxt.config.js
-    - nuxt.config.mjs
-    - nuxt.config.ts
-  languages:
-    - JavaScript
-sphinx:
-  website: https://www.sphinx-doc.org/en/master/
-  configs:
-    - conf.py
-  languages:
-    - Python
-sveltekit:
-  website: https://kit.svelte.dev/
-  configs:
-    - svelte.config.js
-  languages:
-    - JavaScript
-vitepress:
-  website: https://vitepress.vuejs.org/
-  configs:
-    - .vitepress/config.js
-    - .vitepress/config.cjs
-    - .vitepress/config.mjs
-    - .vitepress/config.mts
-    - .vitepress/config.ts
-  languages:
-    - JavaScript
-vuepress:
-  website: https://vuepress.vuejs.org/
-  configs:
-    - .vuepress/config.js
-    - .vuepress/config.yaml
-    - .vuepress/config.yml
-    - .vuepress/config.toml
-    - .vuepress/config.ts
-  languages:
-    - JavaScript
+# Output directory override?
+# config
+# env
+# js module but could this just be a regex capture group pattern?
+# project file aka package.json build script
+frameworks:
+  - name: antora
+    website: https://antora.org/
+    configs:
+      - antora-playbook.yaml
+      - antora-playbook.yml
+    languages:
+      - JavaScript
+    build:
+      command: antora generate
+      command_args:
+        config:
+          index: 1
+        output:
+          long: --to-dir
+      output_directory: build/site
+  - name: astro
+    website: https://astro.build
+    configs:
+      - astro.config.js
+      - astro.config.cjs
+      - astro.config.mjs
+      - astro.config.ts
+    languages:
+      - JavaScript
+    build:
+      command: astro build
+      command_args:
+        config:
+          long: --config
+      output_directory: ./dist
+  - name: docfx
+    website: https://dotnet.github.io/docfx/
+    configs:
+      - docfx.json
+    languages:
+      - CSharp
+    build:
+      command: docfx build
+      command_args:
+        output:
+          short: -o
+      output_directory: _site
+  - name: docusaurusv2
+    website: https://docusaurus.io/
+    configs:
+      - docusaurus.config.js
+    languages:
+      - JavaScript
+    build:
+      command: docusaurus build
+      command_args:
+        config:
+          long: --config
+        output:
+          long: --out-dir
+      output_directory: build
+  - name: eleventy
+    website: https://www.11ty.dev/
+    configs:
+      - .eleventy.js
+      - eleventy.config.js
+      - eleventy.config.cjs
+    languages:
+      - JavaScript
+    build:
+      command: eleventy
+      command_args:
+        output:
+          long: --output
+      output_directory: _site
+  - name: gatsby
+    website: https://www.gatsbyjs.com/
+    configs:
+      - gatsby-config.js
+      - gatsby-config.ts
+    languages:
+      - JavaScript
+    build:
+      command: gatsby build
+      output_directory: /public
+  - name: hexo
+    website: https://hexo.io/
+    configs:
+      - _config.yaml
+      - _config.yml
+    languages:
+      - JavaScript
+    build:
+      command: hexo generate
+      command_args:
+        config:
+          long: --config
+      output_directory: public
+  - name: hugo
+    website: https://gohugo.io/
+    configs:
+      - config.json
+      - config.toml
+      - config.yaml
+      - config.yml
+      - hugo.json
+      - hugo.toml
+      - hugo.yaml
+      - hugo.yml
+    languages:
+      - Go
+    build:
+      command: hugo
+      command_args:
+        config:
+          long: --config
+        output:
+          long: --destination
+      output_directory: /public
+  - name: jekyll
+    website: https://jekyllrb.com/
+    configs:
+      - _config.yaml
+      - _config.yml
+      - _config.toml
+    languages:
+      - Ruby
+    build:
+      command: jekyll build
+      command_args:
+        config:
+          long: --config
+        output:
+          short: -d
+          long: --destination
+      output_directory: _site
+  - name: markdoc
+    website: https://markdoc.dev/
+    languages:
+      - JavaScript
+    build:
+      command: build
+      output_directory: dist
+  - name: mdbook
+    website: https://rust-lang.github.io/mdBook/
+    configs:
+      - book.toml
+    languages:
+      - Rust
+    build:
+      command: mdbook build
+      command_args:
+        output:
+          short: -d
+          long: --dest-dir
+      output_directory: ./book
+  - name: mkdocs
+    website: https://www.mkdocs.org/
+    configs:
+      - mkdocs.yaml
+      - mkdocs.yml
+    languages:
+      - Python
+    build:
+      command: mkdocs build
+      command_args:
+        config:
+          short: -f
+          long: --config-file
+        output:
+          short: -d
+          long: --site-dir
+      output_directory: site
+  - name: nextjs
+    website: https://nextjs.org/
+    configs:
+      - next.config.js
+      - next.config.mjs
+    languages:
+      - JavaScript
+    build:
+      command: next build
+      output_directory: .next
+  - name: nextra
+    website: https://nextra.site/
+    configs:
+      - next.config.js
+    languages:
+      - JavaScript
+    build:
+      command: next build
+      output_directory: .next
+  - name: nuxtv2
+    website: https://v2.nuxt.com/
+    configs:
+      - nuxt.config.js
+    languages:
+      - JavaScript
+    build:
+      command: nuxt build
+      output_directory: .nuxt
+  - name: nuxtv3
+    website: https://nuxtjs.org/
+    configs:
+      - nuxt.config.js
+      - nuxt.config.mjs
+      - nuxt.config.ts
+    languages:
+      - JavaScript
+    build:
+      command: nuxi generate
+      output_directory: .output
+  - name: sphinx
+    website: https://www.sphinx-doc.org/en/master/
+    configs:
+      - conf.py
+    languages:
+      - Python
+    build:
+      command: sphinx-build
+      command_args:
+        source:
+          index: 1
+          default_value: docs
+        output:
+          index: 2
+      output_directory: docs/_build
+  - name: sveltekit
+    website: https://kit.svelte.dev/
+    configs:
+      - svelte.config.js
+    languages:
+      - JavaScript
+    build:
+      command: vite build
+      command_args:
+        output:
+          long: --outDir
+      output_directory: build
+  - name: vitepress
+    website: https://vitepress.vuejs.org/
+    configs:
+      - .vitepress/config.js
+      - .vitepress/config.cjs
+      - .vitepress/config.mjs
+      - .vitepress/config.mts
+      - .vitepress/config.ts
+    languages:
+      - JavaScript
+    build:
+      command: vitepress build docs
+      output_directory: docs/.vitepress/dist
+  - name: vuepress
+    website: https://vuepress.vuejs.org/
+    configs:
+      - .vuepress/config.js
+      - .vuepress/config.yaml
+      - .vuepress/config.yml
+      - .vuepress/config.toml
+      - .vuepress/config.ts
+    languages:
+      - JavaScript
+    build:
+      command: vuepress build
+      command_args:
+        source:
+          index: 1
+          default_value: docs
+        config:
+          short: -c
+          long: --config
+        output:
+          short: -d
+          long: --dest
+      output_directory: .vuepress/dist

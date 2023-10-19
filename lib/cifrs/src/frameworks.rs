@@ -17,3 +17,5 @@ mod sphinx;
 mod sveltekit;
 mod vitepress;
 mod vuepress;
+
+pub const FRAMEWORKS_STR: &str = include_str!("frameworks.yaml");

@@ -1,0 +1,59 @@
+
+# Please keep this list alphabetized.
+
+# TODO: what do we need to include to determine if dependency exists
+
+# TODO: anaconda
+bundler:
+  project_files:
+    - Gemfile
+  instalL_command: bundle install
+  lock_file: Gemfile.lock
+cargo:
+  project_files:
+    - cargo.toml
+  instalL_command: cargo add
+  lock_file: Cargo.lock
+go:
+  project_files:
+    - go.mod
+  instalL_command: go get
+  lock_file: go.sum
+npm:
+  project_files:
+    - package.json
+  instalL_command: npm install
+  lock_file: package-lock.json
+nuget:
+  # TODO: need to support regex
+  project_files:
+    - '**/*.csproj'
+  instalL_command: dotnet add
+  lock_file: packages.lock.json
+pdm:
+  project_files:
+    - pyproject.toml
+  install_command: pdm install
+  lock_file: pdm.lock
+pip:
+  project_files:
+  - pyproject.toml
+  - requirements.txt
+  - pipfile
+  instalL_command: pip install
+  lock_file: pipfile.lock
+pnpm:
+  project_files:
+    - package.json
+  instalL_command: pnpm install
+  lock_file: pnpm-lock.yaml
+poetry:
+  project_file:
+    - pyproject.toml
+  instalL_command: poetry install
+  lock_file: poetry.lock
+yarn:
+  project_files:
+    - package.json
+  instalL_command: yarn install
+  lock_file: yarn.lock

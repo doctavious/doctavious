@@ -64,6 +64,7 @@ impl FrameworkSupport for Sphinx {
         &self.info
     }
 
+    // TODO: how to codify this in yaml?
     fn get_output_dir(&self) -> String {
         if let Ok(build_dir) = env::var("BUILDDIR") {
             return build_dir;

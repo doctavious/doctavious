@@ -89,6 +89,9 @@ impl<'a> PackageManager {
                 }
             }
             PackageManager::Npm => {
+                // TODO: check if package.json has 'build' script and use if available
+                // https://github.com/vercel/vercel/blob/main/packages/hydrogen/src/build.ts#L112
+                // https://github.com/vercel/vercel/blob/main/packages/build-utils/src/fs/run-user-scripts.ts#L613
                 PackageManagerInfo {
                     name: "npm",
                     install_command: "npm install",

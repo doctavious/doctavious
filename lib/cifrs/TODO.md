@@ -1,6 +1,6 @@
 - Can we move configuration to YAML files similar to how linguist works?
 - Can we support overriding cifrs detection via git attributes similar to linguist?
-  - Outside of if its doable, this might not be necessary as we'll provide a way to override options within doctavious but it wouldn't be helpful to those who are running it outside of Doctavious
+  - Outside of that if its doable, this might not be necessary as we'll provide a way to override options within doctavious but it wouldn't be helpful to those who are running it outside of Doctavious
 - Should CLI be specifically baked into Doctavious CLI or should it also be a separate CLI? Would need to determine how to make that work but I think we need to anyway if we want to incorporate Snippext into Doctavous CLI. Some work to review
   - OCLIF
   - Cargo and their plugin system
@@ -9,3 +9,5 @@
   - https://github.com/vercel/vercel/tree/main/packages/fs-detectors/src/monorepos
 - handle monorepos
   - https://github.com/vercel/vercel/tree/main/packages/fs-detectors/src/monorepos
+- Monorepo support
+  - includes cargo workspace?

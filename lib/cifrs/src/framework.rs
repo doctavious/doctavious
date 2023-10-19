@@ -10,6 +10,8 @@ use crate::language::Language;
 use crate::{CifrsError, CifrsResult};
 
 // FrameworkDefinition
+// if we want to use static str would need to use
+// #[serde(bound(deserialize = "'de: 'static"))]
 #[derive(Serialize)]
 pub struct FrameworkInfo {
     // id: String,
@@ -31,7 +33,7 @@ pub struct FrameworkInfo {
 
     // TODO: this could be SoftwareFramework / SoftwarePlatform.
     // Potentially solves for the scenario of needed multiple languages such as C#/F#
-    pub language: Language,
+    pub language: Language, // String
 
     // /// Detectors used to find out the framework
     pub detection: FrameworkDetector,
@@ -162,7 +164,7 @@ pub enum FrameworkBuildArg {
         index: i8,
         default_value: Option<&'static str>,
     },
-    // TODO: do we care short or long? how about use vec/array?
+    // TODO: do we care short or long? how about use vec/array? I dont think it really matters
     Option {
         short: &'static str,
         long: &'static str,
