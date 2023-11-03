@@ -6,6 +6,7 @@
 // change be changed via distDir
 
 use serde::Deserialize;
+use serde_derive::Serialize;
 use swc_ecma_ast::Program;
 
 use crate::framework::{
@@ -16,31 +17,37 @@ use crate::framework::{
 use crate::js_module::PropertyAccessor;
 use crate::language::Language;
 use crate::{CifrsError, CifrsResult};
+use crate::backends::LanguageBackends;
+
 #[derive(Deserialize)]
 struct NextJSConfig {
     output: String,
 }
 
+#[derive(Debug, Deserialize, PartialEq, Serialize)]
 pub struct NextJS {
+    #[serde(flatten)]
     info: FrameworkInfo,
 }
 
 impl NextJS {
-    fn new(configs: Option<Vec<&'static str>>) -> Self {
+    fn new(configs: Vec<String>) -> Self {
         Self {
             info: FrameworkInfo {
-                name: "Next.js",
-                website: Some("https://nextjs.org/"),
+                id: "nextjs".to_string(),
+                name: "Next.js".to_string(),
+                website: "https://nextjs.org/".to_string(),
                 configs,
-                language: Language::Javascript,
+                // language: Language::Javascript,
+                language: LanguageBackends::JavaScript,
                 detection: FrameworkDetector {
                     matching_strategy: FrameworkMatchingStrategy::All,
-                    detectors: vec![FrameworkDetectionItem::Dependency { name: "next" }],
+                    detectors: vec![FrameworkDetectionItem::Dependency { name: "next".to_string() }],
                 },
                 build: FrameworkBuildSettings {
-                    command: "next build",
+                    command: "next build".to_string(),
                     command_args: None,
-                    output_directory: ".next",
+                    output_directory: ".next".to_string(),
                 },
             },
         }
@@ -49,7 +56,7 @@ impl NextJS {
 
 impl Default for NextJS {
     fn default() -> Self {
-        NextJS::new(Some(Vec::from(["next.config.js", "next.config.mjs"])))
+        NextJS::new(Vec::from(["next.config.js".to_string(), "next.config.mjs".to_string()]))
     }
 }
 
@@ -59,8 +66,8 @@ impl FrameworkSupport for NextJS {
     }
 
     fn get_output_dir(&self) -> String {
-        if let Some(configs) = &self.info.configs {
-            match read_config_files::<NextJSConfig>(configs) {
+        if !self.info.configs.is_empty() {
+            match read_config_files::<NextJSConfig>(&self.info.configs) {
                 Ok(c) => {
                     return c.output;
                 }
@@ -122,10 +129,10 @@ mod tests {
     #[test]
     fn test_nextjs() {
         for config in [
-            "tests/fixtures/framework_configs/nextjs/next_js_v1.mjs",
-            "tests/fixtures/framework_configs/nextjs/next_js_v2.mjs",
+            "tests/fixtures/framework_configs/nextjs/next_js_v1.mjs".to_string(),
+            "tests/fixtures/framework_configs/nextjs/next_js_v2.mjs".to_string(),
         ] {
-            let nextjs = NextJS::new(Some(vec![config]));
+            let nextjs = NextJS::new(vec![config]);
 
             let output = nextjs.get_output_dir();
             assert_eq!(output, String::from("build"))

@@ -9,6 +9,8 @@
 // can be changed via publishDir
 
 use serde::Deserialize;
+use serde_derive::Serialize;
+use crate::backends::LanguageBackends;
 
 use crate::framework::{
     read_config_files, ConfigurationFileDeserialization, FrameworkBuildArg, FrameworkBuildArgs,
@@ -22,38 +24,42 @@ struct HugoConfig {
     publish_dir: Option<String>,
 }
 
+#[derive(Debug, Deserialize, PartialEq, Serialize)]
 pub struct Hugo {
+    #[serde(flatten)]
     info: FrameworkInfo,
 }
 
 impl Hugo {
-    fn new(configs: Option<Vec<&'static str>>) -> Self {
+    fn new(configs: Vec<String>) -> Self {
         Self {
             info: FrameworkInfo {
-                name: "Hexo",
-                website: Some("https://gohugo.io/"),
+                id: "hexo".to_string(),
+                name: "Hexo".to_string(),
+                website: "https://gohugo.io/".to_string(),
                 configs,
-                language: Language::Go,
+                // language: Language::Go,
+                language: LanguageBackends::Go,
                 detection: FrameworkDetector {
                     matching_strategy: FrameworkMatchingStrategy::All,
                     detectors: vec![FrameworkDetectionItem::Config {
-                        content: Some("baseURL"),
+                        content: Some("baseURL".to_string()),
                     }],
                 },
                 build: FrameworkBuildSettings {
-                    command: "hugo",
+                    command: "hugo".to_string(),
                     command_args: Some(FrameworkBuildArgs {
                         source: None,
                         config: Some(FrameworkBuildArg::Option {
-                            short: "",
-                            long: "--config",
+                            short: "".to_string(),
+                            long: "--config".to_string(),
                         }),
                         output: Some(FrameworkBuildArg::Option {
-                            short: "",
-                            long: "--destination",
+                            short: "".to_string(),
+                            long: "--destination".to_string(),
                         }),
                     }),
-                    output_directory: "/public",
+                    output_directory: "/public".to_string(),
                 },
             },
         }
@@ -62,14 +68,14 @@ impl Hugo {
 
 impl Default for Hugo {
     fn default() -> Self {
-        Hugo::new(Some(Vec::from([
-            "config.json",
-            "config.toml",
-            "config.yaml",
-            "hugo.json",
-            "hugo.toml",
-            "hugo.yaml",
-        ])))
+        Hugo::new(Vec::from([
+            "config.json".to_string(),
+            "config.toml".to_string(),
+            "config.yaml".to_string(),
+            "hugo.json".to_string(),
+            "hugo.toml".to_string(),
+            "hugo.yaml".to_string(),
+        ]))
     }
 }
 
@@ -79,8 +85,8 @@ impl FrameworkSupport for Hugo {
     }
 
     fn get_output_dir(&self) -> String {
-        if let Some(configs) = &self.info.configs {
-            match read_config_files::<HugoConfig>(configs) {
+        if !self.info.configs.is_empty() {
+            match read_config_files::<HugoConfig>(&self.info.configs) {
                 Ok(c) => {
                     if let Some(dir) = c.publish_dir {
                         return dir;
@@ -106,9 +112,9 @@ mod tests {
 
     #[test]
     fn test_hugo() {
-        let hugo = Hugo::new(Some(vec![
-            "tests/fixtures/framework_configs/hugo/config.toml",
-        ]));
+        let hugo = Hugo::new(vec![
+            "tests/fixtures/framework_configs/hugo/config.toml".to_string(),
+        ]);
 
         let output = hugo.get_output_dir();
         assert_eq!(output, "build")

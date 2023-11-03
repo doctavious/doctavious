@@ -88,24 +88,22 @@ fn matches(framework: &FrameworkInfo) -> Option<MatchResult> {
 fn check(framework: &FrameworkInfo, item: &FrameworkDetectionItem) -> Option<MatchResult> {
     match item {
         FrameworkDetectionItem::Config { content } => {
-            if let Some(configs) = &framework.configs {
-                for config in configs {
-                    if let Ok(file_content) = fs::read_to_string(config) {
-                        if let Some(content) = content {
-                            let regex = RegexBuilder::new(content).multi_line(true).build();
-                            match regex {
-                                Ok(regex) => {
-                                    if regex.is_match(file_content.as_str()) {
-                                        return Some(MatchResult { project: None });
-                                    }
-                                }
-                                Err(e) => {
-                                    // TODO: log
+            for config in &framework.configs {
+                if let Ok(file_content) = fs::read_to_string(config) {
+                    if let Some(content) = content {
+                        let regex = RegexBuilder::new(content).multi_line(true).build();
+                        match regex {
+                            Ok(regex) => {
+                                if regex.is_match(file_content.as_str()) {
+                                    return Some(MatchResult { project: None });
                                 }
                             }
+                            Err(e) => {
+                                // TODO: log
+                            }
                         }
-                        return Some(MatchResult { project: None });
                     }
+                    return Some(MatchResult { project: None });
                 }
             }
             None

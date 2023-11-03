@@ -1,4 +1,4 @@
-use serde_derive::Serialize;
+use serde_derive::{Deserialize, Serialize};
 
 use crate::package_manager::PackageManager;
 use crate::projects::project_file::ProjectFile;
@@ -6,7 +6,7 @@ use crate::projects::project_file::ProjectFile;
 // TODO: We might need to determine python path in order to do python builds
 
 #[non_exhaustive]
-#[derive(Serialize)]
+#[derive(Debug, Deserialize, PartialEq, Serialize)]
 pub enum Language {
     CSharp,
     Go,
@@ -194,6 +194,7 @@ impl Language {
 // }
 
 // LanguageDefinition
+#[derive(Debug, Deserialize, PartialEq, Serialize)]
 pub struct LanguageInfo {
     // id
     pub name: &'static str,
@@ -203,6 +204,7 @@ pub struct LanguageInfo {
 // Random idea for type to encapsulate
 // PackageManagement
 // PackageManagers
+#[derive(Debug, Deserialize, PartialEq, Serialize)]
 pub struct SupportedPackageManagers {
     supported: Vec<PackageManager>,
     fallback: PackageManager,

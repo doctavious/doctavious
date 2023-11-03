@@ -8,6 +8,7 @@
 // defaults to _site
 
 use serde::Deserialize;
+use serde_derive::Serialize;
 use swc_ecma_ast::Program;
 
 use crate::framework::{
@@ -20,40 +21,47 @@ use crate::js_module::{
 };
 use crate::language::Language;
 use crate::{CifrsError, CifrsResult};
+use crate::backends::LanguageBackends;
+
 #[derive(Deserialize)]
 struct EleventyConfig {
     output: String,
 }
 
+
+#[derive(Debug, Deserialize, PartialEq, Serialize)]
 pub struct Eleventy {
+    #[serde(flatten)]
     info: FrameworkInfo,
 }
 
 impl Eleventy {
-    fn new(configs: Option<Vec<&'static str>>) -> Self {
+    fn new(configs: Vec<String>) -> Self {
         Self {
             info: FrameworkInfo {
-                name: "Eleventy",
-                website: Some("https://www.11ty.dev/"),
+                id: "eleventy".to_string(),
+                name: "Eleventy".to_string(),
+                website: "https://www.11ty.dev/".to_string(),
                 configs,
-                language: Language::Javascript,
+                // language: Language::Javascript,
+                language: LanguageBackends::JavaScript,
                 detection: FrameworkDetector {
                     matching_strategy: FrameworkMatchingStrategy::All,
                     detectors: vec![FrameworkDetectionItem::Dependency {
-                        name: "@11ty/eleventy",
+                        name: "@11ty/eleventy".to_string(),
                     }],
                 },
                 build: FrameworkBuildSettings {
-                    command: "eleventy",
+                    command: "eleventy".to_string(),
                     command_args: Some(FrameworkBuildArgs {
                         source: None,
                         config: None,
                         output: Some(FrameworkBuildArg::Option {
-                            short: "",
-                            long: "--output",
+                            short: "".to_string(),
+                            long: "--output".to_string(),
                         }),
                     }),
-                    output_directory: "_site",
+                    output_directory: "_site".to_string(),
                 },
             },
         }
@@ -62,11 +70,11 @@ impl Eleventy {
 
 impl Default for Eleventy {
     fn default() -> Self {
-        Eleventy::new(Some(Vec::from([
-            ".eleventy.js",
-            "eleventy.config.js",
-            "eleventy.config.cjs",
-        ])))
+        Eleventy::new(Vec::from([
+            ".eleventy.js".to_string(),
+            "eleventy.config.js".to_string(),
+            "eleventy.config.cjs".to_string(),
+        ]))
     }
 }
 
@@ -76,8 +84,8 @@ impl FrameworkSupport for Eleventy {
     }
 
     fn get_output_dir(&self) -> String {
-        if let Some(configs) = &self.info.configs {
-            match read_config_files::<EleventyConfig>(configs) {
+        if !self.info.configs.is_empty() {
+            match read_config_files::<EleventyConfig>(&self.info.configs) {
                 Ok(c) => {
                     return c.output;
                 }
@@ -115,9 +123,9 @@ mod tests {
 
     #[test]
     fn test_eleventy() {
-        let eleventy = Eleventy::new(Some(vec![
-            "tests/fixtures/framework_configs/eleventy/.eleventy.js",
-        ]));
+        let eleventy = Eleventy::new(vec![
+            "tests/fixtures/framework_configs/eleventy/.eleventy.js".to_string(),
+        ]);
 
         let output = eleventy.get_output_dir();
         assert_eq!(output, String::from("dist"))

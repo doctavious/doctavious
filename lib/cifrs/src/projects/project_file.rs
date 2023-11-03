@@ -138,14 +138,18 @@ impl ProjectFile {
     pub fn get_project_paths(&self) -> Vec<PathBuf> {
         match self {
             ProjectFile::CSProj => {
-                let glob_result = glob("**/*.csproj");
-                match glob_result {
-                    Ok(paths) => paths.into_iter().filter_map(|p| p.ok()).collect(),
-                    Err(e) => {
-                        // TODO: log
-                        vec![]
-                    }
+                for pattern in ["*.csproj", "*.fsproj"] {
+                    let glob_result = glob("*.csproj");
+                    // TODO: fix
+                    return match glob_result {
+                        Ok(paths) => paths.into_iter().filter_map(|p| p.ok()).collect(),
+                        Err(e) => {
+                            // TODO: log
+                            vec![]
+                        }
+                    };
                 }
+                return vec![];
             }
             ProjectFile::GoMod => vec![PathBuf::from("go.mod")],
             ProjectFile::PackageJson => vec![PathBuf::from("package.json")],

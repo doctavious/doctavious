@@ -1,4 +1,5 @@
 use serde::Deserialize;
+use serde_derive::Serialize;
 use swc_ecma_ast::Program;
 
 use crate::framework::{
@@ -9,31 +10,37 @@ use crate::framework::{
 use crate::js_module::PropertyAccessor;
 use crate::language::Language;
 use crate::{CifrsError, CifrsResult};
+use crate::backends::LanguageBackends;
+
 #[derive(Deserialize)]
 struct Nuxt3JSConfig {
     output: Option<String>,
 }
 
+#[derive(Debug, Deserialize, PartialEq, Serialize)]
 pub struct Nuxt3JS {
+    #[serde(flatten)]
     info: FrameworkInfo,
 }
 
 impl Nuxt3JS {
-    fn new(configs: Option<Vec<&'static str>>) -> Self {
+    fn new(configs: Vec<String>) -> Self {
         Self {
             info: FrameworkInfo {
-                name: "Nuxt 3",
-                website: Some("https://nuxtjs.org/"),
+                id: "nuxt-v3".to_string(),
+                name: "Nuxt 3".to_string(),
+                website: "https://nuxtjs.org/".to_string(),
                 configs,
-                language: Language::Javascript,
+                // language: Language::Javascript,
+                language: LanguageBackends::JavaScript,
                 detection: FrameworkDetector {
                     matching_strategy: FrameworkMatchingStrategy::All,
-                    detectors: vec![FrameworkDetectionItem::Dependency { name: "nuxt3" }],
+                    detectors: vec![FrameworkDetectionItem::Dependency { name: "nuxt3".to_string() }],
                 },
                 build: FrameworkBuildSettings {
-                    command: "nuxi generate", // same as nuxi build --prerender true
+                    command: "nuxi generate".to_string(), // same as nuxi build --prerender true
                     command_args: None,
-                    output_directory: ".output",
+                    output_directory: ".output".to_string(),
                 },
             },
         }
@@ -42,11 +49,11 @@ impl Nuxt3JS {
 
 impl Default for Nuxt3JS {
     fn default() -> Self {
-        Nuxt3JS::new(Some(Vec::from([
-            "nuxt.config.js",
-            "nuxt.config.mjs",
-            "nuxt.config.ts",
-        ])))
+        Nuxt3JS::new(Vec::from([
+            "nuxt.config.js".to_string(),
+            "nuxt.config.mjs".to_string(),
+            "nuxt.config.ts".to_string(),
+        ]))
     }
 }
 
@@ -56,8 +63,8 @@ impl FrameworkSupport for Nuxt3JS {
     }
 
     fn get_output_dir(&self) -> String {
-        if let Some(configs) = &self.info.configs {
-            match read_config_files::<Nuxt3JSConfig>(configs) {
+        if !self.info.configs.is_empty() {
+            match read_config_files::<Nuxt3JSConfig>(&self.info.configs) {
                 Ok(c) => {
                     if let Some(dest) = c.output {
                         return dest;
@@ -94,10 +101,10 @@ mod tests {
     #[test]
     fn test_nuxtjs() {
         for config in [
-            "tests/fixtures/framework_configs/nuxt3js/nuxt_nitro.config.ts",
-            "tests/fixtures/framework_configs/nuxt3js/nuxt_vite.config.ts",
+            "tests/fixtures/framework_configs/nuxt3js/nuxt_nitro.config.ts".to_string(),
+            "tests/fixtures/framework_configs/nuxt3js/nuxt_vite.config.ts".to_string(),
         ] {
-            let nuxtjs = Nuxt3JS::new(Some(vec![config]));
+            let nuxtjs = Nuxt3JS::new(vec![config]);
 
             let output = nuxtjs.get_output_dir();
             assert_eq!(output, String::from("build"))

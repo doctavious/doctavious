@@ -1,10 +1,10 @@
-use serde_derive::Serialize;
+use serde_derive::{Deserialize, Serialize};
 
 use crate::framework::{FrameworkDetectionItem, FrameworkDetector, FrameworkMatchingStrategy};
 
 // TODO: could add PDM and Anaconda (Python)
 #[non_exhaustive]
-#[derive(Serialize)]
+#[derive(Debug, Deserialize, PartialEq, Serialize)]
 pub enum PackageManager {
     Cargo,
     Go,
@@ -43,9 +43,11 @@ pub struct PackageManagerInfo {
 
 impl<'a> PackageManager {
     pub const ALL: &'a [PackageManager] = &[
+        // Bun
         PackageManager::Cargo,
         PackageManager::Go,
         PackageManager::Npm,
+        PackageManager::Nuget,
         PackageManager::Poetry,
         PackageManager::Pip,
         PackageManager::Pnpm,
@@ -63,11 +65,11 @@ impl<'a> PackageManager {
                     matching_strategy: FrameworkMatchingStrategy::Any,
                     detectors: vec![
                         FrameworkDetectionItem::File {
-                            path: "Cargo.lock",
+                            path: "Cargo.lock".to_string(),
                             content: None,
                         },
                         FrameworkDetectionItem::File {
-                            path: "Cargo.toml",
+                            path: "Cargo.toml".to_string(),
                             content: None,
                         },
                     ],
@@ -82,7 +84,7 @@ impl<'a> PackageManager {
                     detection: FrameworkDetector {
                         matching_strategy: FrameworkMatchingStrategy::Any,
                         detectors: vec![FrameworkDetectionItem::File {
-                            path: "go.sum",
+                            path: "go.sum".to_string(),
                             content: None,
                         }],
                     },
@@ -103,12 +105,12 @@ impl<'a> PackageManager {
                         matching_strategy: FrameworkMatchingStrategy::Any,
                         detectors: vec![
                             FrameworkDetectionItem::File {
-                                path: "package-lock.json",
+                                path: "package-lock.json".to_string(),
                                 content: None,
                             },
                             FrameworkDetectionItem::File {
-                                path: "package.json",
-                                content: Some(r#""packageManager":\\s*"npm@.*"""#),
+                                path: "package.json".to_string(),
+                                content: Some(r#""packageManager":\\s*"npm@.*"""#.to_string()),
                             },
                         ],
                     },
@@ -121,7 +123,7 @@ impl<'a> PackageManager {
                 detection: FrameworkDetector {
                     matching_strategy: FrameworkMatchingStrategy::Any,
                     detectors: vec![FrameworkDetectionItem::File {
-                        path: "packages.lock.json",
+                        path: "packages.lock.json".to_string(),
                         content: None,
                     }],
                 },
@@ -134,12 +136,12 @@ impl<'a> PackageManager {
                     matching_strategy: FrameworkMatchingStrategy::Any,
                     detectors: vec![
                         FrameworkDetectionItem::File {
-                            path: "poetry.lock",
+                            path: "poetry.lock".to_string(),
                             content: None,
                         },
                         FrameworkDetectionItem::File {
-                            path: "pyproject.toml",
-                            content: Some("[tool.poetry]"),
+                            path: "pyproject.toml".to_string(),
+                            content: Some("[tool.poetry]".to_string()),
                         },
                     ],
                 },
@@ -152,15 +154,15 @@ impl<'a> PackageManager {
                     matching_strategy: FrameworkMatchingStrategy::Any,
                     detectors: vec![
                         FrameworkDetectionItem::File {
-                            path: "pipfile.lock",
+                            path: "pipfile.lock".to_string(),
                             content: None,
                         },
                         FrameworkDetectionItem::File {
-                            path: "pipfile",
+                            path: "pipfile".to_string(),
                             content: None,
                         },
                         FrameworkDetectionItem::File {
-                            path: "requirements.txt",
+                            path: "requirements.txt".to_string(),
                             content: None,
                         },
                     ],
@@ -174,12 +176,12 @@ impl<'a> PackageManager {
                     matching_strategy: FrameworkMatchingStrategy::Any,
                     detectors: vec![
                         FrameworkDetectionItem::File {
-                            path: "pnpm-lock.yaml",
+                            path: "pnpm-lock.yaml".to_string(),
                             content: None,
                         },
                         FrameworkDetectionItem::File {
-                            path: "package.json",
-                            content: Some(r#""packageManager":\\s*"pnpm@.*""#),
+                            path: "package.json".to_string(),
+                            content: Some(r#""packageManager":\\s*"pnpm@.*""#.to_string()),
                         },
                     ],
                 },
@@ -192,11 +194,11 @@ impl<'a> PackageManager {
                     matching_strategy: FrameworkMatchingStrategy::Any,
                     detectors: vec![
                         FrameworkDetectionItem::File {
-                            path: "Gemfile.lock",
+                            path: "Gemfile.lock".to_string(),
                             content: None,
                         },
                         FrameworkDetectionItem::File {
-                            path: "Gemfile",
+                            path: "Gemfile".to_string(),
                             content: None,
                         },
                     ],
@@ -210,12 +212,12 @@ impl<'a> PackageManager {
                     matching_strategy: FrameworkMatchingStrategy::Any,
                     detectors: vec![
                         FrameworkDetectionItem::File {
-                            path: "yarn.lock",
+                            path: "yarn.lock".to_string(),
                             content: None,
                         },
                         FrameworkDetectionItem::File {
-                            path: "package.json",
-                            content: Some(r#""packageManager":\\s*"yarn@.*""#),
+                            path: "package.json".to_string(),
+                            content: Some(r#""packageManager":\\s*"yarn@.*""#.to_string()),
                         },
                     ],
                 },

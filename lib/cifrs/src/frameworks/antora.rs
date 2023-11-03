@@ -6,13 +6,14 @@
 // antora generate <playbook> --to-dir <dir>
 
 use serde::Deserialize;
+use serde_derive::Serialize;
+use crate::backends::LanguageBackends;
 
 use crate::framework::{
     read_config_files, ConfigurationFileDeserialization, FrameworkBuildArg, FrameworkBuildArgs,
     FrameworkBuildSettings, FrameworkDetectionItem, FrameworkDetector, FrameworkInfo,
     FrameworkMatchingStrategy, FrameworkSupport,
 };
-use crate::language::Language;
 
 #[derive(Deserialize)]
 struct AntoraConfigOutputKeys {
@@ -24,31 +25,35 @@ struct AntoraConfig {
     output: Option<AntoraConfigOutputKeys>,
 }
 
+#[derive(Debug, Deserialize, PartialEq, Serialize)]
 pub struct Antora {
+    #[serde(flatten)]
     info: FrameworkInfo,
 }
 
 impl Antora {
-    fn new(configs: Option<Vec<&'static str>>) -> Self {
+    fn new(configs: Vec<String>) -> Self {
         Self {
             info: FrameworkInfo {
-                name: "Antora",
-                website: Some("https://antora.org/"),
+                id: "antora".to_string(),
+                name: "Antora".to_string(),
+                website: "https://antora.org/".to_string(),
                 configs,
-                language: Language::Javascript,
+                // language: Language::Javascript,
+                language: LanguageBackends::JavaScript,
                 detection: FrameworkDetector {
                     matching_strategy: FrameworkMatchingStrategy::Any,
                     detectors: vec![
                         FrameworkDetectionItem::Dependency {
-                            name: "@antora/cli",
+                            name: "@antora/cli".to_string(),
                         },
                         FrameworkDetectionItem::Dependency {
-                            name: "@antora/site-generator",
+                            name: "@antora/site-generator".to_string(),
                         },
                     ],
                 },
                 build: FrameworkBuildSettings {
-                    command: "antora generate",
+                    command: "antora generate".to_string(),
                     command_args: Some(FrameworkBuildArgs {
                         source: None,
                         config: Some(FrameworkBuildArg::Arg {
@@ -56,11 +61,11 @@ impl Antora {
                             default_value: None,
                         }),
                         output: Some(FrameworkBuildArg::Option {
-                            short: "",
-                            long: "--to-dir",
+                            short: "".to_string(),
+                            long: "--to-dir".to_string(),
                         }),
                     }),
-                    output_directory: "build/site",
+                    output_directory: "build/site".to_string(),
                 },
             },
         }
@@ -69,7 +74,7 @@ impl Antora {
 
 impl Default for Antora {
     fn default() -> Self {
-        Antora::new(Some(Vec::from(["antora-playbook.yaml"])))
+        Antora::new(Vec::from(["antora-playbook.yaml".to_string()]))
     }
 }
 
@@ -79,8 +84,8 @@ impl FrameworkSupport for Antora {
     }
 
     fn get_output_dir(&self) -> String {
-        if let Some(configs) = &self.info.configs {
-            match read_config_files::<AntoraConfig>(configs) {
+        if !self.info.configs.is_empty() {
+            match read_config_files::<AntoraConfig>(&self.info.configs) {
                 Ok(c) => {
                     if let Some(AntoraConfigOutputKeys { dir: Some(v) }) = c.output {
                         return v;
@@ -106,9 +111,9 @@ mod tests {
 
     #[test]
     fn test_antora() {
-        let antora = Antora::new(Some(vec![
-            "tests/fixtures/framework_configs/antora/antora-playbook.yaml",
-        ]));
+        let antora = Antora::new(vec![
+            "tests/fixtures/framework_configs/antora/antora-playbook.yaml".to_string(),
+        ]);
 
         let output = antora.get_output_dir();
         assert_eq!(output, "./launch")

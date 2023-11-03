@@ -4,6 +4,7 @@
 // dependency - adapter-static
 
 use serde::Deserialize;
+use serde_derive::Serialize;
 use swc_ecma_ast::Program;
 
 use crate::framework::{
@@ -16,6 +17,7 @@ use crate::js_module::{
 };
 use crate::language::Language;
 use crate::{CifrsError, CifrsResult};
+use crate::backends::LanguageBackends;
 
 // TODO: given there is no option to override does it make sense to still enforce Deserialize
 // and ConfigurationFileDeserialization?
@@ -25,38 +27,42 @@ struct SvelteKitConfig {
     output: Option<String>,
 }
 
+#[derive(Debug, Deserialize, PartialEq, Serialize)]
 pub struct SvelteKit {
+    #[serde(flatten)]
     info: FrameworkInfo,
 }
 
 impl SvelteKit {
-    fn new(configs: Option<Vec<&'static str>>) -> Self {
+    fn new(configs: Vec<String>) -> Self {
         Self {
             info: FrameworkInfo {
-                name: "SvelteKit",
-                website: Some("https://kit.svelte.dev/"),
+                id: "sveltekit".to_string(),
+                name: "SvelteKit".to_string(),
+                website: "https://kit.svelte.dev/".to_string(),
                 configs,
-                language: Language::Javascript,
+                // language: Language::Javascript,
+                language: LanguageBackends::JavaScript,
                 detection: FrameworkDetector {
                     matching_strategy: FrameworkMatchingStrategy::All,
                     detectors: vec![FrameworkDetectionItem::Dependency {
-                        name: "@sveltejs/kit",
+                        name: "@sveltejs/kit".to_string(),
                     }],
                 },
                 build: FrameworkBuildSettings {
-                    command: "vite build",
+                    command: "vite build".to_string(),
                     command_args: Some(FrameworkBuildArgs {
                         source: None,
                         config: None,
                         output: Some(FrameworkBuildArg::Option {
-                            short: "",
-                            long: "--outDir",
+                            short: "".to_string(),
+                            long: "--outDir".to_string(),
                         }),
                     }),
                     // TODO: validate
                     // according to the following https://github.com/netlify/build/pull/4823
                     // .svelte-kit is the internal build dir, not the publish dir.
-                    output_directory: "build", //".svelte-kit",
+                    output_directory: "build".to_string(), //".svelte-kit",
                 },
             },
         }
@@ -65,7 +71,7 @@ impl SvelteKit {
 
 impl Default for SvelteKit {
     fn default() -> Self {
-        SvelteKit::new(Some(vec!["svelte.config.js"]))
+        SvelteKit::new(vec!["svelte.config.js".to_string()])
     }
 }
 
@@ -75,8 +81,8 @@ impl FrameworkSupport for SvelteKit {
     }
 
     fn get_output_dir(&self) -> String {
-        if let Some(configs) = &self.info.configs {
-            match read_config_files::<SvelteKitConfig>(configs) {
+        if !self.info.configs.is_empty() {
+            match read_config_files::<SvelteKitConfig>(&self.info.configs) {
                 Ok(c) => {
                     if let Some(dest) = c.output {
                         return dest;
@@ -131,9 +137,9 @@ mod tests {
         let sveltekit = SvelteKit::new(
             // tests/fixtures/framework_configs/sveltekit/svelte.config.js
             // tests/fixtures/framework_configs/sveltekit/svelte.config.js
-            Some(vec![
-                "tests/fixtures/framework_configs/sveltekit/svelte.config.js",
-            ]),
+            vec![
+                "tests/fixtures/framework_configs/sveltekit/svelte.config.js".to_string(),
+            ],
         );
 
         let output = sveltekit.get_output_dir();

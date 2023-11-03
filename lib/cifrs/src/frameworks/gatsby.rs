@@ -6,6 +6,7 @@
 // gatsby build
 
 use serde::Deserialize;
+use serde_derive::Serialize;
 use swc_ecma_ast::Program;
 
 use crate::framework::{
@@ -19,6 +20,7 @@ use crate::js_module::{
 };
 use crate::language::Language;
 use crate::{CifrsError, CifrsResult};
+use crate::backends::LanguageBackends;
 
 // TODO: given there is no option to override does it make sense to still enforce Deserialize
 // and ConfigurationFileDeserialization?
@@ -28,26 +30,30 @@ struct GatsbyConfig {
     output: String,
 }
 
+#[derive(Debug, Deserialize, PartialEq, Serialize)]
 pub struct Gatsby {
+    #[serde(flatten)]
     info: FrameworkInfo,
 }
 
 impl Gatsby {
-    fn new(configs: Option<Vec<&'static str>>) -> Self {
+    fn new(configs: Vec<String>) -> Self {
         Self {
             info: FrameworkInfo {
-                name: "Gatsby",
-                website: Some("https://www.gatsbyjs.com/"),
+                id: "gatsby".to_string(),
+                name: "Gatsby".to_string(),
+                website: "https://www.gatsbyjs.com/".to_string(),
                 configs,
-                language: Language::Javascript,
+                // language: Language::Javascript,
+                language: LanguageBackends::JavaScript,
                 detection: FrameworkDetector {
                     matching_strategy: FrameworkMatchingStrategy::All,
-                    detectors: vec![FrameworkDetectionItem::Dependency { name: "gatsby" }],
+                    detectors: vec![FrameworkDetectionItem::Dependency { name: "gatsby".to_string() }],
                 },
                 build: FrameworkBuildSettings {
-                    command: "gatsby build",
+                    command: "gatsby build".to_string(),
                     command_args: None,
-                    output_directory: "/public",
+                    output_directory: "/public".to_string(),
                 },
             },
         }
@@ -56,7 +62,10 @@ impl Gatsby {
 
 impl Default for Gatsby {
     fn default() -> Self {
-        Gatsby::new(Some(Vec::from(["gatsby-config.js", "gatsby-config.ts"])))
+        Gatsby::new(Vec::from([
+            "gatsby-config.js".to_string(),
+            "gatsby-config.ts".to_string()]
+        ))
     }
 }
 
@@ -66,8 +75,8 @@ impl FrameworkSupport for Gatsby {
     }
 
     fn get_output_dir(&self) -> String {
-        if let Some(configs) = &self.info.configs {
-            match read_config_files::<GatsbyConfig>(configs) {
+        if !self.info.configs.is_empty() {
+            match read_config_files::<GatsbyConfig>(&self.info.configs) {
                 Ok(c) => {
                     return c.output;
                 }
@@ -111,9 +120,9 @@ mod tests {
 
     #[test]
     fn test_gatsby() {
-        let gatsby = Gatsby::new(Some(vec![
-            "tests/fixtures/framework_configs/gatsby/gatsby-config.js",
-        ]));
+        let gatsby = Gatsby::new(vec![
+            "tests/fixtures/framework_configs/gatsby/gatsby-config.js".to_string(),
+        ]);
 
         let output = gatsby.get_output_dir();
         assert_eq!(output, "dist")

@@ -5,6 +5,7 @@
 // defaults to "./dist"
 
 use serde::Deserialize;
+use serde_derive::Serialize;
 use swc_ecma_ast::Program;
 
 use crate::framework::{
@@ -15,34 +16,39 @@ use crate::framework::{
 use crate::js_module::{get_call_expression, get_call_string_property};
 use crate::language::Language;
 use crate::{CifrsError, CifrsResult};
+use crate::backends::LanguageBackends;
 
+#[derive(Debug, Deserialize, PartialEq, Serialize)]
 pub struct Astro {
+    #[serde(flatten)]
     info: FrameworkInfo,
 }
 
 impl Astro {
-    fn new(configs: Option<Vec<&'static str>>) -> Self {
+    fn new(configs: Vec<String>) -> Self {
         Self {
             info: FrameworkInfo {
-                name: "Astro",
-                website: Some("https://astro.build"),
+                id: "astro".to_string(),
+                name: "Astro".to_string(),
+                website: "https://astro.build".to_string(),
                 configs,
-                language: Language::Javascript,
+                // language: Language::Javascript,
+                language: LanguageBackends::JavaScript,
                 detection: FrameworkDetector {
                     matching_strategy: FrameworkMatchingStrategy::All,
-                    detectors: vec![FrameworkDetectionItem::Dependency { name: "astro" }],
+                    detectors: vec![FrameworkDetectionItem::Dependency { name: "astro".to_string() }],
                 },
                 build: FrameworkBuildSettings {
-                    command: "astro build",
+                    command: "astro build".to_string(),
                     command_args: Some(FrameworkBuildArgs {
                         source: None,
                         config: Some(FrameworkBuildArg::Option {
-                            short: "",
-                            long: "--config",
+                            short: "".to_string(),
+                            long: "--config".to_string(),
                         }),
                         output: None,
                     }),
-                    output_directory: "./dist",
+                    output_directory: "./dist".to_string(),
                 },
             },
         }
@@ -51,7 +57,7 @@ impl Astro {
 
 impl Default for Astro {
     fn default() -> Self {
-        Astro::new(Some(Vec::from(["astro.config.mjs"])))
+        Astro::new(Vec::from(["astro.config.mjs".to_string()]))
     }
 }
 
@@ -61,8 +67,8 @@ impl FrameworkSupport for Astro {
     }
 
     fn get_output_dir(&self) -> String {
-        if let Some(configs) = &self.info.configs {
-            match read_config_files::<AstroConfig>(configs) {
+        if !self.info.configs.is_empty() {
+            match read_config_files::<AstroConfig>(&self.info.configs) {
                 Ok(c) => return c.output,
                 Err(e) => {
                     // log warning/error
@@ -101,9 +107,9 @@ mod tests {
 
     #[test]
     fn test_astro() {
-        let astro = Astro::new(Some(vec![
-            "tests/fixtures/framework_configs/astro/astro.config.mjs",
-        ]));
+        let astro = Astro::new(vec![
+            "tests/fixtures/framework_configs/astro/astro.config.mjs".to_string(),
+        ]);
 
         let output = astro.get_output_dir();
         assert_eq!(output, "./build")

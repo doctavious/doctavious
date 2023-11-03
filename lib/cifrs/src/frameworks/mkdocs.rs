@@ -3,6 +3,8 @@
 // change be changed via site_dir
 
 use serde::Deserialize;
+use serde_derive::Serialize;
+use crate::backends::LanguageBackends;
 
 use crate::framework::{
     read_config_files, ConfigurationFileDeserialization, FrameworkBuildArg, FrameworkBuildArgs,
@@ -15,36 +17,40 @@ struct MKDocsConfig {
     site_dir: Option<String>,
 }
 
+#[derive(Debug, Deserialize, PartialEq, Serialize)]
 pub struct MKDocs {
+    #[serde(flatten)]
     info: FrameworkInfo,
 }
 
 impl MKDocs {
-    fn new(configs: Option<Vec<&'static str>>) -> Self {
+    fn new(configs: Vec<String>) -> Self {
         Self {
             info: FrameworkInfo {
-                name: "MkDocs",
-                website: Some("https://www.mkdocs.org/"),
+                id: "mkdocs".to_string(),
+                name: "MkDocs".to_string(),
+                website: "https://www.mkdocs.org/".to_string(),
                 configs,
-                language: Language::Python,
+                // language: Language::Python,
+                language: LanguageBackends::Python,
                 detection: FrameworkDetector {
                     matching_strategy: FrameworkMatchingStrategy::All,
-                    detectors: vec![FrameworkDetectionItem::Dependency { name: "mkdocs" }],
+                    detectors: vec![FrameworkDetectionItem::Dependency { name: "mkdocs".to_string() }],
                 },
                 build: FrameworkBuildSettings {
-                    command: "mkdocs build",
+                    command: "mkdocs build".to_string(),
                     command_args: Some(FrameworkBuildArgs {
                         source: None,
                         config: Some(FrameworkBuildArg::Option {
-                            short: "-f",
-                            long: "--config-file",
+                            short: "-f".to_string(),
+                            long: "--config-file".to_string(),
                         }),
                         output: Some(FrameworkBuildArg::Option {
-                            short: "-d",
-                            long: "--site-dir",
+                            short: "-d".to_string(),
+                            long: "--site-dir".to_string(),
                         }),
                     }),
-                    output_directory: "site",
+                    output_directory: "site".to_string(),
                 },
             },
         }
@@ -53,7 +59,7 @@ impl MKDocs {
 
 impl Default for MKDocs {
     fn default() -> Self {
-        MKDocs::new(Some(Vec::from(["mkdocs.yml"])))
+        MKDocs::new(Vec::from(["mkdocs.yml".to_string()]))
     }
 }
 
@@ -63,8 +69,8 @@ impl FrameworkSupport for MKDocs {
     }
 
     fn get_output_dir(&self) -> String {
-        if let Some(configs) = &self.info.configs {
-            match read_config_files::<MKDocsConfig>(configs) {
+        if !self.info.configs.is_empty() {
+            match read_config_files::<MKDocsConfig>(&self.info.configs) {
                 Ok(c) => {
                     if let Some(dir) = c.site_dir {
                         return dir;
@@ -90,9 +96,9 @@ mod tests {
 
     #[test]
     fn test_hugo() {
-        let mkdocs = MKDocs::new(Some(vec![
-            "tests/fixtures/framework_configs/mkdocs/mkdocs.yml",
-        ]));
+        let mkdocs = MKDocs::new(vec![
+            "tests/fixtures/framework_configs/mkdocs/mkdocs.yml".to_string(),
+        ]);
 
         let output = mkdocs.get_output_dir();
         assert_eq!(output, "build")

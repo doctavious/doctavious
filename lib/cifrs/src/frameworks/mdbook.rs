@@ -3,6 +3,8 @@
 // change be changed via build.build-dir
 
 use serde::Deserialize;
+use serde_derive::Serialize;
+use crate::backends::LanguageBackends;
 
 use crate::framework::{
     read_config_files, ConfigurationFileDeserialization, FrameworkBuildArg, FrameworkBuildArgs,
@@ -21,33 +23,37 @@ struct MDBookConfig {
     build: Option<MDBookBuildOptions>,
 }
 
+#[derive(Debug, Deserialize, PartialEq, Serialize)]
 pub struct MDBook {
+    #[serde(flatten)]
     info: FrameworkInfo,
 }
 
 impl MDBook {
-    fn new(configs: Option<Vec<&'static str>>) -> Self {
+    fn new(configs: Vec<String>) -> Self {
         Self {
             info: FrameworkInfo {
-                name: "mdBook",
-                website: Some("https://rust-lang.github.io/mdBook/"),
+                id: "mdbook".to_string(),
+                name: "mdBook".to_string(),
+                website: "https://rust-lang.github.io/mdBook/".to_string(),
                 configs,
-                language: Language::Rust,
+                // language: Language::Rust,
+                language: LanguageBackends::Rust,
                 detection: FrameworkDetector {
                     matching_strategy: FrameworkMatchingStrategy::All,
                     detectors: vec![FrameworkDetectionItem::Config { content: None }],
                 },
                 build: FrameworkBuildSettings {
-                    command: "mdbook build",
+                    command: "mdbook build".to_string(),
                     command_args: Some(FrameworkBuildArgs {
                         source: None,
                         config: None,
                         output: Some(FrameworkBuildArg::Option {
-                            short: "-d",
-                            long: "--dest-dir",
+                            short: "-d".to_string(),
+                            long: "--dest-dir".to_string(),
                         }),
                     }),
-                    output_directory: "./book",
+                    output_directory: "./book".to_string(),
                 },
             },
         }
@@ -56,7 +62,7 @@ impl MDBook {
 
 impl Default for MDBook {
     fn default() -> Self {
-        MDBook::new(Some(Vec::from(["book.toml"])))
+        MDBook::new(Vec::from(["book.toml".to_string()]))
     }
 }
 
@@ -66,8 +72,8 @@ impl FrameworkSupport for MDBook {
     }
 
     fn get_output_dir(&self) -> String {
-        if let Some(configs) = &self.info.configs {
-            match read_config_files::<MDBookConfig>(configs) {
+        if !self.info.configs.is_empty() {
+            match read_config_files::<MDBookConfig>(&self.info.configs) {
                 Ok(c) => {
                     if let Some(MDBookBuildOptions { build_dir: Some(v) }) = c.build {
                         return v;
@@ -93,9 +99,9 @@ mod tests {
 
     #[test]
     fn test_mdbook() {
-        let book = MDBook::new(Some(vec![
-            "tests/fixtures/framework_configs/mdbook/book.toml",
-        ]));
+        let book = MDBook::new(vec![
+            "tests/fixtures/framework_configs/mdbook/book.toml".to_string(),
+        ]);
 
         let output = book.get_output_dir();
         assert_eq!(output, "build")

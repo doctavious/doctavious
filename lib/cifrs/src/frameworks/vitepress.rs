@@ -7,6 +7,7 @@
 // package.json
 
 use serde::Deserialize;
+use serde_derive::Serialize;
 use swc_ecma_ast::Program;
 
 use crate::framework::{
@@ -17,32 +18,37 @@ use crate::framework::{
 use crate::js_module::PropertyAccessor;
 use crate::language::Language;
 use crate::{CifrsError, CifrsResult};
+use crate::backends::LanguageBackends;
 
 #[derive(Deserialize)]
 struct VitePressConfig {
     output: Option<String>,
 }
 
+#[derive(Debug, Deserialize, PartialEq, Serialize)]
 pub struct VitePress {
+    #[serde(flatten)]
     info: FrameworkInfo,
 }
 
 impl VitePress {
-    fn new(configs: Option<Vec<&'static str>>) -> Self {
+    fn new(configs: Vec<String>) -> Self {
         Self {
             info: FrameworkInfo {
-                name: "VitePress",
-                website: Some("https://vitepress.vuejs.org/"),
+                id: "vitepress".to_string(),
+                name: "VitePress".to_string(),
+                website: "https://vitepress.vuejs.org/".to_string(),
                 configs,
-                language: Language::Javascript,
+                // language: Language::Javascript,
+                language: LanguageBackends::JavaScript,
                 detection: FrameworkDetector {
                     matching_strategy: FrameworkMatchingStrategy::All,
-                    detectors: vec![FrameworkDetectionItem::Dependency { name: "vitepress" }],
+                    detectors: vec![FrameworkDetectionItem::Dependency { name: "vitepress".to_string() }],
                 },
                 build: FrameworkBuildSettings {
-                    command: "vitepress build docs",
+                    command: "vitepress build docs".to_string(),
                     command_args: None, // TODO: check
-                    output_directory: "docs/.vitepress/dist",
+                    output_directory: "docs/.vitepress/dist".to_string(),
                 },
             },
         }
@@ -51,13 +57,13 @@ impl VitePress {
 
 impl Default for VitePress {
     fn default() -> Self {
-        VitePress::new(Some(vec![
-            ".vitepress/config.cjs",
-            ".vitepress/config.js",
-            ".vitepress/config.mjs",
-            ".vitepress/config.mts",
-            ".vitepress/config.ts",
-        ]))
+        VitePress::new(vec![
+            ".vitepress/config.cjs".to_string(),
+            ".vitepress/config.js".to_string(),
+            ".vitepress/config.mjs".to_string(),
+            ".vitepress/config.mts".to_string(),
+            ".vitepress/config.ts".to_string(),
+        ])
     }
 }
 
@@ -67,8 +73,8 @@ impl FrameworkSupport for VitePress {
     }
 
     fn get_output_dir(&self) -> String {
-        if let Some(configs) = &self.info.configs {
-            match read_config_files::<VitePressConfig>(configs) {
+        if !self.info.configs.is_empty() {
+            match read_config_files::<VitePressConfig>(&self.info.configs) {
                 Ok(c) => {
                     if let Some(dest) = c.output {
                         return dest;
@@ -132,11 +138,11 @@ mod tests {
     #[test]
     fn test_vitepress() {
         let configs = [
-            "tests/fixtures/framework_configs/vitepress/config.js",
-            "tests/fixtures/framework_configs/vitepress/config.ts",
+            "tests/fixtures/framework_configs/vitepress/config.js".to_string(),
+            "tests/fixtures/framework_configs/vitepress/config.ts".to_string(),
         ];
         for config in configs {
-            let vitepress = VitePress::new(Some(vec![config]));
+            let vitepress = VitePress::new(vec![config]);
 
             let output = vitepress.get_output_dir();
             assert_eq!(output, String::from("build"))

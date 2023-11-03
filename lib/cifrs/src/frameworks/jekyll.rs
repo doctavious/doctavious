@@ -6,6 +6,8 @@
 // jekyll build -d, --destination DIR
 
 use serde::Deserialize;
+use serde_derive::Serialize;
+use crate::backends::LanguageBackends;
 
 use crate::framework::{
     read_config_files, ConfigurationFileDeserialization, FrameworkBuildArg, FrameworkBuildArgs,
@@ -18,43 +20,47 @@ struct JekyllConfig {
     destination: Option<String>,
 }
 
+#[derive(Debug, Deserialize, PartialEq, Serialize)]
 pub struct Jekyll {
+    #[serde(flatten)]
     info: FrameworkInfo,
 }
 
 impl Jekyll {
-    fn new(configs: Option<Vec<&'static str>>) -> Self {
+    fn new(configs: Vec<String>) -> Self {
         Self {
             info: FrameworkInfo {
-                name: "Jekyll",
-                website: Some("https://jekyllrb.com/"),
+                id: "jekyll".to_string(),
+                name: "Jekyll".to_string(),
+                website: "https://jekyllrb.com/".to_string(),
                 configs,
-                language: Language::Ruby,
+                // language: Language::Ruby,
+                language: LanguageBackends::Ruby,
                 detection: FrameworkDetector {
                     matching_strategy: FrameworkMatchingStrategy::Any,
                     detectors: vec![
-                        FrameworkDetectionItem::Dependency { name: "jekyll" },
+                        FrameworkDetectionItem::Dependency { name: "jekyll".to_string() },
                         FrameworkDetectionItem::File {
-                            path: "Gemfile",
-                            content: Some("jekyll_plugins"),
+                            path: "Gemfile".to_string(),
+                            content: Some("jekyll_plugins".to_string()),
                         },
                     ],
                 },
                 build: FrameworkBuildSettings {
                     // bundle exec jekyll build
-                    command: "jekyll build",
+                    command: "jekyll build".to_string(),
                     command_args: Some(FrameworkBuildArgs {
                         source: None,
                         config: Some(FrameworkBuildArg::Option {
-                            short: "",
-                            long: "--config",
+                            short: "".to_string(),
+                            long: "--config".to_string(),
                         }),
                         output: Some(FrameworkBuildArg::Option {
-                            short: "-d",
-                            long: "--destination",
+                            short: "-d".to_string(),
+                            long: "--destination".to_string(),
                         }),
                     }),
-                    output_directory: "_site",
+                    output_directory: "_site".to_string(),
                 },
             },
         }
@@ -63,7 +69,7 @@ impl Jekyll {
 
 impl Default for Jekyll {
     fn default() -> Self {
-        Jekyll::new(Some(Vec::from(["_config.yml", "_config.toml"])))
+        Jekyll::new(Vec::from(["_config.yml".to_string(), "_config.toml".to_string()]))
     }
 }
 
@@ -73,8 +79,8 @@ impl FrameworkSupport for Jekyll {
     }
 
     fn get_output_dir(&self) -> String {
-        if let Some(configs) = &self.info.configs {
-            match read_config_files::<JekyllConfig>(configs) {
+        if !self.info.configs.is_empty() {
+            match read_config_files::<JekyllConfig>(&self.info.configs) {
                 Ok(c) => {
                     if let Some(destination) = c.destination {
                         return destination;
@@ -100,9 +106,9 @@ mod tests {
 
     #[test]
     fn test_jekyll() {
-        let jekyll = Jekyll::new(Some(vec![
-            "tests/fixtures/framework_configs/jekyll/_config.yml",
-        ]));
+        let jekyll = Jekyll::new(vec![
+            "tests/fixtures/framework_configs/jekyll/_config.yml".to_string(),
+        ]);
 
         let output = jekyll.get_output_dir();
         assert_eq!(output, "build")

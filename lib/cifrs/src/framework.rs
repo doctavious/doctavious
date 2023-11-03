@@ -8,32 +8,50 @@ use swc_ecma_ast::Program;
 use crate::js_module::parse_js_module;
 use crate::language::Language;
 use crate::{CifrsError, CifrsResult};
+use crate::backends::LanguageBackends;
+use crate::frameworks::antora::Antora;
+use crate::frameworks::astro::Astro;
+use crate::frameworks::docfx::DocFx;
+use crate::frameworks::docusaurus_v2::DocusaurusV2;
+use crate::frameworks::eleventy::Eleventy;
+use crate::frameworks::gatsby::Gatsby;
+use crate::frameworks::hexo::Hexo;
+use crate::frameworks::hugo::Hugo;
+use crate::frameworks::jekyll::Jekyll;
+use crate::frameworks::mdbook::MDBook;
+use crate::frameworks::mkdocs::MKDocs;
+use crate::frameworks::nextjs::NextJS;
+use crate::frameworks::nuxtjs::NuxtJS;
+use crate::frameworks::sphinx::Sphinx;
+use crate::frameworks::sveltekit::SvelteKit;
+use crate::frameworks::vitepress::VitePress;
+use crate::frameworks::vuepress::VuePress;
 
 // FrameworkDefinition
 // if we want to use static str would need to use
-// #[serde(bound(deserialize = "'de: 'static"))]
-#[derive(Serialize)]
+#[derive(Debug, Deserialize, PartialEq, Serialize)]
 pub struct FrameworkInfo {
-    // id: String,
+    pub id: String,
+
     /// Name of the framework
     ///
     /// # Examples
     /// Next.js
-    pub name: &'static str,
+    pub name: String,
 
     /// A URL to the official website of the framework
     ///
     /// # Examples
     /// https://nextjs.org
-    pub website: Option<&'static str>,
+    pub website: String,
 
-    // TODO: does this really need to be an Option? How about just empty?
     /// List of potential config files
-    pub configs: Option<Vec<&'static str>>,
+    pub configs: Vec<String>,
 
     // TODO: this could be SoftwareFramework / SoftwarePlatform.
     // Potentially solves for the scenario of needed multiple languages such as C#/F#
-    pub language: Language, // String
+    // I kinda like Replit's UPM LanguageBackend
+    pub language: LanguageBackends, // String
 
     // /// Detectors used to find out the framework
     pub detection: FrameworkDetector,
@@ -48,27 +66,26 @@ impl FrameworkInfo {
         for detection in &self.detection.detectors {
             let result = match detection {
                 FrameworkDetectionItem::Config { content } => {
-                    if let Some(configs) = &self.configs {
-                        for config in configs {
-                            if let Ok(file_content) = fs::read_to_string(config) {
-                                if let Some(content) = content {
-                                    if file_content.contains(content) {
-                                        return true;
-                                    }
-                                    continue;
+                    for config in  &self.configs  {
+                        if let Ok(file_content) = fs::read_to_string(config) {
+                            if let Some(content) = content {
+                                if file_content.contains(content) {
+                                    return true;
                                 }
-                                return true;
+                                continue;
                             }
+                            return true;
                         }
                     }
+
                     false
                 }
                 FrameworkDetectionItem::Dependency { name: dependency } => {
-                    for project_file in self.language.project_files() {
-                        // if project_file.has_dependency(dependency) {
-                        //     return true;
-                        // }
-                    }
+                    // for project_file in self.language.project_files() {
+                    //     if project_file.has_dependency(dependency) {
+                    //         return true;
+                    //     }
+                    // }
                     // for pck_manager in self.language.get_package_managers() {
                     //     if pck_manager.has_dependency(dependency) {
                     //         return true;
@@ -98,31 +115,35 @@ impl FrameworkInfo {
 }
 
 // TODO: rename to FrameworkDetection?
-#[derive(Serialize)]
+#[derive(Debug, Deserialize, PartialEq, Serialize)]
 pub struct FrameworkDetector {
     pub matching_strategy: FrameworkMatchingStrategy,
     pub detectors: Vec<FrameworkDetectionItem>,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Deserialize, PartialEq, Serialize)]
+#[serde(tag = "type")]
 pub enum FrameworkDetectionItem {
     // TODO: see if this can replace Config
+    #[serde(rename = "file")]
     File {
-        path: &'static str,
-        content: Option<&'static str>,
+        path: String,
+        content: Option<String>,
     },
 
     /// A matcher for a config file
+    #[serde(rename = "config")]
     Config {
         /// Content that must be present in the config file
-        content: Option<&'static str>,
+        content: Option<String>,
     },
 
     /// A matcher for a dependency found in project file
-    Dependency { name: &'static str },
+    #[serde(rename = "dependency")]
+    Dependency { name: String },
 }
 
-#[derive(Serialize)]
+#[derive(PartialEq, Serialize)]
 pub enum RequiredDependencies {
     All(Vec<&'static str>),
     Any(Vec<&'static str>),
@@ -130,7 +151,8 @@ pub enum RequiredDependencies {
 
 // TODO: change name?
 /// Matching strategies to match on a framework
-#[derive(Serialize)]
+#[derive(Debug, Deserialize, PartialEq, Serialize)]
+// #[serde(rename_all = "lowercase")]
 pub enum FrameworkMatchingStrategy {
     /// Strategy that requires all detectors to match for the framework to be detected
     All,
@@ -139,15 +161,15 @@ pub enum FrameworkMatchingStrategy {
     Any,
 }
 
-#[derive(Serialize)]
+#[derive(Debug, Deserialize, PartialEq, Serialize)]
 pub struct FrameworkBuildSettings {
-    pub command: &'static str,
+    pub command: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub command_args: Option<FrameworkBuildArgs>,
-    pub output_directory: &'static str,
+    pub output_directory: String,
 }
 
-#[derive(Serialize)]
+#[derive(Debug, Deserialize, PartialEq, Serialize)]
 pub struct FrameworkBuildArgs {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub source: Option<FrameworkBuildArg>,
@@ -157,17 +179,22 @@ pub struct FrameworkBuildArgs {
     pub output: Option<FrameworkBuildArg>,
 }
 
-#[derive(Serialize)]
+#[derive(Debug, Deserialize, PartialEq, Serialize)]
+#[serde(tag = "type")]
 pub enum FrameworkBuildArg {
     /// 0-based index of argument and default value
+    #[serde(rename = "arg")]
     Arg {
         index: i8,
-        default_value: Option<&'static str>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        default_value: Option<String>,
     },
     // TODO: do we care short or long? how about use vec/array? I dont think it really matters
+    #[serde(rename = "option")]
     Option {
-        short: &'static str,
-        long: &'static str,
+        #[serde(default)]
+        short: String,
+        long: String,
     },
 }
 
@@ -202,7 +229,7 @@ pub trait ConfigurationFileDeserialization: for<'a> Deserialize<'a> {
     }
 }
 
-pub(crate) fn read_config_files<T>(files: &Vec<&'static str>) -> CifrsResult<T>
+pub(crate) fn read_config_files<T>(files: &Vec<String>) -> CifrsResult<T>
 where
     T: ConfigurationFileDeserialization,
 {
@@ -229,4 +256,30 @@ where
 
     // TODO (Sean): better error message / handling
     Err(CifrsError::MissingFrameworkConfig())
+}
+
+
+// I wish Box<dyn> hasnt necessary and maybe its not with a different structure
+// but I'm at a loss for how how to structure these frameworks and allow fn overrides,
+// so I suppose this will have to work until I or someone else comes up with something better
+pub fn get_frameworks() -> Vec<Box<dyn FrameworkSupport>> {
+    let mut frameworks = Vec::<Box<dyn FrameworkSupport>>::new();
+    frameworks.push(Box::new(Antora::default()));
+    frameworks.push(Box::new(Astro::default()));
+    frameworks.push(Box::new(DocFx::default()));
+    frameworks.push(Box::new(DocusaurusV2::default()));
+    frameworks.push(Box::new(Eleventy::default()));
+    frameworks.push(Box::new(Gatsby::default()));
+    frameworks.push(Box::new(Hexo::default()));
+    frameworks.push(Box::new(Hugo::default()));
+    frameworks.push(Box::new(Jekyll::default()));
+    frameworks.push(Box::new(MDBook::default()));
+    frameworks.push(Box::new(MKDocs::default()));
+    frameworks.push(Box::new(NextJS::default()));
+    frameworks.push(Box::new(NuxtJS::default()));
+    frameworks.push(Box::new(Sphinx::default()));
+    frameworks.push(Box::new(SvelteKit::default()));
+    frameworks.push(Box::new(VitePress::default()));
+    frameworks.push(Box::new(VuePress::default()));
+    frameworks
 }

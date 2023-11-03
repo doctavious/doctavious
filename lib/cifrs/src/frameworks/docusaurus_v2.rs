@@ -24,6 +24,8 @@
 // TODO: support monorepo
 
 use serde::Deserialize;
+use serde_derive::Serialize;
+use crate::backends::LanguageBackends;
 
 use crate::framework::{
     ConfigurationFileDeserialization, FrameworkBuildArg, FrameworkBuildArgs,
@@ -40,7 +42,9 @@ struct DocusaurusV2Config {
     output: String,
 }
 
+#[derive(Debug, Deserialize, PartialEq, Serialize)]
 pub struct DocusaurusV2 {
+    #[serde(flatten)]
     info: FrameworkInfo,
 }
 impl DocusaurusV2 {
@@ -50,34 +54,36 @@ impl DocusaurusV2 {
     // for but the contents can have different structures that we ultimately want to test for.
     // This forces us to have test config file names that differ from the predefined ones we would
     // look for outside testing. I dont have a better idea on how to do this.
-    fn new(configs: Option<Vec<&'static str>>) -> Self {
+    fn new(configs: Vec<String>) -> Self {
         Self {
             info: FrameworkInfo {
-                name: "Docusaurus 2",
-                website: Some("https://docusaurus.io/"),
+                id: "docusarus-v2".to_string(),
+                name: "Docusaurus 2".to_string(),
+                website: "https://docusaurus.io/".to_string(),
                 configs,
                 // project_file: None,
-                language: Language::Javascript,
+                // language: Language::Javascript,
+                language: LanguageBackends::JavaScript,
                 detection: FrameworkDetector {
                     matching_strategy: FrameworkMatchingStrategy::All,
                     detectors: vec![FrameworkDetectionItem::Dependency {
-                        name: "@docusaurus/core",
+                        name: "@docusaurus/core".to_string(),
                     }],
                 },
                 build: FrameworkBuildSettings {
-                    command: "docusaurus build",
+                    command: "docusaurus build".to_string(),
                     command_args: Some(FrameworkBuildArgs {
                         source: None,
                         config: Some(FrameworkBuildArg::Option {
-                            short: "",
-                            long: "--config",
+                            short: "".to_string(),
+                            long: "--config".to_string(),
                         }),
                         output: Some(FrameworkBuildArg::Option {
-                            short: "",
-                            long: "--out-dir",
+                            short: "".to_string(),
+                            long: "--out-dir".to_string(),
                         }),
                     }),
-                    output_directory: "build",
+                    output_directory: "build".to_string(),
                 },
             },
         }
@@ -86,7 +92,7 @@ impl DocusaurusV2 {
 
 impl Default for DocusaurusV2 {
     fn default() -> Self {
-        DocusaurusV2::new(Some(Vec::from(["docusaurus.config.js"])))
+        DocusaurusV2::new(Vec::from(["docusaurus.config.js".to_string()]))
     }
 }
 
@@ -119,9 +125,9 @@ mod tests {
     #[test]
     fn test_docusaurus() {
         // TODO: lets just put file contents in tests and write to tempdir + known file
-        let docusaurus = DocusaurusV2::new(Some(vec![
-            "tests/fixtures/framework_configs/docusaurus2/docusaurus.config.js",
-        ]));
+        let docusaurus = DocusaurusV2::new(vec![
+            "tests/fixtures/framework_configs/docusaurus2/docusaurus.config.js".to_string(),
+        ]);
 
         let output = docusaurus.get_output_dir();
         assert_eq!(output, "build")

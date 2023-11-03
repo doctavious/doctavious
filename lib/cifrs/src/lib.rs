@@ -18,6 +18,7 @@ mod language;
 mod package_manager;
 mod projects;
 mod strategy;
+mod backends;
 
 #[remain::sorted]
 #[derive(Debug, Error)]
@@ -81,13 +82,13 @@ impl Cifrs {
 
     /// Determine Frameworks
     /// returns vec of frameworks
-    pub fn check_frameworks<P: AsRef<Path>>(self, path: P) -> CifrsResult<()> {
+    pub fn check_frameworks<P: AsRef<Path>>(&self, path: P) -> CifrsResult<()> {
         let frameworks: Vec<FrameworkInfo> = serde_yaml::from_str(FRAMEWORKS_STR)?;
 
-        let dirs = self.directories_to_check(path);
+        let dirs = self.directories_to_check(path)?;
         for framework in frameworks {
-            for dir in dirs {
-                let m = self.matches(framework.get_info());
+            for dir in &dirs {
+                let m = self.matches(&framework);
                 // TODO: return MatchResult?
                 if m.is_some() {
                     // return Some(framework);
@@ -99,12 +100,12 @@ impl Cifrs {
     }
 
 
-    pub fn build<P: AsRef<Path>>(self, path: P, install: bool) -> CifrsResult<()> {
+    pub fn build<P: AsRef<Path>>(&self, path: P, install: bool) -> CifrsResult<()> {
         let dirs = self.directories_to_check(path);
         Ok(())
     }
 
-    pub fn directories_to_check<P: AsRef<Path>>(self, path: P) -> CifrsResult<Vec<PathBuf>> {
+    pub fn directories_to_check<P: AsRef<Path>>(&self, path: P) -> CifrsResult<Vec<PathBuf>> {
         let mut dirs = vec![path.as_ref().to_path_buf()];
         for entry in fs::read_dir(path)?.flatten() {
             if entry.path().is_dir() {
@@ -115,7 +116,7 @@ impl Cifrs {
         Ok(dirs)
     }
 
-    fn matches(self, framework: &FrameworkInfo) -> Option<MatchResult> {
+    fn matches(&self, framework: &FrameworkInfo) -> Option<MatchResult> {
         let mut results: Vec<Option<MatchResult>> = vec![];
 
         match &framework.detection.matching_strategy {
@@ -146,29 +147,27 @@ impl Cifrs {
     }
 
     // TODO: what should this return?
-    fn check(self, framework: &FrameworkInfo, item: &FrameworkDetectionItem) -> Option<MatchResult> {
+    fn check(&self, framework: &FrameworkInfo, item: &FrameworkDetectionItem) -> Option<MatchResult> {
         match item {
             FrameworkDetectionItem::Config { content } => {
-                if let Some(configs) = &framework.configs {
-                    for config in configs {
-                        if let Ok(file_content) = fs::read_to_string(config) {
-                            if let Some(content) = content {
-                                let regex = RegexBuilder::new(content)
-                                    .multi_line(true)
-                                    .build();
-                                match regex {
-                                    Ok(regex) => {
-                                        if regex.is_match(file_content.as_str()) {
-                                            return Some(MatchResult { project: None });
-                                        }
-                                    }
-                                    Err(e) => {
-                                        // TODO: log
+                for config in &framework.configs {
+                    if let Ok(file_content) = fs::read_to_string(config) {
+                        if let Some(content) = content {
+                            let regex = RegexBuilder::new(content)
+                                .multi_line(true)
+                                .build();
+                            match regex {
+                                Ok(regex) => {
+                                    if regex.is_match(file_content.as_str()) {
+                                        return Some(MatchResult { project: None });
                                     }
                                 }
+                                Err(e) => {
+                                    // TODO: log
+                                }
                             }
-                            return Some(MatchResult { project: None });
                         }
+                        return Some(MatchResult { project: None });
                     }
                 }
                 None
@@ -240,7 +239,7 @@ impl Cifrs {
         }
     }
 
-    fn has_dependency(self, project_type: &ProjectFile, content: String, dependency: &str) -> CifrsResult<bool> {
+    fn has_dependency(&self, project_type: &ProjectFile, content: String, dependency: &str) -> CifrsResult<bool> {
         let found = match project_type {
             ProjectFile::CargoToml => {
                 let root: toml::Value = toml::from_str(content.as_str())?;
