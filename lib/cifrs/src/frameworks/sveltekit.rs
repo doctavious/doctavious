@@ -7,6 +7,7 @@ use serde::Deserialize;
 use serde_derive::Serialize;
 use swc_ecma_ast::Program;
 
+use crate::backends::LanguageBackends;
 use crate::framework::{
     read_config_files, ConfigurationFileDeserialization, FrameworkBuildArg, FrameworkBuildArgs,
     FrameworkBuildSettings, FrameworkDetectionItem, FrameworkDetector, FrameworkInfo,
@@ -15,9 +16,7 @@ use crate::framework::{
 use crate::js_module::{
     get_string_property_value, get_variable_declaration, get_variable_properties,
 };
-use crate::language::Language;
 use crate::{CifrsError, CifrsResult};
-use crate::backends::LanguageBackends;
 
 // TODO: given there is no option to override does it make sense to still enforce Deserialize
 // and ConfigurationFileDeserialization?
@@ -137,9 +136,7 @@ mod tests {
         let sveltekit = SvelteKit::new(
             // tests/fixtures/framework_configs/sveltekit/svelte.config.js
             // tests/fixtures/framework_configs/sveltekit/svelte.config.js
-            vec![
-                "tests/fixtures/framework_configs/sveltekit/svelte.config.js".to_string(),
-            ],
+            vec!["tests/fixtures/framework_configs/sveltekit/svelte.config.js".to_string()],
         );
 
         let output = sveltekit.get_output_dir();

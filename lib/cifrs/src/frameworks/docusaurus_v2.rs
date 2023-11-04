@@ -25,14 +25,13 @@
 
 use serde::Deserialize;
 use serde_derive::Serialize;
-use crate::backends::LanguageBackends;
 
+use crate::backends::LanguageBackends;
 use crate::framework::{
     ConfigurationFileDeserialization, FrameworkBuildArg, FrameworkBuildArgs,
     FrameworkBuildSettings, FrameworkDetectionItem, FrameworkDetector, FrameworkInfo,
     FrameworkMatchingStrategy, FrameworkSupport,
 };
-use crate::language::Language;
 
 // TODO: given there is no option to override does it make sense to still enforce Deserialize
 // and ConfigurationFileDeserialization?

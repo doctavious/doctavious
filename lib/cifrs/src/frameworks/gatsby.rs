@@ -9,6 +9,7 @@ use serde::Deserialize;
 use serde_derive::Serialize;
 use swc_ecma_ast::Program;
 
+use crate::backends::LanguageBackends;
 use crate::framework::{
     read_config_files, ConfigurationFileDeserialization, FrameworkBuildSettings,
     FrameworkDetectionItem, FrameworkDetector, FrameworkInfo, FrameworkMatchingStrategy,
@@ -18,9 +19,7 @@ use crate::js_module::{
     find_array_element, get_array_property, get_assignment_obj, get_obj_property,
     get_string_property_value,
 };
-use crate::language::Language;
 use crate::{CifrsError, CifrsResult};
-use crate::backends::LanguageBackends;
 
 // TODO: given there is no option to override does it make sense to still enforce Deserialize
 // and ConfigurationFileDeserialization?
@@ -48,7 +47,9 @@ impl Gatsby {
                 backend: LanguageBackends::JavaScript,
                 detection: FrameworkDetector {
                     matching_strategy: FrameworkMatchingStrategy::All,
-                    detectors: vec![FrameworkDetectionItem::Dependency { name: "gatsby".to_string() }],
+                    detectors: vec![FrameworkDetectionItem::Dependency {
+                        name: "gatsby".to_string(),
+                    }],
                 },
                 build: FrameworkBuildSettings {
                     command: "gatsby build".to_string(),
@@ -64,8 +65,8 @@ impl Default for Gatsby {
     fn default() -> Self {
         Gatsby::new(Vec::from([
             "gatsby-config.js".to_string(),
-            "gatsby-config.ts".to_string()]
-        ))
+            "gatsby-config.ts".to_string(),
+        ]))
     }
 }
 

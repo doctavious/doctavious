@@ -7,14 +7,13 @@
 
 use serde::Deserialize;
 use serde_derive::Serialize;
-use crate::backends::LanguageBackends;
 
+use crate::backends::LanguageBackends;
 use crate::framework::{
     read_config_files, ConfigurationFileDeserialization, FrameworkBuildArg, FrameworkBuildArgs,
     FrameworkBuildSettings, FrameworkDetectionItem, FrameworkDetector, FrameworkInfo,
     FrameworkMatchingStrategy, FrameworkSupport,
 };
-use crate::language::Language;
 
 #[derive(Deserialize)]
 struct HexoConfig {
@@ -39,7 +38,9 @@ impl Hexo {
                 backend: LanguageBackends::JavaScript,
                 detection: FrameworkDetector {
                     matching_strategy: FrameworkMatchingStrategy::All,
-                    detectors: vec![FrameworkDetectionItem::Dependency { name: "hexo".to_string() }],
+                    detectors: vec![FrameworkDetectionItem::Dependency {
+                        name: "hexo".to_string(),
+                    }],
                 },
                 build: FrameworkBuildSettings {
                     command: "hexo generate".to_string(),
@@ -98,7 +99,7 @@ mod tests {
     #[test]
     fn test_hexo() {
         let hexo = Hexo::new(vec![
-            "tests/fixtures/framework_configs/hexo/_config.yml".to_string(),
+            "tests/fixtures/framework_configs/hexo/_config.yml".to_string()
         ]);
 
         let output = hexo.get_output_dir();

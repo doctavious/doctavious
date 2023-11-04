@@ -5,9 +5,6 @@ use serde::Deserialize;
 use serde_derive::Serialize;
 use swc_ecma_ast::Program;
 
-use crate::js_module::parse_js_module;
-use crate::language::Language;
-use crate::{CifrsError, CifrsResult};
 use crate::backends::LanguageBackends;
 use crate::frameworks::antora::Antora;
 use crate::frameworks::astro::Astro;
@@ -26,6 +23,9 @@ use crate::frameworks::sphinx::Sphinx;
 use crate::frameworks::sveltekit::SvelteKit;
 use crate::frameworks::vitepress::VitePress;
 use crate::frameworks::vuepress::VuePress;
+use crate::js_module::parse_js_module;
+use crate::language::Language;
+use crate::{CifrsError, CifrsResult};
 
 // FrameworkDefinition
 // if we want to use static str would need to use
@@ -66,7 +66,7 @@ impl FrameworkInfo {
         for detection in &self.detection.detectors {
             let result = match detection {
                 FrameworkDetectionItem::Config { content } => {
-                    for config in  &self.configs  {
+                    for config in &self.configs {
                         if let Ok(file_content) = fs::read_to_string(config) {
                             if let Some(content) = content {
                                 if file_content.contains(content) {
@@ -259,7 +259,6 @@ where
     // TODO (Sean): better error message / handling
     Err(CifrsError::MissingFrameworkConfig())
 }
-
 
 // I wish Box<dyn> hasnt necessary and maybe its not with a different structure
 // but I'm at a loss for how how to structure these frameworks and allow fn overrides,

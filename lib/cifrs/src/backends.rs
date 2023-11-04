@@ -14,10 +14,8 @@
 // (The limitation should be noted in the backend feature matrix in
 // the README.)
 
-
-
-
 use serde_derive::{Deserialize, Serialize};
+
 use crate::projects::project_file::ProjectFile;
 
 // Module backends contains the language-specific Doctavious Cifrs backends,
@@ -52,7 +50,6 @@ pub enum LanguageBackends {
 }
 
 impl LanguageBackends {
-
     // pub const fn project_files(&self) -> &[ProjectFile] {
     //     match self {
     //         Language::CSharp => &[ProjectFile::CSProj],
@@ -70,23 +67,21 @@ impl LanguageBackends {
     // }
 
     pub fn project_files(&self) -> &[ProjectFile] {
-            match self {
-                LanguageBackends::DotNet => &[ProjectFile::CSProj],
-                // F# has .fsproj
-                LanguageBackends::Go => &[ProjectFile::GoMod],
-                LanguageBackends::JavaScript => &[ProjectFile::PackageJson],
-                LanguageBackends::Python => &[
-                    ProjectFile::PyProject,
-                    ProjectFile::PipFile,
-                    ProjectFile::RequirementsTxt,
-                ],
-                LanguageBackends::Ruby => &[ProjectFile::GemFile],
-                LanguageBackends::Rust => &[ProjectFile::CargoToml],
-            }
+        match self {
+            LanguageBackends::DotNet => &[ProjectFile::CSProj],
+            // F# has .fsproj
+            LanguageBackends::Go => &[ProjectFile::GoMod],
+            LanguageBackends::JavaScript => &[ProjectFile::PackageJson],
+            LanguageBackends::Python => &[
+                ProjectFile::PyProject,
+                ProjectFile::PipFile,
+                ProjectFile::RequirementsTxt,
+            ],
+            LanguageBackends::Ruby => &[ProjectFile::GemFile],
+            LanguageBackends::Rust => &[ProjectFile::CargoToml],
+        }
     }
 }
-
-
 
 pub struct LanguageBackend {
     /// The name of the language backend

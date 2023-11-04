@@ -5,14 +5,13 @@
 
 use serde::Deserialize;
 use serde_derive::Serialize;
-use crate::backends::LanguageBackends;
 
+use crate::backends::LanguageBackends;
 use crate::framework::{
     read_config_files, ConfigurationFileDeserialization, FrameworkBuildArg, FrameworkBuildArgs,
     FrameworkBuildSettings, FrameworkDetectionItem, FrameworkDetector, FrameworkInfo,
     FrameworkMatchingStrategy, FrameworkSupport,
 };
-use crate::language::Language;
 
 #[derive(Deserialize)]
 struct DocFxConfigBuild {
@@ -97,7 +96,7 @@ mod tests {
     #[test]
     fn test_docfx() {
         let docfx = DocFx::new(vec![
-            "tests/fixtures/framework_configs/docfx/docfx.json".to_string(),
+            "tests/fixtures/framework_configs/docfx/docfx.json".to_string()
         ]);
 
         let output = docfx.get_output_dir();

@@ -5,15 +5,15 @@
 // BUILDDIR env var
 
 use std::env;
-use serde_derive::{Deserialize, Serialize};
-use crate::backends::LanguageBackends;
 
+use serde_derive::{Deserialize, Serialize};
+
+use crate::backends::LanguageBackends;
 use crate::framework::{
     ConfigurationFileDeserialization, FrameworkBuildArg, FrameworkBuildArgs,
     FrameworkBuildSettings, FrameworkDetectionItem, FrameworkDetector, FrameworkInfo,
     FrameworkMatchingStrategy, FrameworkSupport,
 };
-use crate::language::Language;
 
 #[derive(Debug, Deserialize, PartialEq, Serialize)]
 pub struct Sphinx {
@@ -88,7 +88,7 @@ mod tests {
     #[test]
     fn test_sphinx() {
         let sphinx = Sphinx::new(vec![
-            "tests/fixtures/framework_configs/sphinx/config.py".to_string(),
+            "tests/fixtures/framework_configs/sphinx/config.py".to_string()
         ]);
 
         let output = sphinx.get_output_dir();
@@ -99,7 +99,7 @@ mod tests {
     fn should_use_env_var_when_present() {
         temp_env::with_var("BUILDDIR", Some("build"), || {
             let sphinx = Sphinx::new(vec![
-                "tests/fixtures/framework_configs/sphinx/config.py".to_string(),
+                "tests/fixtures/framework_configs/sphinx/config.py".to_string()
             ]);
 
             let output = sphinx.get_output_dir();

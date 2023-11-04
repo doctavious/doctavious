@@ -1,4 +1,5 @@
 use serde_derive::Deserialize;
+
 use crate::framework::FrameworkInfo;
 
 pub mod antora;
@@ -22,7 +23,6 @@ pub mod vitepress;
 pub mod vuepress;
 
 pub const FRAMEWORKS_STR: &str = include_str!("frameworks.yaml");
-
 
 #[derive(Debug, Deserialize, PartialEq)]
 #[serde(tag = "id")]
@@ -97,12 +97,13 @@ enum Frameworks {
 #[cfg(test)]
 mod tests {
     use serde_derive::{Deserialize, Serialize};
+
     use crate::framework::FrameworkInfo;
     use crate::frameworks::FRAMEWORKS_STR;
 
     #[derive(Debug, Deserialize, Serialize)]
     struct Frameworks {
-        pub frameworks: Vec<FrameworkInfo>
+        pub frameworks: Vec<FrameworkInfo>,
     }
 
     #[test]

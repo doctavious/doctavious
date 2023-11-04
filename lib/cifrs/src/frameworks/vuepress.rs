@@ -18,15 +18,14 @@ use serde::Deserialize;
 use serde_derive::Serialize;
 use swc_ecma_ast::Program;
 
+use crate::backends::LanguageBackends;
 use crate::framework::{
     read_config_files, ConfigurationFileDeserialization, FrameworkBuildArg, FrameworkBuildArgs,
     FrameworkBuildSettings, FrameworkDetectionItem, FrameworkDetector, FrameworkInfo,
     FrameworkMatchingStrategy, FrameworkSupport,
 };
 use crate::js_module::PropertyAccessor;
-use crate::language::Language;
 use crate::{CifrsError, CifrsResult};
-use crate::backends::LanguageBackends;
 
 #[derive(Deserialize)]
 struct VuePressConfig {
@@ -51,7 +50,9 @@ impl VuePress {
                 backend: LanguageBackends::JavaScript,
                 detection: FrameworkDetector {
                     matching_strategy: FrameworkMatchingStrategy::All,
-                    detectors: vec![FrameworkDetectionItem::Dependency { name: "vuepress".to_string() }],
+                    detectors: vec![FrameworkDetectionItem::Dependency {
+                        name: "vuepress".to_string(),
+                    }],
                 },
                 build: FrameworkBuildSettings {
                     command: "vuepress build".to_string(),
@@ -114,7 +115,6 @@ impl FrameworkSupport for VuePress {
 impl ConfigurationFileDeserialization for VuePressConfig {
     fn from_js_module(program: &Program) -> CifrsResult<Self> {
         // TODO: try and simplify
-        println!("{}", serde_json::to_string(&program)?);
         if let Some(module) = program.as_module() {
             let dest = module.get_property_as_string("dest");
             if dest.is_some() {

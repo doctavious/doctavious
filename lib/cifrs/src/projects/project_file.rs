@@ -139,7 +139,7 @@ impl ProjectFile {
         match self {
             ProjectFile::CSProj => {
                 for pattern in ["*.csproj", "*.fsproj"] {
-                    let glob_result = glob("*.csproj");
+                    let glob_result = glob(pattern);
                     // TODO: fix
                     return match glob_result {
                         Ok(paths) => paths.into_iter().filter_map(|p| p.ok()).collect(),
@@ -149,7 +149,7 @@ impl ProjectFile {
                         }
                     };
                 }
-                return vec![];
+                vec![]
             }
             ProjectFile::GoMod => vec![PathBuf::from("go.mod")],
             ProjectFile::PackageJson => vec![PathBuf::from("package.json")],

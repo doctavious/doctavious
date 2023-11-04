@@ -10,14 +10,13 @@
 
 use serde::Deserialize;
 use serde_derive::Serialize;
-use crate::backends::LanguageBackends;
 
+use crate::backends::LanguageBackends;
 use crate::framework::{
     read_config_files, ConfigurationFileDeserialization, FrameworkBuildArg, FrameworkBuildArgs,
     FrameworkBuildSettings, FrameworkDetectionItem, FrameworkDetector, FrameworkInfo,
     FrameworkMatchingStrategy, FrameworkSupport,
 };
-use crate::language::Language;
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct HugoConfig {
@@ -113,7 +112,7 @@ mod tests {
     #[test]
     fn test_hugo() {
         let hugo = Hugo::new(vec![
-            "tests/fixtures/framework_configs/hugo/config.toml".to_string(),
+            "tests/fixtures/framework_configs/hugo/config.toml".to_string()
         ]);
 
         let output = hugo.get_output_dir();

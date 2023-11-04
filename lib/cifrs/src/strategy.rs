@@ -1,9 +1,6 @@
-
 pub trait Strategy {
-
     /// Returns a vec of frameworks associated
     fn execute();
-
 }
 
 pub struct Dependency;
@@ -14,7 +11,6 @@ impl Strategy for Dependency {
     }
 }
 
-
 pub struct Configuration {
     // content: pattern
 }
@@ -24,4 +20,3 @@ impl Strategy for Configuration {
         todo!()
     }
 }
-

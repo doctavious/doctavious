@@ -1,15 +1,18 @@
 use std::fs;
 use std::path::{Path, PathBuf};
+
 use glob::PatternError;
 use regex::RegexBuilder;
 use serde_json::Value;
 use thiserror::Error;
+
 use crate::framework::{FrameworkDetectionItem, FrameworkInfo, FrameworkMatchingStrategy};
 use crate::framework_detection::MatchResult;
 use crate::frameworks::FRAMEWORKS_STR;
 use crate::projects::csproj::CSProj;
 use crate::projects::project_file::ProjectFile;
 
+mod backends;
 mod framework;
 mod framework_detection;
 mod frameworks;
@@ -18,7 +21,6 @@ mod language;
 mod package_manager;
 mod projects;
 mod strategy;
-mod backends;
 
 #[remain::sorted]
 #[derive(Debug, Error)]
@@ -79,7 +81,6 @@ impl Cifrs {
     // the problem is that just because you found a project doesnt mean its related to docs and
     // another project is used for the framework
 
-
     /// Determine Frameworks
     /// returns vec of frameworks
     pub fn check_frameworks<P: AsRef<Path>>(&self, path: P) -> CifrsResult<()> {
@@ -98,7 +99,6 @@ impl Cifrs {
 
         Ok(())
     }
-
 
     pub fn build<P: AsRef<Path>>(&self, path: P, install: bool) -> CifrsResult<()> {
         let dirs = self.directories_to_check(path);
@@ -139,7 +139,7 @@ impl Cifrs {
             }
         }
 
-        if  results.iter().all(|&r| r.is_some()) {
+        if results.iter().all(|&r| r.is_some()) {
             return *results.first().unwrap();
         }
 
@@ -147,15 +147,17 @@ impl Cifrs {
     }
 
     // TODO: what should this return?
-    fn check(&self, framework: &FrameworkInfo, item: &FrameworkDetectionItem) -> Option<MatchResult> {
+    fn check(
+        &self,
+        framework: &FrameworkInfo,
+        item: &FrameworkDetectionItem,
+    ) -> Option<MatchResult> {
         match item {
             FrameworkDetectionItem::Config { content } => {
                 for config in &framework.configs {
                     if let Ok(file_content) = fs::read_to_string(config) {
                         if let Some(content) = content {
-                            let regex = RegexBuilder::new(content)
-                                .multi_line(true)
-                                .build();
+                            let regex = RegexBuilder::new(content).multi_line(true).build();
                             match regex {
                                 Ok(regex) => {
                                     if regex.is_match(file_content.as_str()) {
@@ -173,7 +175,7 @@ impl Cifrs {
                 None
             }
             FrameworkDetectionItem::Dependency { name: dependency } => {
-                for p in framework.language.project_files() {
+                for p in framework.backend.project_files() {
                     for path in p.get_project_paths() {
                         if !path.exists() {
                             // TODO: log
@@ -211,15 +213,10 @@ impl Cifrs {
                 }
                 None
             }
-            FrameworkDetectionItem::File {
-                path,
-                content,
-            } => {
+            FrameworkDetectionItem::File { path, content } => {
                 if let Ok(file_content) = fs::read_to_string(path) {
                     if let Some(content) = content {
-                        let regex = RegexBuilder::new(content)
-                            .multi_line(true)
-                            .build();
+                        let regex = RegexBuilder::new(content).multi_line(true).build();
                         match regex {
                             Ok(regex) => {
                                 if regex.is_match(file_content.as_str()) {
@@ -239,7 +236,12 @@ impl Cifrs {
         }
     }
 
-    fn has_dependency(&self, project_type: &ProjectFile, content: String, dependency: &str) -> CifrsResult<bool> {
+    fn has_dependency(
+        &self,
+        project_type: &ProjectFile,
+        content: String,
+        dependency: &str,
+    ) -> CifrsResult<bool> {
         let found = match project_type {
             ProjectFile::CargoToml => {
                 let root: toml::Value = toml::from_str(content.as_str())?;
@@ -252,12 +254,8 @@ impl Cifrs {
                 let build_proj: CSProj = serde_xml_rs::from_str(content.as_str())?;
                 build_proj.has_package_reference(dependency)
             }
-            ProjectFile::GemFile => {
-                content.contains(&format!("gem '{}'", dependency))
-            }
-            ProjectFile::GoMod => {
-                content.contains(&format!("{}", dependency))
-            }
+            ProjectFile::GemFile => content.contains(&format!("gem '{}'", dependency)),
+            ProjectFile::GoMod => content.contains(dependency),
             ProjectFile::PackageJson => {
                 let root: Value = serde_json::from_str(content.as_str())?;
                 // TODO: do we want to check devDependencies
@@ -279,12 +277,9 @@ impl Cifrs {
                     .and_then(|o| o.get(dependency))
                     .is_some()
             }
-            ProjectFile::RequirementsTxt => {
-                content.contains(&format!("{}==", dependency))
-            }
+            ProjectFile::RequirementsTxt => content.contains(&format!("{}==", dependency)),
         };
 
         Ok(found)
     }
-
 }

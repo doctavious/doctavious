@@ -8,15 +8,14 @@ use serde::Deserialize;
 use serde_derive::Serialize;
 use swc_ecma_ast::Program;
 
+use crate::backends::LanguageBackends;
 use crate::framework::{
     read_config_files, ConfigurationFileDeserialization, FrameworkBuildArg, FrameworkBuildArgs,
     FrameworkBuildSettings, FrameworkDetectionItem, FrameworkDetector, FrameworkInfo,
     FrameworkMatchingStrategy, FrameworkSupport,
 };
 use crate::js_module::{get_call_expression, get_call_string_property};
-use crate::language::Language;
 use crate::{CifrsError, CifrsResult};
-use crate::backends::LanguageBackends;
 
 #[derive(Debug, Deserialize, PartialEq, Serialize)]
 pub struct Astro {
@@ -36,7 +35,9 @@ impl Astro {
                 backend: LanguageBackends::JavaScript,
                 detection: FrameworkDetector {
                     matching_strategy: FrameworkMatchingStrategy::All,
-                    detectors: vec![FrameworkDetectionItem::Dependency { name: "astro".to_string() }],
+                    detectors: vec![FrameworkDetectionItem::Dependency {
+                        name: "astro".to_string(),
+                    }],
                 },
                 build: FrameworkBuildSettings {
                     command: "astro build".to_string(),

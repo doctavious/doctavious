@@ -4,14 +4,13 @@
 
 use serde::Deserialize;
 use serde_derive::Serialize;
-use crate::backends::LanguageBackends;
 
+use crate::backends::LanguageBackends;
 use crate::framework::{
     read_config_files, ConfigurationFileDeserialization, FrameworkBuildArg, FrameworkBuildArgs,
     FrameworkBuildSettings, FrameworkDetectionItem, FrameworkDetector, FrameworkInfo,
     FrameworkMatchingStrategy, FrameworkSupport,
 };
-use crate::language::Language;
 #[derive(Deserialize)]
 struct MKDocsConfig {
     site_dir: Option<String>,
@@ -35,7 +34,9 @@ impl MKDocs {
                 backend: LanguageBackends::Python,
                 detection: FrameworkDetector {
                     matching_strategy: FrameworkMatchingStrategy::All,
-                    detectors: vec![FrameworkDetectionItem::Dependency { name: "mkdocs".to_string() }],
+                    detectors: vec![FrameworkDetectionItem::Dependency {
+                        name: "mkdocs".to_string(),
+                    }],
                 },
                 build: FrameworkBuildSettings {
                     command: "mkdocs build".to_string(),
@@ -97,7 +98,7 @@ mod tests {
     #[test]
     fn test_hugo() {
         let mkdocs = MKDocs::new(vec![
-            "tests/fixtures/framework_configs/mkdocs/mkdocs.yml".to_string(),
+            "tests/fixtures/framework_configs/mkdocs/mkdocs.yml".to_string()
         ]);
 
         let output = mkdocs.get_output_dir();

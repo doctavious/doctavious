@@ -7,14 +7,13 @@
 
 use serde::Deserialize;
 use serde_derive::Serialize;
-use crate::backends::LanguageBackends;
 
+use crate::backends::LanguageBackends;
 use crate::framework::{
     read_config_files, ConfigurationFileDeserialization, FrameworkBuildArg, FrameworkBuildArgs,
     FrameworkBuildSettings, FrameworkDetectionItem, FrameworkDetector, FrameworkInfo,
     FrameworkMatchingStrategy, FrameworkSupport,
 };
-use crate::language::Language;
 #[derive(Deserialize)]
 struct JekyllConfig {
     destination: Option<String>,
@@ -39,7 +38,9 @@ impl Jekyll {
                 detection: FrameworkDetector {
                     matching_strategy: FrameworkMatchingStrategy::Any,
                     detectors: vec![
-                        FrameworkDetectionItem::Dependency { name: "jekyll".to_string() },
+                        FrameworkDetectionItem::Dependency {
+                            name: "jekyll".to_string(),
+                        },
                         FrameworkDetectionItem::File {
                             path: "Gemfile".to_string(),
                             content: Some("jekyll_plugins".to_string()),
@@ -69,7 +70,10 @@ impl Jekyll {
 
 impl Default for Jekyll {
     fn default() -> Self {
-        Jekyll::new(Vec::from(["_config.yml".to_string(), "_config.toml".to_string()]))
+        Jekyll::new(Vec::from([
+            "_config.yml".to_string(),
+            "_config.toml".to_string(),
+        ]))
     }
 }
 
@@ -107,7 +111,7 @@ mod tests {
     #[test]
     fn test_jekyll() {
         let jekyll = Jekyll::new(vec![
-            "tests/fixtures/framework_configs/jekyll/_config.yml".to_string(),
+            "tests/fixtures/framework_configs/jekyll/_config.yml".to_string()
         ]);
 
         let output = jekyll.get_output_dir();
