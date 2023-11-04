@@ -2,6 +2,7 @@
 // ./book -> default
 // change be changed via build.build-dir
 
+use std::collections::HashMap;
 use serde::Deserialize;
 use serde_derive::Serialize;
 
@@ -19,7 +20,8 @@ struct MDBookBuildOptions {
 
 #[derive(Deserialize)]
 struct MDBookConfig {
-    build: Option<MDBookBuildOptions>,
+    // build: Option<MDBookBuildOptions>,
+    build: HashMap<String, String>
 }
 
 #[derive(Debug, Deserialize, PartialEq, Serialize)]
@@ -69,14 +71,18 @@ impl FrameworkSupport for MDBook {
     fn get_info(&self) -> &FrameworkInfo {
         &self.info
     }
-
+    
     fn get_output_dir(&self) -> String {
         if !self.info.configs.is_empty() {
             match read_config_files::<MDBookConfig>(&self.info.configs) {
                 Ok(c) => {
-                    if let Some(MDBookBuildOptions { build_dir: Some(v) }) = c.build {
-                        return v;
+                    // if let Some(MDBookBuildOptions { build_dir: Some(v) }) = c.build {
+                    //     return v;
+                    // }
+                    if let Some(build_dir) = c.build.get("build-dir") {
+                        return build_dir.to_string();
                     }
+
                 }
                 Err(e) => {
                     // log warning/error

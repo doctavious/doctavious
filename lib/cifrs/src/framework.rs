@@ -24,7 +24,6 @@ use crate::frameworks::sveltekit::SvelteKit;
 use crate::frameworks::vitepress::VitePress;
 use crate::frameworks::vuepress::VuePress;
 use crate::js_module::parse_js_module;
-use crate::language::Language;
 use crate::{CifrsError, CifrsResult};
 
 // FrameworkDefinition
@@ -50,7 +49,7 @@ pub struct FrameworkInfo {
 
     // TODO: this could be SoftwareFramework / SoftwarePlatform.
     // Potentially solves for the scenario of needed multiple languages such as C#/F#
-    // I kinda like Replit's UPM LanguageBackend
+    // I kinda like Replit's UPM LanguageBackend. Or Could use LanguageRuntime
     pub backend: LanguageBackends,
 
     // /// Detectors used to find out the framework

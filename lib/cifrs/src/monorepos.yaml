@@ -1,0 +1,34 @@
+# difference between monorepo and workspace
+# Rust crate workspaces
+# NPM / Yarn / PNPM workspaces
+
+- id: turbo
+  name: Turbo
+#  detectors: {
+#    some: [
+#      {
+#        path: 'turbo.json',
+#      },
+#      {
+#        path: 'package.json',
+#        matchContent: '"turbo":\\s*{[^}]*.+[^}]*}',
+#      },
+#    ],
+- id: nx
+  name: Nx
+#  detectors: {
+#    every: [
+#      {
+#        path: 'nx.json',
+#      },
+#    ],
+#  },
+- id: rush
+  name: Rush
+#  detectors: {
+#    every: [
+#      {
+#        path: 'rush.json',
+#      },
+#    ],
+#  },

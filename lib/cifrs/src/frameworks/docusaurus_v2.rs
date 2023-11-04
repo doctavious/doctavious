@@ -33,13 +33,6 @@ use crate::framework::{
     FrameworkMatchingStrategy, FrameworkSupport,
 };
 
-// TODO: given there is no option to override does it make sense to still enforce Deserialize
-// and ConfigurationFileDeserialization?
-// I suppose we can determine if gatsby-plugin-output is in the plugins and grab it from there
-#[derive(Deserialize)]
-struct DocusaurusV2Config {
-    output: String,
-}
 
 #[derive(Debug, Deserialize, PartialEq, Serialize)]
 pub struct DocusaurusV2 {
@@ -103,18 +96,9 @@ impl FrameworkSupport for DocusaurusV2 {
     // Vercel checks if there is a a single file (directory) under build and if so uses it
     // otherwise uses build
     fn get_output_dir(&self) -> String {
-        // doesnt support overriding via configuration file
-        // TODO: look at package.json scripts build
-
-        // if (content.length === 1 && content[0].isDirectory()) {
-        // return join(base, content[0].name);
-        // }
-
         self.info.build.output_directory.to_string()
     }
 }
-
-impl ConfigurationFileDeserialization for DocusaurusV2Config {}
 
 #[cfg(test)]
 mod tests {

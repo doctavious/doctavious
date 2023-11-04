@@ -86,6 +86,7 @@ impl Cifrs {
     pub fn check_frameworks<P: AsRef<Path>>(&self, path: P) -> CifrsResult<()> {
         let frameworks: Vec<FrameworkInfo> = serde_yaml::from_str(FRAMEWORKS_STR)?;
 
+        // TODO: should we decide if monorepo / workspace?
         let dirs = self.directories_to_check(path)?;
         for framework in frameworks {
             for dir in &dirs {
@@ -282,4 +283,19 @@ impl Cifrs {
 
         Ok(found)
     }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::Cifrs;
+
+    #[test]
+    fn check_frameworks() {
+        // Cifrs::check_frameworks()
+    }
+
+    // #[test]
+    // fn build() {
+    //
+    // }
 }

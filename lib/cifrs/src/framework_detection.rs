@@ -11,11 +11,6 @@ use crate::projects::csproj::CSProj;
 use crate::projects::project_file::ProjectFile;
 use crate::CifrsResult;
 
-// use crate::commands::build::projects::csproj::CSProj;
-// use crate::commands::build::framework::{FrameworkDetectionItem, FrameworkInfo, FrameworkMatchingStrategy, FrameworkSupport};
-// use crate::commands::build::projects::project_file::{Proj, ProjectFile};
-// use crate::doctavious_error::Result as DoctaviousResult;
-
 // Should we make detection a trait?
 // pub trait Detection {
 //     type Item;
@@ -36,8 +31,10 @@ pub(crate) struct MatchedFramework<'a> {
 
 #[derive(Clone, Copy, Serialize)]
 pub(crate) struct MatchResult {
-    pub project: Option<ProjectFile>, // dependency -- could also do a dependency/version struct tuple and have an array of them
-                                      // detected_version: String
+    // dependency -- could also do a dependency/version struct tuple and have an array of them
+    // detected_version: String
+    pub project: Option<ProjectFile>,
+
 }
 
 pub(crate) fn detect_framework(

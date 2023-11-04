@@ -5,6 +5,7 @@
 
 // antora generate <playbook> --to-dir <dir>
 
+use std::collections::HashMap;
 use serde::Deserialize;
 use serde_derive::Serialize;
 
@@ -16,14 +17,18 @@ use crate::framework::{
 };
 
 #[derive(Deserialize)]
+struct AntoraConfig {
+    // TODO: just map this a map
+    // output: Option<AntoraConfigOutputKeys>,
+    output: HashMap<String, String>
+}
+
+#[derive(Deserialize)]
 struct AntoraConfigOutputKeys {
     dir: Option<String>,
 }
 
-#[derive(Deserialize)]
-struct AntoraConfig {
-    output: Option<AntoraConfigOutputKeys>,
-}
+impl ConfigurationFileDeserialization for AntoraConfig {}
 
 #[derive(Debug, Deserialize, PartialEq, Serialize)]
 pub struct Antora {
@@ -87,9 +92,12 @@ impl FrameworkSupport for Antora {
         if !self.info.configs.is_empty() {
             match read_config_files::<AntoraConfig>(&self.info.configs) {
                 Ok(c) => {
-                    if let Some(AntoraConfigOutputKeys { dir: Some(v) }) = c.output {
-                        return v;
+                    if let Some(dir) = c.output.get("dir") {
+                        return dir.to_string()
                     }
+                    // if let Some(AntoraConfigOutputKeys { dir: Some(v) }) = c.output {
+                    //     return v;
+                    // }
                 }
                 Err(e) => {
                     // log warning/error
@@ -101,8 +109,6 @@ impl FrameworkSupport for Antora {
         self.info.build.output_directory.to_string()
     }
 }
-
-impl ConfigurationFileDeserialization for AntoraConfig {}
 
 #[cfg(test)]
 mod tests {
