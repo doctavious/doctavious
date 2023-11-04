@@ -45,7 +45,7 @@ impl Gatsby {
                 website: "https://www.gatsbyjs.com/".to_string(),
                 configs,
                 // language: Language::Javascript,
-                language: LanguageBackends::JavaScript,
+                backend: LanguageBackends::JavaScript,
                 detection: FrameworkDetector {
                     matching_strategy: FrameworkMatchingStrategy::All,
                     detectors: vec![FrameworkDetectionItem::Dependency { name: "gatsby".to_string() }],

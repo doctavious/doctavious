@@ -63,7 +63,7 @@ impl DocusaurusV2 {
                 configs,
                 // project_file: None,
                 // language: Language::Javascript,
-                language: LanguageBackends::JavaScript,
+                backend: LanguageBackends::JavaScript,
                 detection: FrameworkDetector {
                     matching_strategy: FrameworkMatchingStrategy::All,
                     detectors: vec![FrameworkDetectionItem::Dependency {

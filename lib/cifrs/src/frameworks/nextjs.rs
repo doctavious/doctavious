@@ -39,7 +39,7 @@ impl NextJS {
                 website: "https://nextjs.org/".to_string(),
                 configs,
                 // language: Language::Javascript,
-                language: LanguageBackends::JavaScript,
+                backend: LanguageBackends::JavaScript,
                 detection: FrameworkDetector {
                     matching_strategy: FrameworkMatchingStrategy::All,
                     detectors: vec![FrameworkDetectionItem::Dependency { name: "next".to_string() }],

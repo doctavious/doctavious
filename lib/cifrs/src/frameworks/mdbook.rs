@@ -38,7 +38,7 @@ impl MDBook {
                 website: "https://rust-lang.github.io/mdBook/".to_string(),
                 configs,
                 // language: Language::Rust,
-                language: LanguageBackends::Rust,
+                backend: LanguageBackends::Rust,
                 detection: FrameworkDetector {
                     matching_strategy: FrameworkMatchingStrategy::All,
                     detectors: vec![FrameworkDetectionItem::Config { content: None }],

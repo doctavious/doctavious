@@ -41,7 +41,7 @@ mod rust;
 #[remain::sorted]
 #[non_exhaustive]
 #[derive(Debug, Deserialize, PartialEq, Serialize)]
-// #[serde(rename_all = "lowercase")]
+#[serde(rename_all = "lowercase")]
 pub enum LanguageBackends {
     DotNet,
     Go,

@@ -33,7 +33,7 @@ impl Astro {
                 website: "https://astro.build".to_string(),
                 configs,
                 // language: Language::Javascript,
-                language: LanguageBackends::JavaScript,
+                backend: LanguageBackends::JavaScript,
                 detection: FrameworkDetector {
                     matching_strategy: FrameworkMatchingStrategy::All,
                     detectors: vec![FrameworkDetectionItem::Dependency { name: "astro".to_string() }],

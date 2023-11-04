@@ -35,7 +35,7 @@ impl Jekyll {
                 website: "https://jekyllrb.com/".to_string(),
                 configs,
                 // language: Language::Ruby,
-                language: LanguageBackends::Ruby,
+                backend: LanguageBackends::Ruby,
                 detection: FrameworkDetector {
                     matching_strategy: FrameworkMatchingStrategy::Any,
                     detectors: vec![

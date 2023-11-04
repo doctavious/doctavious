@@ -39,7 +39,7 @@ impl Hugo {
                 website: "https://gohugo.io/".to_string(),
                 configs,
                 // language: Language::Go,
-                language: LanguageBackends::Go,
+                backend: LanguageBackends::Go,
                 detection: FrameworkDetector {
                     matching_strategy: FrameworkMatchingStrategy::All,
                     detectors: vec![FrameworkDetectionItem::Config {

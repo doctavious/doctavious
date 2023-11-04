@@ -51,7 +51,7 @@ pub struct FrameworkInfo {
     // TODO: this could be SoftwareFramework / SoftwarePlatform.
     // Potentially solves for the scenario of needed multiple languages such as C#/F#
     // I kinda like Replit's UPM LanguageBackend
-    pub language: LanguageBackends, // String
+    pub backend: LanguageBackends,
 
     // /// Detectors used to find out the framework
     pub detection: FrameworkDetector,
@@ -152,7 +152,7 @@ pub enum RequiredDependencies {
 // TODO: change name?
 /// Matching strategies to match on a framework
 #[derive(Debug, Deserialize, PartialEq, Serialize)]
-// #[serde(rename_all = "lowercase")]
+#[serde(rename_all = "lowercase")]
 pub enum FrameworkMatchingStrategy {
     /// Strategy that requires all detectors to match for the framework to be detected
     All,
@@ -190,10 +190,12 @@ pub enum FrameworkBuildArg {
         default_value: Option<String>,
     },
     // TODO: do we care short or long? how about use vec/array? I dont think it really matters
+    // I Think we should just have option with a name/value/arg
     #[serde(rename = "option")]
     Option {
         #[serde(default)]
         short: String,
+        #[serde(default)]
         long: String,
     },
 }

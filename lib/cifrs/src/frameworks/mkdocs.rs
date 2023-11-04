@@ -32,7 +32,7 @@ impl MKDocs {
                 website: "https://www.mkdocs.org/".to_string(),
                 configs,
                 // language: Language::Python,
-                language: LanguageBackends::Python,
+                backend: LanguageBackends::Python,
                 detection: FrameworkDetector {
                     matching_strategy: FrameworkMatchingStrategy::All,
                     detectors: vec![FrameworkDetectionItem::Dependency { name: "mkdocs".to_string() }],

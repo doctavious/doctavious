@@ -39,7 +39,7 @@ impl DocFx {
                 website: "https://dotnet.github.io/docfx/".to_string(),
                 configs,
                 // language: Language::CSharp, // F# will be supported in the future.
-                language: LanguageBackends::DotNet,
+                backend: LanguageBackends::DotNet,
                 detection: FrameworkDetector {
                     matching_strategy: FrameworkMatchingStrategy::All,
                     detectors: vec![FrameworkDetectionItem::Config { content: None }],

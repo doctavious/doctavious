@@ -30,7 +30,7 @@ impl Sphinx {
                 website: "https://www.sphinx-doc.org/en/master/".to_string(),
                 configs,
                 // language: Language::Python,
-                language: LanguageBackends::Python,
+                backend: LanguageBackends::Python,
                 detection: FrameworkDetector {
                     matching_strategy: FrameworkMatchingStrategy::All,
                     detectors: vec![FrameworkDetectionItem::Config { content: None }],

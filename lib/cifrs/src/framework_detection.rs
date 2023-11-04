@@ -109,7 +109,7 @@ fn check(framework: &FrameworkInfo, item: &FrameworkDetectionItem) -> Option<Mat
             None
         }
         FrameworkDetectionItem::Dependency { name: dependency } => {
-            for p in framework.language.project_files() {
+            for p in framework.backend.project_files() {
                 for path in p.get_project_paths() {
                     if !path.exists() {
                         // TODO: log

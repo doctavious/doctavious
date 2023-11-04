@@ -11,7 +11,7 @@
 #    - Arg: index / default_value
 #    - option: short / long
 #   output_directory
-# Please keep this list alphabetized. Capitalization comes before lowercase.
+# Please keep this list alphabetized by id.
 
 # TODO: do we need command_args?
 
@@ -27,7 +27,7 @@ frameworks:
     configs:
       - antora-playbook.yaml
       - antora-playbook.yml
-    language: JavaScript
+    backend: javascript
     build:
       command: antora generate
       command_args:
@@ -39,7 +39,7 @@ frameworks:
           long: --to-dir
       output_directory: build/site
     detection:
-      matching_strategy: All
+      matching_strategy: all
       detectors:
         - type: dependency
           name: '@antora/cli'
@@ -53,7 +53,7 @@ frameworks:
       - astro.config.cjs
       - astro.config.mjs
       - astro.config.ts
-    language: JavaScript
+    backend: javascript
     build:
       command: astro build
       command_args:
@@ -62,7 +62,7 @@ frameworks:
           long: --config
       output_directory: ./dist
     detection:
-      matching_strategy: All
+      matching_strategy: all
       detectors:
         - type: dependency
           name: astro
@@ -71,18 +71,16 @@ frameworks:
     website: https://dotnet.github.io/docfx/
     configs:
       - docfx.json
-    language: DotNet
+    backend: dotnet
     build:
       command: docfx build
       command_args:
         output:
           type: option
           short: -o
-          # should long be optional?
-          long: ''
       output_directory: _site
     detection:
-      matching_strategy: All
+      matching_strategy: all
       detectors:
         - type: config
   - id: docusaurus-v2
@@ -90,7 +88,7 @@ frameworks:
     website: https://docusaurus.io/
     configs:
       - docusaurus.config.js
-    language: JavaScript
+    backend: javascript
     build:
       command: docusaurus build
       command_args:
@@ -102,7 +100,7 @@ frameworks:
           long: --out-dir
       output_directory: build
     detection:
-      matching_strategy: All
+      matching_strategy: all
       detectors:
         - type: dependency
           name: '@docusaurus/core'
@@ -113,7 +111,7 @@ frameworks:
       - .eleventy.js
       - eleventy.config.js
       - eleventy.config.cjs
-    language: JavaScript
+    backend: javascript
     build:
       command: eleventy
       command_args:
@@ -122,7 +120,7 @@ frameworks:
           long: --output
       output_directory: _site
     detection:
-      matching_strategy: All
+      matching_strategy: all
       detectors:
         - type: dependency
           name: '@11ty/eleventy'
@@ -132,12 +130,12 @@ frameworks:
     configs:
       - gatsby-config.js
       - gatsby-config.ts
-    language: JavaScript
+    backend: javascript
     build:
       command: gatsby build
       output_directory: /public
     detection:
-      matching_strategy: All
+      matching_strategy: all
       detectors:
         - type: dependency
           name: 'gatsby'
@@ -147,7 +145,7 @@ frameworks:
     configs:
       - _config.yaml
       - _config.yml
-    language: JavaScript
+    backend: javascript
     build:
       command: hexo generate
       command_args:
@@ -156,7 +154,7 @@ frameworks:
           long: --config
       output_directory: public
     detection:
-      matching_strategy: All
+      matching_strategy: all
       detectors:
         - type: dependency
           name: 'hexo'
@@ -172,7 +170,7 @@ frameworks:
       - hugo.toml
       - hugo.yaml
       - hugo.yml
-    language: Go
+    backend: go
     build:
       command: hugo
       command_args:
@@ -184,7 +182,7 @@ frameworks:
           long: --destination
       output_directory: /public
     detection:
-      matching_strategy: All
+      matching_strategy: all
       detectors:
         - type: config
           content: baseURL
@@ -195,7 +193,7 @@ frameworks:
       - _config.yaml
       - _config.yml
       - _config.toml
-    language: Ruby
+    backend: ruby
     build:
       command: jekyll build
       command_args:
@@ -208,7 +206,7 @@ frameworks:
           long: --destination
       output_directory: _site
     detection:
-      matching_strategy: All
+      matching_strategy: all
       detectors:
         - type: dependency
           name: jekyll
@@ -218,7 +216,7 @@ frameworks:
 #  - id: markdoc
 #    name: MarkDoc
 #    website: https://markdoc.dev/
-#    language: JavaScript
+#    backend: javascript
 #    build:
 #      command: build
 #      output_directory: dist
@@ -227,7 +225,7 @@ frameworks:
     website: https://rust-lang.github.io/mdBook/
     configs:
       - book.toml
-    language: Rust
+    backend: rust
     build:
       command: mdbook build
       command_args:
@@ -237,7 +235,7 @@ frameworks:
           long: --dest-dir
       output_directory: ./book
     detection:
-      matching_strategy: All
+      matching_strategy: all
       detectors:
         - type: config
   - id: mkdocs
@@ -246,7 +244,7 @@ frameworks:
     configs:
       - mkdocs.yaml
       - mkdocs.yml
-    language: Python
+    backend: python
     build:
       command: mkdocs build
       command_args:
@@ -260,7 +258,7 @@ frameworks:
           long: --site-dir
       output_directory: site
     detection:
-      matching_strategy: All
+      matching_strategy: all
       detectors:
         - type: dependency
           name: mkdocs
@@ -270,12 +268,12 @@ frameworks:
     configs:
       - next.config.js
       - next.config.mjs
-    language: JavaScript
+    backend: javascript
     build:
       command: next build
       output_directory: .next
     detection:
-      matching_strategy: All
+      matching_strategy: all
       detectors:
         - type: dependency
           name: next
@@ -284,7 +282,7 @@ frameworks:
 #    website: https://nextra.site/
 #    configs:
 #      - next.config.js
-#    language: JavaScript
+#    backend: javascript
 #    build:
 #      command: next build
 #      output_directory: .next
@@ -293,12 +291,12 @@ frameworks:
     website: https://v2.nuxt.com/
     configs:
       - nuxt.config.js
-    language: JavaScript
+    backend: javascript
     build:
       command: nuxt build
       output_directory: .nuxt
     detection:
-      matching_strategy: All
+      matching_strategy: all
       detectors:
         - type: dependency
           name: nuxt
@@ -311,12 +309,12 @@ frameworks:
       - nuxt.config.js
       - nuxt.config.mjs
       - nuxt.config.ts
-    language: JavaScript
+    backend: javascript
     build:
       command: nuxi generate
       output_directory: .output
     detection:
-      matching_strategy: All
+      matching_strategy: all
       detectors:
         - type: dependency
           name: nuxt3
@@ -325,7 +323,7 @@ frameworks:
     website: https://www.sphinx-doc.org/en/master/
     configs:
       - conf.py
-    language: Python
+    backend: python
     build:
       command: sphinx-build
       command_args:
@@ -338,7 +336,7 @@ frameworks:
           index: 2
       output_directory: docs/_build
     detection:
-      matching_strategy: All
+      matching_strategy: all
       detectors:
         - type: config
   - id: sveltekit
@@ -346,7 +344,7 @@ frameworks:
     website: https://kit.svelte.dev/
     configs:
       - svelte.config.js
-    language: JavaScript
+    backend: javascript
     build:
       command: vite build
       command_args:
@@ -355,7 +353,7 @@ frameworks:
           long: --outDir
       output_directory: build
     detection:
-      matching_strategy: All
+      matching_strategy: all
       detectors:
         - type: dependency
           name: '@sveltejs/kit'
@@ -368,12 +366,12 @@ frameworks:
       - .vitepress/config.mjs
       - .vitepress/config.mts
       - .vitepress/config.ts
-    language: JavaScript
+    backend: javascript
     build:
       command: vitepress build docs
       output_directory: docs/.vitepress/dist
     detection:
-      matching_strategy: All
+      matching_strategy: all
       detectors:
         - type: dependency
           name: vitepress
@@ -386,7 +384,7 @@ frameworks:
       - .vuepress/config.yml
       - .vuepress/config.toml
       - .vuepress/config.ts
-    language: JavaScript
+    backend: javascript
     build:
       command: vuepress build
       command_args:
@@ -404,7 +402,7 @@ frameworks:
           long: --dest
       output_directory: .vuepress/dist
     detection:
-      matching_strategy: All
+      matching_strategy: all
       detectors:
         - type: dependency
           name: vuepress
