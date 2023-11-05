@@ -206,7 +206,7 @@ frameworks:
           long: --destination
       output_directory: _site
     detection:
-      matching_strategy: all
+      matching_strategy: any
       detectors:
         - type: dependency
           name: jekyll
