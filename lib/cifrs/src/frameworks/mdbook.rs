@@ -71,7 +71,7 @@ impl FrameworkSupport for MDBook {
     fn get_info(&self) -> &FrameworkInfo {
         &self.info
     }
-    
+
     fn get_output_dir(&self) -> String {
         if !self.info.configs.is_empty() {
             match read_config_files::<MDBookConfig>(&self.info.configs) {

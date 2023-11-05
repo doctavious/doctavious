@@ -1,8 +1,10 @@
 use std::fs;
 use std::path::{Path, PathBuf};
 
+use directories::{UserDirs};
 use glob::PatternError;
 use regex::RegexBuilder;
+use serde_derive::{Deserialize, Serialize};
 use serde_json::Value;
 use thiserror::Error;
 
@@ -66,6 +68,11 @@ pub type CifrsResult<T> = Result<T, CifrsError>;
 
 pub struct Cifrs;
 
+#[derive(Debug, Deserialize, Serialize)]
+struct Frameworks {
+    pub frameworks: Vec<FrameworkInfo>,
+}
+
 impl Cifrs {
     // TODO: when looking for frameworks do we need to traverse more than one directory?
     // That might be only true if project is a monorepo? See how projects with included docs are built
@@ -83,53 +90,55 @@ impl Cifrs {
 
     /// Determine Frameworks
     /// returns vec of frameworks
-    pub fn check_frameworks<P: AsRef<Path>>(&self, path: P) -> CifrsResult<()> {
-        let frameworks: Vec<FrameworkInfo> = serde_yaml::from_str(FRAMEWORKS_STR)?;
+    pub fn check_frameworks<P: AsRef<Path>>(path: P) -> CifrsResult<FrameworkInfo> {
+        let frameworks: Frameworks = serde_yaml::from_str(FRAMEWORKS_STR)?;
 
         // TODO: should we decide if monorepo / workspace?
-        let dirs = self.directories_to_check(path)?;
-        for framework in frameworks {
+        // vercel build has a max depth of 3. should we try and determine max depth
+        // based on if its a monorepo/workspace or individual project?
+        let dirs = Cifrs::directories_to_check(path)?;
+        for framework in frameworks.frameworks {
             for dir in &dirs {
-                let m = self.matches(&framework);
+                let m = Cifrs::matches(&framework, dir);
                 // TODO: return MatchResult?
                 if m.is_some() {
-                    // return Some(framework);
+                    return Ok(framework);
                 }
             }
         }
 
+        Err(CifrsError::MissingFrameworkConfig())
+    }
+
+    pub fn build<P: AsRef<Path>>(path: P, install: bool) -> CifrsResult<()> {
+        let dirs = Cifrs::directories_to_check(path);
         Ok(())
     }
 
-    pub fn build<P: AsRef<Path>>(&self, path: P, install: bool) -> CifrsResult<()> {
-        let dirs = self.directories_to_check(path);
-        Ok(())
-    }
-
-    pub fn directories_to_check<P: AsRef<Path>>(&self, path: P) -> CifrsResult<Vec<PathBuf>> {
+    pub fn directories_to_check<P: AsRef<Path>>(path: P) -> CifrsResult<Vec<PathBuf>> {
         let mut dirs = vec![path.as_ref().to_path_buf()];
-        for entry in fs::read_dir(path)?.flatten() {
-            if entry.path().is_dir() {
-                dirs.push(entry.path());
-            }
-        }
+        // for entry in fs::read_dir(path)?.flatten() {
+        //     if entry.path().is_dir() {
+        //         dirs.push(entry.path());
+        //     }
+        // }
 
         Ok(dirs)
     }
 
-    fn matches(&self, framework: &FrameworkInfo) -> Option<MatchResult> {
+    fn matches(framework: &FrameworkInfo, path: &Path) -> Option<MatchResult> {
         let mut results: Vec<Option<MatchResult>> = vec![];
 
         match &framework.detection.matching_strategy {
             FrameworkMatchingStrategy::All => {
                 for detector in &framework.detection.detectors {
-                    results.push(self.check(&framework, detector));
+                    results.push(Cifrs::check(&framework, detector, path));
                 }
             }
             FrameworkMatchingStrategy::Any => {
                 let mut matched = None;
                 for item in &framework.detection.detectors {
-                    let result = self.check(&framework, item);
+                    let result = Cifrs::check(&framework, item, path);
                     if result.is_some() {
                         matched = result;
                         break;
@@ -149,14 +158,14 @@ impl Cifrs {
 
     // TODO: what should this return?
     fn check(
-        &self,
         framework: &FrameworkInfo,
         item: &FrameworkDetectionItem,
+        root: &Path
     ) -> Option<MatchResult> {
         match item {
             FrameworkDetectionItem::Config { content } => {
                 for config in &framework.configs {
-                    if let Ok(file_content) = fs::read_to_string(config) {
+                    if let Ok(file_content) = fs::read_to_string(root.join(config)) {
                         if let Some(content) = content {
                             let regex = RegexBuilder::new(content).multi_line(true).build();
                             match regex {
@@ -177,7 +186,8 @@ impl Cifrs {
             }
             FrameworkDetectionItem::Dependency { name: dependency } => {
                 for p in framework.backend.project_files() {
-                    for path in p.get_project_paths() {
+                    for project_path in p.get_project_paths() {
+                        let path = root.join(project_path);
                         if !path.exists() {
                             // TODO: log
                             continue;
@@ -191,7 +201,7 @@ impl Cifrs {
                         let file_content = fs::read_to_string(path);
                         match file_content {
                             Ok(c) => {
-                                let found = self.has_dependency(p, c, dependency);
+                                let found = Cifrs::has_dependency(p, c, dependency);
                                 match found {
                                     Ok(f) => {
                                         if f {
@@ -215,7 +225,7 @@ impl Cifrs {
                 None
             }
             FrameworkDetectionItem::File { path, content } => {
-                if let Ok(file_content) = fs::read_to_string(path) {
+                if let Ok(file_content) = fs::read_to_string(root.join(path)) {
                     if let Some(content) = content {
                         let regex = RegexBuilder::new(content).multi_line(true).build();
                         match regex {
@@ -238,7 +248,6 @@ impl Cifrs {
     }
 
     fn has_dependency(
-        &self,
         project_type: &ProjectFile,
         content: String,
         dependency: &str,
@@ -287,11 +296,15 @@ impl Cifrs {
 
 #[cfg(test)]
 mod tests {
+    use directories::BaseDirs;
     use crate::Cifrs;
 
     #[test]
     fn check_frameworks() {
-        // Cifrs::check_frameworks()
+        let base_dir = BaseDirs::new().unwrap();
+        let home_dir = base_dir.home_dir();
+        let framework = Cifrs::check_frameworks(&home_dir.join("workspace/seancarroll.github.io")).unwrap();
+        println!("{:?}", framework)
     }
 
     // #[test]
