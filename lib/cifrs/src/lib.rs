@@ -1,7 +1,6 @@
 use std::fs;
 use std::path::{Path, PathBuf};
 
-use directories::{UserDirs};
 use glob::PatternError;
 use regex::RegexBuilder;
 use serde_derive::{Deserialize, Serialize};
@@ -11,8 +10,9 @@ use thiserror::Error;
 use crate::framework::{FrameworkDetectionItem, FrameworkInfo, FrameworkMatchingStrategy};
 use crate::framework_detection::MatchResult;
 use crate::frameworks::FRAMEWORKS_STR;
-use crate::projects::csproj::CSProj;
+use crate::projects::msbuild::MsBuildProj;
 use crate::projects::project_file::ProjectFile;
+use crate::workspaces::{Workspace, WORKSPACES_STR};
 
 mod backends;
 mod framework;
@@ -23,6 +23,7 @@ mod language;
 mod package_manager;
 mod projects;
 mod strategy;
+mod workspaces;
 
 #[remain::sorted]
 #[derive(Debug, Error)]
@@ -69,7 +70,7 @@ pub type CifrsResult<T> = Result<T, CifrsError>;
 pub struct Cifrs;
 
 #[derive(Debug, Deserialize, Serialize)]
-struct Frameworks {
+struct SupportedFrameworks {
     pub frameworks: Vec<FrameworkInfo>,
 }
 
@@ -90,16 +91,14 @@ impl Cifrs {
 
     /// Determine Frameworks
     /// returns vec of frameworks
-    pub fn check_frameworks<P: AsRef<Path>>(path: P) -> CifrsResult<FrameworkInfo> {
-        let frameworks: Frameworks = serde_yaml::from_str(FRAMEWORKS_STR)?;
-
+    pub fn detect_frameworks<P: AsRef<Path>>(path: P) -> CifrsResult<FrameworkInfo> {
         // TODO: should we decide if monorepo / workspace?
         // vercel build has a max depth of 3. should we try and determine max depth
         // based on if its a monorepo/workspace or individual project?
         let dirs = Cifrs::directories_to_check(path)?;
-        for framework in frameworks.frameworks {
+        for framework in Cifrs::get_frameworks()?.frameworks {
             for dir in &dirs {
-                let m = Cifrs::matches(&framework, dir);
+                let m = Cifrs::matches(dir, &framework);
                 // TODO: return MatchResult?
                 if m.is_some() {
                     return Ok(framework);
@@ -108,6 +107,10 @@ impl Cifrs {
         }
 
         Err(CifrsError::MissingFrameworkConfig())
+    }
+
+    pub fn get_frameworks() -> CifrsResult<SupportedFrameworks> {
+        Ok(serde_yaml::from_str(FRAMEWORKS_STR)?)
     }
 
     pub fn build<P: AsRef<Path>>(path: P, install: bool) -> CifrsResult<()> {
@@ -126,19 +129,54 @@ impl Cifrs {
         Ok(dirs)
     }
 
-    fn matches(framework: &FrameworkInfo, path: &Path) -> Option<MatchResult> {
+    pub fn detect_workspace<P: AsRef<Path>>(cwd: P) -> CifrsResult<()> {
+        let workspaces: Vec<Workspace> = serde_yaml::from_str(WORKSPACES_STR).expect("");
+        let mut results: Vec<Option<MatchResult>> = vec![];
+        for workspace in workspaces {
+            match &workspace.detection.matching_strategy {
+                FrameworkMatchingStrategy::All => {
+                    for detector in &workspace.detection.detectors {
+                        results.push(Cifrs::check_workspace(&cwd, &workspace, detector));
+                    }
+                }
+                FrameworkMatchingStrategy::Any => {
+                    let mut matched = None;
+                    for item in &workspace.detection.detectors {
+                        let result = Cifrs::check_workspace(&cwd, &workspace, item);
+                        if result.is_some() {
+                            matched = result;
+                            break;
+                        }
+                    }
+
+                    results.push(matched);
+                }
+            }
+
+            if results.iter().all(|&r| r.is_some()) {
+                // return *results.first().unwrap();
+            }
+
+
+        }
+
+        Ok(())
+    }
+
+
+    fn matches(path: &Path, framework: &FrameworkInfo) -> Option<MatchResult> {
         let mut results: Vec<Option<MatchResult>> = vec![];
 
         match &framework.detection.matching_strategy {
             FrameworkMatchingStrategy::All => {
                 for detector in &framework.detection.detectors {
-                    results.push(Cifrs::check(&framework, detector, path));
+                    results.push(Cifrs::check(path, &framework, detector));
                 }
             }
             FrameworkMatchingStrategy::Any => {
                 let mut matched = None;
                 for item in &framework.detection.detectors {
-                    let result = Cifrs::check(&framework, item, path);
+                    let result = Cifrs::check(path, &framework, item);
                     if result.is_some() {
                         matched = result;
                         break;
@@ -158,17 +196,16 @@ impl Cifrs {
 
     // TODO: what should this return?
     fn check(
+        dir: &Path,
         framework: &FrameworkInfo,
         item: &FrameworkDetectionItem,
-        root: &Path
     ) -> Option<MatchResult> {
         match item {
             FrameworkDetectionItem::Config { content } => {
                 for config in &framework.configs {
-                    if let Ok(file_content) = fs::read_to_string(root.join(config)) {
+                    if let Ok(file_content) = fs::read_to_string(dir.join(config)) {
                         if let Some(content) = content {
-                            let regex = RegexBuilder::new(content).multi_line(true).build();
-                            match regex {
+                            match RegexBuilder::new(content).multi_line(true).build() {
                                 Ok(regex) => {
                                     if regex.is_match(file_content.as_str()) {
                                         return Some(MatchResult { project: None });
@@ -187,7 +224,7 @@ impl Cifrs {
             FrameworkDetectionItem::Dependency { name: dependency } => {
                 for p in framework.backend.project_files() {
                     for project_path in p.get_project_paths() {
-                        let path = root.join(project_path);
+                        let path = dir.join(project_path);
                         if !path.exists() {
                             // TODO: log
                             continue;
@@ -198,11 +235,9 @@ impl Cifrs {
                             continue;
                         }
 
-                        let file_content = fs::read_to_string(path);
-                        match file_content {
+                        match fs::read_to_string(path) {
                             Ok(c) => {
-                                let found = Cifrs::has_dependency(p, c, dependency);
-                                match found {
+                                match Cifrs::has_dependency(p, c, dependency) {
                                     Ok(f) => {
                                         if f {
                                             return Some(MatchResult { project: Some(*p) });
@@ -225,10 +260,9 @@ impl Cifrs {
                 None
             }
             FrameworkDetectionItem::File { path, content } => {
-                if let Ok(file_content) = fs::read_to_string(root.join(path)) {
+                if let Ok(file_content) = fs::read_to_string(dir.join(path)) {
                     if let Some(content) = content {
-                        let regex = RegexBuilder::new(content).multi_line(true).build();
-                        match regex {
+                        match RegexBuilder::new(content).multi_line(true).build() {
                             Ok(regex) => {
                                 if regex.is_match(file_content.as_str()) {
                                     return Some(MatchResult { project: None });
@@ -247,6 +281,40 @@ impl Cifrs {
         }
     }
 
+
+    fn check_workspace<P: AsRef<Path>>(
+        dir: P,
+        workspace: &Workspace,
+        item: &FrameworkDetectionItem,
+    ) -> Option<MatchResult> {
+        match item {
+            FrameworkDetectionItem::File { path, content } => {
+                if let Ok(file_content) = fs::read_to_string(dir.as_ref().join(path)) {
+                    if let Some(content) = content {
+                        match RegexBuilder::new(content).multi_line(true).build() {
+                            Ok(regex) => {
+                                if regex.is_match(file_content.as_str()) {
+                                    return Some(MatchResult { project: None });
+                                }
+                            }
+                            Err(e) => {
+                                // TODO: log
+                                println!("error with regex {e}")
+                            }
+                        }
+                    }
+                    return Some(MatchResult { project: None });
+                }
+                None
+            }
+            _ => {
+                // TODO:(Sean): config doesnt yet fit within workspace detection and dependency
+                // probably doesnt make sense. Should error?
+                None
+            }
+        }
+    }
+
     fn has_dependency(
         project_type: &ProjectFile,
         content: String,
@@ -260,8 +328,8 @@ impl Cifrs {
                     .and_then(|o| o.get(dependency))
                     .is_some()
             }
-            ProjectFile::CSProj => {
-                let build_proj: CSProj = serde_xml_rs::from_str(content.as_str())?;
+            ProjectFile::MsBuild => {
+                let build_proj: MsBuildProj = serde_xml_rs::from_str(content.as_str())?;
                 build_proj.has_package_reference(dependency)
             }
             ProjectFile::GemFile => content.contains(&format!("gem '{}'", dependency)),
@@ -303,7 +371,7 @@ mod tests {
     fn check_frameworks() {
         let base_dir = BaseDirs::new().unwrap();
         let home_dir = base_dir.home_dir();
-        let framework = Cifrs::check_frameworks(&home_dir.join("workspace/seancarroll.github.io")).unwrap();
+        let framework = Cifrs::detect_frameworks(&home_dir.join("workspace/seancarroll.github.io")).unwrap();
         println!("{:?}", framework)
     }
 

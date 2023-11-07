@@ -1,4 +1,4 @@
-use serde_derive::Deserialize;
+use serde_derive::{Deserialize, Serialize};
 
 use crate::framework::FrameworkInfo;
 
@@ -24,8 +24,8 @@ pub mod vuepress;
 
 pub const FRAMEWORKS_STR: &str = include_str!("frameworks.yaml");
 
-#[derive(Debug, Deserialize, PartialEq)]
-#[serde(tag = "id")]
+#[derive(Debug, Deserialize, PartialEq, Serialize)]
+#[serde(tag = "slug")]
 enum Frameworks {
     #[serde(rename = "antora")]
     Antora(FrameworkInfo),
@@ -99,16 +99,17 @@ mod tests {
     use serde_derive::{Deserialize, Serialize};
 
     use crate::framework::FrameworkInfo;
-    use crate::frameworks::FRAMEWORKS_STR;
+    use crate::frameworks::{Frameworks, FRAMEWORKS_STR};
 
     #[derive(Debug, Deserialize, Serialize)]
-    struct Frameworks {
-        pub frameworks: Vec<FrameworkInfo>,
+    struct SupportedFrameworks {
+        // pub frameworks: Vec<Frameworks>,
+        pub frameworks: Vec<FrameworkInfo>
     }
 
     #[test]
     fn test_deserialize_frameworks_yaml() {
-        let frameworks: Frameworks = serde_yaml::from_str(FRAMEWORKS_STR).expect("");
+        let frameworks: SupportedFrameworks = serde_yaml::from_str(FRAMEWORKS_STR).expect("");
         println!("{}", serde_json::to_string(&frameworks).unwrap());
     }
 }

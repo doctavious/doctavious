@@ -7,7 +7,7 @@ use crate::framework::{FrameworkDetectionItem, FrameworkDetector, FrameworkMatch
 #[derive(Debug, Deserialize, PartialEq, Serialize)]
 pub enum PackageManager {
     Cargo,
-    Go,
+    GoModules,
     Npm,
     Nuget,
     Poetry,
@@ -44,14 +44,14 @@ pub struct PackageManagerInfo {
 impl<'a> PackageManager {
     pub const ALL: &'a [PackageManager] = &[
         // Bun
+        PackageManager::Bundler,
         PackageManager::Cargo,
-        PackageManager::Go,
+        PackageManager::GoModules,
         PackageManager::Npm,
         PackageManager::Nuget,
-        PackageManager::Poetry,
         PackageManager::Pip,
         PackageManager::Pnpm,
-        PackageManager::Bundler,
+        PackageManager::Poetry,
         PackageManager::Yarn,
     ];
 
@@ -75,7 +75,7 @@ impl<'a> PackageManager {
                     ],
                 },
             },
-            PackageManager::Go => {
+            PackageManager::GoModules => {
                 PackageManagerInfo {
                     name: "go",
                     install_command: "go get",

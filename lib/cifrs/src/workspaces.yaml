@@ -1,0 +1,64 @@
+# Defines all supported workspace build system
+# Please keep this list alphabetized by id.
+# based on Vercel's workspace managers
+# https://github.com/vercel/vercel/blob/main/packages/fs-detectors/src/workspaces/workspace-managers.ts
+
+# TODO(Sean): might make sense to also have a spec_files / project files for these which could allow this
+# to work with framework detection
+
+- id: cargo
+  name: Cargo
+  detection:
+    matching_strategy: all
+    detectors:
+      - type: file
+        path: Cargo.toml
+        content: '[workspace]'
+- id: npm
+  name: NPM
+  detection:
+    matching_strategy: all
+    detectors:
+      - type: file
+        path: package.json
+        content: '"workspaces":\s*(?:\[[^\]]*]|[{][^}]*"packages":[^}]*})'
+      - type: file
+        path: 'package-lock.json'
+- id: nx
+  name: Nx
+  detection:
+    matching_strategy: any
+    detectors:
+      # workspace.json is deprecated and should probably remove
+      - type: file
+        path: workspace.json
+        content: '"projects":\s*[{][^}]'
+      - type: file
+        path: project.json
+        content: '"projects":\s*[{][^}]'
+      # TODO(Sean): nx also supports package.json
+- id: pnpm
+  name: PNPM
+  detection:
+    matching_strategy: all
+    detectors:
+      - type: file
+        path: pnpm-workspace.yaml
+- id: rush
+  name: Rush
+  detection:
+    matching_strategy: all
+    detectors:
+      - type: file
+        path: package.json
+        content: '"workspaces":\s*(?:\[[^\]]*]|[{][^}]*"packages":[^}]*})'
+- id: yarn
+  name: Yarn
+  detection:
+    matching_strategy: all
+    detectors:
+      - type: file
+        path: package.json
+        content: '"workspaces":\s*(?:\[[^\]]*]|[{][^}]*"packages":[^}]*})'
+      - type: file
+        path: yarn.lock

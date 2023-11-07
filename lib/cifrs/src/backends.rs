@@ -14,7 +14,12 @@
 // (The limitation should be noted in the backend feature matrix in
 // the README.)
 
+use std::fs;
+use std::path::PathBuf;
 use serde_derive::{Deserialize, Serialize};
+use serde_json::Value;
+use crate::{Cifrs, CifrsResult};
+use crate::package_manager::PackageManager;
 
 use crate::projects::project_file::ProjectFile;
 
@@ -68,7 +73,7 @@ impl LanguageBackends {
 
     pub fn project_files(&self) -> &[ProjectFile] {
         match self {
-            LanguageBackends::DotNet => &[ProjectFile::CSProj],
+            LanguageBackends::DotNet => &[ProjectFile::MsBuild],
             // F# has .fsproj
             LanguageBackends::Go => &[ProjectFile::GoMod],
             LanguageBackends::JavaScript => &[ProjectFile::PackageJson],
@@ -81,6 +86,33 @@ impl LanguageBackends {
             LanguageBackends::Rust => &[ProjectFile::CargoToml],
         }
     }
+
+    fn package_managers(&self) -> Vec<PackageManager> {
+        vec![]
+    }
+
+    // probably collapse get_project_paths with this
+    fn get_project_file(&self) -> Option<PathBuf> {
+        for p in self.project_files() {
+            for path in p.get_project_paths() {
+                if !path.exists() {
+                    // debug!("skipping project file {}...does not exist");
+                    continue;
+                }
+
+                if path.is_dir() {
+                    // debug!("skipping project file {}...is a directory");
+                    continue;
+                }
+            }
+        }
+
+        None
+    }
+
+    fn has_dependency(&self, dependency: &str) -> CifrsResult<bool> {
+        Ok(true)
+    }
 }
 
 pub struct LanguageBackend {
@@ -88,5 +120,23 @@ pub struct LanguageBackend {
     pub name: String,
 
     // we were calling this a project_file
-    pub spec_file: String,
+    // pub spec_file: String,
+
+    pub project_files: Vec<String>
+
 }
+
+// build systems arent necessarily tied to a run time e.g. buck2 can be used across languages
+
+// language runtime
+// has package managers
+
+
+// vercel has the following logic to detect projects
+// from the cwd they call `getWorkspaces` with a max traversal depth of 3
+// - calls `detectWorkspaceManagers` which is `detectFramework` but with a list of `workspaceManagers` (yarn, pnpm, rush, nx, etc) and returns first match as workspaceType
+// - returns list of type and paths/dirs
+// for each workspace they call `getWorkspacePackagePaths`
+// - reads corresponding files from workspace paths based on type to get list of package paths
+// for each package path they call `detectFrameworks` with a list of possible frameworks
+// return map of path and associated frameworks

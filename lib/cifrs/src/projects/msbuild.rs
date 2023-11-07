@@ -1,11 +1,12 @@
 use serde_derive::Deserialize;
 
 /// Required root element of an MSBuild project file.
-/// represent a C# project file that contains the list of files included in a project along with
+/// represent a MSBuild project file that contains the list of files included in a project along with
 /// the references to system assemblies
+
 #[derive(Debug, Deserialize, PartialEq)]
 #[serde(rename = "Project")]
-pub(crate) struct CSProj {
+pub(crate) struct MsBuildProj {
     #[serde(rename = "Sdk")]
     pub sdk: String,
 
@@ -13,7 +14,7 @@ pub(crate) struct CSProj {
     pub item_groups: Vec<ItemGroup>,
 }
 
-impl CSProj {
+impl MsBuildProj {
     // if we want to get version this could be get_package_reference and have it return Option
     pub(crate) fn has_package_reference(&self, package_reference: &str) -> bool {
         for item_group in &self.item_groups {

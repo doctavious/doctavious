@@ -27,7 +27,6 @@ use crate::js_module::parse_js_module;
 use crate::{CifrsError, CifrsResult};
 
 // FrameworkDefinition
-// if we want to use static str would need to use
 #[derive(Debug, Deserialize, PartialEq, Serialize)]
 pub struct FrameworkInfo {
     pub id: String,

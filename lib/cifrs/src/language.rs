@@ -97,26 +97,26 @@ impl Language {
     //     }
     // }
 
-    pub const fn project_files(&self) -> &[ProjectFile] {
-        match self {
-            Language::CSharp => &[ProjectFile::CSProj],
-            // F# has .fsproj
-            Language::Go => &[ProjectFile::GoMod],
-            Language::Javascript => &[ProjectFile::PackageJson],
-            Language::Python => &[
-                ProjectFile::PyProject,
-                ProjectFile::PipFile,
-                ProjectFile::RequirementsTxt,
-            ],
-            Language::Ruby => &[ProjectFile::GemFile],
-            Language::Rust => &[ProjectFile::CargoToml],
-        }
-    }
+    // pub const fn project_files(&self) -> &[ProjectFile] {
+    //     match self {
+    //         Language::CSharp => &[ProjectFile::CSProj],
+    //         // F# has .fsproj
+    //         Language::Go => &[ProjectFile::GoMod],
+    //         Language::Javascript => &[ProjectFile::PackageJson],
+    //         Language::Python => &[
+    //             ProjectFile::PyProject,
+    //             ProjectFile::PipFile,
+    //             ProjectFile::RequirementsTxt,
+    //         ],
+    //         Language::Ruby => &[ProjectFile::GemFile],
+    //         Language::Rust => &[ProjectFile::CargoToml],
+    //     }
+    // }
 
     pub const fn get_package_managers(&self) -> &[PackageManager] {
         match self {
             Language::CSharp => &[PackageManager::Nuget],
-            Language::Go => &[PackageManager::Go],
+            Language::Go => &[PackageManager::GoModules],
             Language::Javascript => &[
                 PackageManager::Npm,
                 PackageManager::Pnpm,
@@ -141,8 +141,8 @@ impl Language {
             Language::Go => LanguageInfo {
                 name: "Go",
                 package_managers: SupportedPackageManagers {
-                    supported: vec![PackageManager::Go],
-                    fallback: PackageManager::Go,
+                    supported: vec![PackageManager::GoModules],
+                    fallback: PackageManager::GoModules,
                 },
             },
             Language::Javascript => LanguageInfo {

@@ -7,7 +7,7 @@ use serde_json::Value;
 use crate::framework::{
     FrameworkDetectionItem, FrameworkInfo, FrameworkMatchingStrategy, FrameworkSupport,
 };
-use crate::projects::csproj::CSProj;
+use crate::projects::msbuild::MsBuildProj;
 use crate::projects::project_file::ProjectFile;
 use crate::CifrsResult;
 
@@ -24,6 +24,14 @@ use crate::CifrsResult;
 // Return matched Framework
 // which should have framework info
 // as well as project
+
+pub trait Dectector {
+
+    fn detect<T>(&self) -> T;
+
+}
+
+
 pub(crate) struct MatchedFramework<'a> {
     pub framework_info: &'a FrameworkInfo,
     pub project: Option<ProjectFile>,
@@ -180,8 +188,8 @@ fn has_dependency(
                 .and_then(|o| o.get(dependency))
                 .is_some()
         }
-        ProjectFile::CSProj => {
-            let build_proj: CSProj = serde_xml_rs::from_str(content.as_str())?;
+        ProjectFile::MsBuild => {
+            let build_proj: MsBuildProj = serde_xml_rs::from_str(content.as_str())?;
             build_proj.has_package_reference(dependency)
         }
         ProjectFile::GemFile => content.contains(&format!("gem '{}'", dependency)),

@@ -1,12 +1,12 @@
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::{env, fs};
 
 use glob::glob;
-use serde_derive::Serialize;
+use serde_derive::{Deserialize, Serialize};
 use serde_json::Value;
 
 use crate::package_manager::PackageManager;
-use crate::projects::csproj::CSProj;
+use crate::projects::msbuild::MsBuildProj;
 use crate::CifrsResult;
 
 // TODO: lets create a projects module and put this along side CSProj given their relationship
@@ -104,13 +104,16 @@ impl Proj {
 // Manifest
 // ProjectFileType
 // ProjectType
+// SpecFile
 #[non_exhaustive]
-#[derive(Clone, Copy, Serialize)]
+#[remain::sorted]
+#[derive(Clone, Copy, Deserialize, Serialize)]
+#[serde(rename_all = "lowercase")]
 pub enum ProjectFile {
     CargoToml,
-    CSProj,
     GemFile,
     GoMod,
+    MsBuild,
     PackageJson,
     PipFile,
     PyProject,
@@ -137,24 +140,20 @@ impl ProjectFile {
 
     pub fn get_project_paths(&self) -> Vec<PathBuf> {
         match self {
-            ProjectFile::CSProj => {
-                for pattern in ["*.csproj", "*.fsproj"] {
-                    let glob_result = glob(pattern);
-                    // TODO: fix
-                    return match glob_result {
-                        Ok(paths) => paths.into_iter().filter_map(|p| p.ok()).collect(),
-                        Err(e) => {
-                            // TODO: log
-                            vec![]
-                        }
-                    };
-                }
-                vec![]
-            }
             ProjectFile::GoMod => vec![PathBuf::from("go.mod")],
             ProjectFile::PackageJson => vec![PathBuf::from("package.json")],
             ProjectFile::PipFile => vec![PathBuf::from("pipfile")],
             ProjectFile::PyProject => vec![PathBuf::from("pyproject.toml")],
+            ProjectFile::MsBuild => {
+                for pattern in ["*.csproj", "*.fsproj"] {
+                    let glob_paths = glob(pattern).expect("MsBuild config patterns should be valid globs");
+                    let paths: Vec<PathBuf> = glob_paths.filter_map(|p| p.ok()).collect();
+                    if !paths.is_empty() {
+                        return paths;
+                    }
+                }
+                vec![]
+            }
             ProjectFile::RequirementsTxt => vec![PathBuf::from("requirements.txt")],
             ProjectFile::GemFile => vec![PathBuf::from("Gemfile")],
             ProjectFile::CargoToml => vec![PathBuf::from("cargo.toml")],
@@ -164,9 +163,9 @@ impl ProjectFile {
     pub fn supported_package_managers(&self) -> &[PackageManager] {
         match self {
             ProjectFile::CargoToml => &[PackageManager::Cargo],
-            ProjectFile::CSProj => &[PackageManager::Nuget],
             ProjectFile::GemFile => &[PackageManager::Bundler],
-            ProjectFile::GoMod => &[PackageManager::Go],
+            ProjectFile::GoMod => &[PackageManager::GoModules],
+            ProjectFile::MsBuild => &[PackageManager::Nuget],
             ProjectFile::PackageJson => &[
                 PackageManager::Npm,
                 PackageManager::Pnpm,
@@ -189,7 +188,14 @@ impl ProjectFile {
                     .and_then(|o| o.get(dependency))
                     .is_some()
             }
-            ProjectFile::CSProj => {
+            ProjectFile::GemFile => {
+                let project_file_content = fs::read_to_string("Gemfile")?;
+                project_file_content.contains(&format!("gem '{}'", dependency))
+            }
+            ProjectFile::GoMod => {
+                todo!("implement")
+            }
+            ProjectFile::MsBuild => {
                 println!("hello there...");
                 let mut has_dependency = false;
                 match env::current_dir() {
@@ -212,7 +218,7 @@ impl ProjectFile {
                 for entry in glob("**/*.csproj")?.flatten() {
                     if let Some(path_str) = entry.to_str() {
                         let content = fs::read_to_string(path_str)?;
-                        let result: Result<CSProj, _> = serde_xml_rs::from_str(content.as_str());
+                        let result: Result<MsBuildProj, _> = serde_xml_rs::from_str(content.as_str());
                         // match result {
                         //     Ok(r) => {
                         //         println!("got project...{:?}", r);
@@ -239,13 +245,6 @@ impl ProjectFile {
                 }
 
                 has_dependency
-            }
-            ProjectFile::GemFile => {
-                let project_file_content = fs::read_to_string("Gemfile")?;
-                project_file_content.contains(&format!("gem '{}'", dependency))
-            }
-            ProjectFile::GoMod => {
-                todo!("implement")
             }
             ProjectFile::PackageJson => {
                 let project_file_content = fs::read_to_string("package.json")?;
@@ -320,7 +319,7 @@ python = "^3.7"
 
     #[test]
     #[serial]
-    fn test_csproj() -> CifrsResult<()> {
+    fn test_msbuild_proj() -> CifrsResult<()> {
         let content = r#"
 <Project Sdk="Microsoft.NET.Sdk">
 
@@ -367,7 +366,7 @@ python = "^3.7"
                 println!("path name: {}", path.unwrap().path().display())
             }
 
-            let found = ProjectFile::CSProj
+            let found = ProjectFile::MsBuild
                 .has_dependency("Microsoft.Orleans.Server")
                 .unwrap();
             println!("dependency found: {}", found);

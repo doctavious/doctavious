@@ -1,6 +1,8 @@
-# difference between monorepo and workspace
+# difference between monorepo and workspace?
 # Rust crate workspaces
 # NPM / Yarn / PNPM workspaces
+
+# Bazel, Nx, Rush, Turbo,
 
 - id: turbo
   name: Turbo
