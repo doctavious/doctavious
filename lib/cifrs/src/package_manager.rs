@@ -4,16 +4,21 @@ use crate::framework::{FrameworkDetectionItem, FrameworkDetector, FrameworkMatch
 
 // TODO: could add PDM and Anaconda (Python)
 #[non_exhaustive]
+#[remain::sorted]
 #[derive(Debug, Deserialize, PartialEq, Serialize)]
+#[non_exhaustive]
+#[serde(rename_all = "lowercase")]
 pub enum PackageManager {
+    Bundler,
+    // #[serde(rename = "bundler")]
+    // Bundler(PackageManagerInfo),
     Cargo,
     GoModules,
     Npm,
     Nuget,
-    Poetry,
     Pip,
     Pnpm,
-    Bundler,
+    Poetry,
     Yarn,
 }
 

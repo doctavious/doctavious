@@ -25,7 +25,7 @@ pub mod vuepress;
 pub const FRAMEWORKS_STR: &str = include_str!("frameworks.yaml");
 
 #[derive(Debug, Deserialize, PartialEq, Serialize)]
-#[serde(tag = "slug")]
+#[serde(tag = "id")]
 enum Frameworks {
     #[serde(rename = "antora")]
     Antora(FrameworkInfo),

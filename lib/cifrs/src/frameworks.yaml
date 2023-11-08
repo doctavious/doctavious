@@ -213,13 +213,6 @@ frameworks:
         - type: file
           path: Gemfile
           content: jekyll_plugins
-#  - id: markdoc
-#    name: MarkDoc
-#    website: https://markdoc.dev/
-#    backend: javascript
-#    build:
-#      command: build
-#      output_directory: dist
   - id: mdbook
     name: mdBook
     website: https://rust-lang.github.io/mdBook/

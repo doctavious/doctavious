@@ -1,59 +1,158 @@
-
 # Please keep this list alphabetized.
 
-# TODO: what do we need to include to determine if dependency exists
-
-# TODO: anaconda
-bundler:
-  project_files:
-    - Gemfile
-  instalL_command: bundle install
-  lock_file: Gemfile.lock
-cargo:
-  project_files:
-    - cargo.toml
-  instalL_command: cargo add
-  lock_file: Cargo.lock
-go:
-  project_files:
-    - go.mod
-  instalL_command: go get
-  lock_file: go.sum
-npm:
+- id: bun
+  name: Bun
   project_files:
     - package.json
-  instalL_command: npm install
+  install_command: bun add
+  lock_file: bun.lockb
+  detection:
+    matching_strategy: any
+    detectors:
+      - type: file
+        path: bun.lockb
+      - type: file
+        path: package.json
+        content: '"packageManager":\s*"bun@.*"'
+      - type: file
+        path: package.json
+        content: '"devDependencies":\s*\{\s*"bun":.*'
+- id: bundler
+  name: Bundler
+  project_files:
+    - Gemfile
+  install_command: bundle install
+  lock_file: Gemfile.lock
+  detection:
+    matching_strategy: any
+    detectors:
+      - type: file
+        path: Gemfile.lco
+      - type: file
+        path: Gemfile
+- id: cargo
+  name: Cargo
+  project_files:
+    - cargo.toml
+  install_command: cargo add
+  lock_file: Cargo.lock
+  detection:
+    matching_strategy: any
+    detectors:
+      - type: file
+        path: Cargo.lock
+      - type: file
+        path: Cargo.toml
+- id: go
+  name: Go
+  project_files:
+    - go.mod
+  install_command: go get
+  lock_file: go.sum
+  detection:
+    matching_strategy: all
+    detectors:
+      - type: file
+        path: go.sum
+- id: npm
+  name: NPM
+  project_files:
+    - package.json
+  install_command: npm install
   lock_file: package-lock.json
-nuget:
+  detection:
+    matching_strategy: any
+    detectors:
+      - type: file
+        path: package-lock.json
+      - type: file
+        path: package.json
+        content: '"packageManager":\s*"npm@.*"'
+- id: nuget
+  name: Nuget
   # TODO: need to support regex
   project_files:
-    - '**/*.csproj'
-  instalL_command: dotnet add
+    - '*.csproj'
+    - '*.fsproj'
+  install_command: dotnet add
   lock_file: packages.lock.json
-pdm:
+  detection:
+    matching_strategy: all
+    detectors:
+      - type: file
+        path: packages.lock.json
+- id: pdm
+  name: PDM
   project_files:
     - pyproject.toml
   install_command: pdm install
   lock_file: pdm.lock
-pip:
+  detection:
+    matching_strategy: any
+    detectors:
+      - type: file
+        path: pdm.lock
+      - type: file
+        path: pyproject.toml
+        content: '[tool.pdm]'
+- id: pip
+  name: PIP
   project_files:
   - pyproject.toml
   - requirements.txt
   - pipfile
-  instalL_command: pip install
+  install_command: pip install
   lock_file: pipfile.lock
-pnpm:
+  detection:
+    matching_strategy: any
+    detectors:
+      - type: file
+        path: pipfile.lock
+      - type: file
+        path: pipfile
+      - type: file
+        path: requirements.txt
+- id: pnpm
+  name: PNPM
   project_files:
     - package.json
-  instalL_command: pnpm install
+  install_command: pnpm install
   lock_file: pnpm-lock.yaml
-poetry:
+  detection:
+    matching_strategy: any
+    detectors:
+      - type: file
+        path: pnpm-lock.yaml
+      - type: file
+        path: package.json
+        content:
+      - type: file
+        path: '"packageManager":\s*"pnpm@.*"'
+- id: poetry
+  name: Poetry
   project_file:
     - pyproject.toml
-  instalL_command: poetry install
+  install_command: poetry install
   lock_file: poetry.lock
-yarn:
+  detection:
+    matching_strategy: any
+    detectors:
+      - type: file
+        path: poetry.lock
+      - type: file
+        path: pyproject.toml
+        content: '[tool.poetry]'
+- id: yarn
+  name: Yarn
   project_files:
     - package.json
-  instalL_command: yarn install
+  install_command: yarn install
   lock_file: yarn.lock
+  detection:
+    matching_strategy: any
+    detectors:
+      - type: file
+        path: yarn.lock
+      - type: file
+        path: package.json
+        content: '"packageManager":\s*"yarn@.*"'
