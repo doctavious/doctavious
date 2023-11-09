@@ -183,39 +183,27 @@ fn has_dependency(
     let found = match project_type {
         ProjectFile::CargoToml => {
             let root: toml::Value = toml::from_str(content.as_str())?;
-            // TODO: do we want to check dev-packages
-            root.get("dependencies")
-                .and_then(|o| o.get(dependency))
-                .is_some()
+            root["dependencies"][dependency].is_str() || root["dev-dependencies"][dependency].is_str()
         }
         ProjectFile::MsBuild => {
             let build_proj: MsBuildProj = serde_xml_rs::from_str(content.as_str())?;
             build_proj.has_package_reference(dependency)
         }
-        ProjectFile::GemFile => content.contains(&format!("gem '{}'", dependency)),
+        ProjectFile::GemFile => content.contains(&format!("gem '{dependency}'")),
         ProjectFile::GoMod => content.contains(&dependency.to_string()),
         ProjectFile::PackageJson => {
             let root: Value = serde_json::from_str(content.as_str())?;
-            // TODO: do we want to check devDependencies
-            root.get("dependencies")
-                .and_then(|o| o.get(dependency))
-                .is_some()
+            !root["dependencies"][dependency].is_null() || !root["devDependencies"][dependency].is_null()
         }
         ProjectFile::PipFile => {
             let root: toml::Value = toml::from_str(content.as_str())?;
-            // TODO: do we want to check dev-packages
-            root.get("packages")
-                .and_then(|o| o.get(dependency))
-                .is_some()
+            root["packages"][dependency].is_str() || root["dev-packages"][dependency].is_str()
         }
         ProjectFile::PyProject => {
             let root: toml::Value = toml::from_str(content.as_str())?;
-            // might be to do these individual lookup
-            root.get("tool.poetry.dependencies")
-                .and_then(|o| o.get(dependency))
-                .is_some()
+            root["tool.poetry.dependencies"][dependency].is_str()
         }
-        ProjectFile::RequirementsTxt => content.contains(&format!("{}==", dependency)),
+        ProjectFile::RequirementsTxt => content.contains(&format!("{dependency}==")),
     };
 
     Ok(found)

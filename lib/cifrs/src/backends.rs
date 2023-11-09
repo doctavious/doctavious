@@ -55,26 +55,10 @@ pub enum LanguageBackends {
 }
 
 impl LanguageBackends {
-    // pub const fn project_files(&self) -> &[ProjectFile] {
-    //     match self {
-    //         Language::CSharp => &[ProjectFile::CSProj],
-    //         // F# has .fsproj
-    //         Language::Go => &[ProjectFile::GoMod],
-    //         Language::Javascript => &[ProjectFile::PackageJson],
-    //         Language::Python => &[
-    //             ProjectFile::PyProject,
-    //             ProjectFile::PipFile,
-    //             ProjectFile::RequirementsTxt,
-    //         ],
-    //         Language::Ruby => &[ProjectFile::GemFile],
-    //         Language::Rust => &[ProjectFile::CargoToml],
-    //     }
-    // }
 
     pub fn project_files(&self) -> &[ProjectFile] {
         match self {
             LanguageBackends::DotNet => &[ProjectFile::MsBuild],
-            // F# has .fsproj
             LanguageBackends::Go => &[ProjectFile::GoMod],
             LanguageBackends::JavaScript => &[ProjectFile::PackageJson],
             LanguageBackends::Python => &[
@@ -87,31 +71,16 @@ impl LanguageBackends {
         }
     }
 
-    fn package_managers(&self) -> Vec<PackageManager> {
-        vec![]
-    }
-
-    // probably collapse get_project_paths with this
     fn get_project_file(&self) -> Option<PathBuf> {
         for p in self.project_files() {
             for path in p.get_project_paths() {
-                if !path.exists() {
-                    // debug!("skipping project file {}...does not exist");
-                    continue;
-                }
-
-                if path.is_dir() {
-                    // debug!("skipping project file {}...is a directory");
-                    continue;
+                if path.exists() {
+                    return Some(path);
                 }
             }
         }
 
         None
-    }
-
-    fn has_dependency(&self, dependency: &str) -> CifrsResult<bool> {
-        Ok(true)
     }
 }
 
@@ -129,7 +98,10 @@ pub struct LanguageBackend {
 // build systems arent necessarily tied to a run time e.g. buck2 can be used across languages
 
 // language runtime
-// has package managers
+// has project file(s)
+// has supported package managers however project file is used to determine which package manager
+// is appropriate
+//
 
 
 // vercel has the following logic to detect projects

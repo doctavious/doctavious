@@ -178,12 +178,10 @@ impl ProjectFile {
     }
 
     pub fn has_dependency(&self, dependency: &str) -> CifrsResult<bool> {
-        // let project_file_content = fs::read_to_string(self.file_name())?;
         let found = match self {
             ProjectFile::CargoToml => {
                 let project_file_content = fs::read_to_string("cargo.toml")?;
                 let root: toml::Value = toml::from_str(project_file_content.as_str())?;
-                // TODO: do we want to check dev-packages
                 root.get("dependencies")
                     .and_then(|o| o.get(dependency))
                     .is_some()
