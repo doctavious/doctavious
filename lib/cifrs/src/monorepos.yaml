@@ -1,36 +1,42 @@
 # difference between monorepo and workspace?
-# Rust crate workspaces
-# NPM / Yarn / PNPM workspaces
 
-# Bazel, Nx, Rush, Turbo,
-
-- id: turbo
-  name: Turbo
-#  detectors: {
-#    some: [
-#      {
-#        path: 'turbo.json',
-#      },
-#      {
-#        path: 'package.json',
-#        matchContent: '"turbo":\\s*{[^}]*.+[^}]*}',
-#      },
-#    ],
+- id: buck2
+  name: Buck2
+  project_files:
+    - BUCK
+  detection:
+    matching_strategy: all
+    detectors:
+      - type: file
+        path: BUCK
 - id: nx
   name: Nx
-#  detectors: {
-#    every: [
-#      {
-#        path: 'nx.json',
-#      },
-#    ],
-#  },
+  project_files:
+    - nx.json
+  detection:
+    matching_strategy: all
+    detectors:
+      - type: file
+        path: nx.json
 - id: rush
   name: Rush
-#  detectors: {
-#    every: [
-#      {
-#        path: 'rush.json',
-#      },
-#    ],
-#  },
+  project_files:
+    - rush.json
+  detection:
+    matching_strategy: all
+    detectors:
+      - type: file
+        path: rush.json
+- id: turbo
+  name: Turbo
+  project_files:
+    - turbo.json
+  detection:
+    matching_strategy: any
+    detectors:
+      - type: file
+        path: turbo.json
+      - type: file
+        path: package.lock
+        content: '"turbo":\s*{[^}]*.+[^}]*}'
+
