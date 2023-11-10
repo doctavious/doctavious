@@ -8,6 +8,8 @@
 
 - id: cargo
   name: Cargo
+  project_files:
+    - cargo.toml
   detection:
     matching_strategy: all
     detectors:
@@ -16,6 +18,8 @@
         content: '[workspace]'
 - id: npm
   name: NPM
+  project_files:
+    - package.json
   detection:
     matching_strategy: all
     detectors:
@@ -26,6 +30,8 @@
         path: 'package-lock.json'
 - id: nx
   name: Nx
+  project_files:
+    - project.json
   detection:
     matching_strategy: any
     detectors:
@@ -39,6 +45,8 @@
       # TODO(Sean): nx also supports package.json
 - id: pnpm
   name: PNPM
+  project_files:
+    - package.json
   detection:
     matching_strategy: all
     detectors:
@@ -46,6 +54,8 @@
         path: pnpm-workspace.yaml
 - id: rush
   name: Rush
+  project_files:
+    - package.json
   detection:
     matching_strategy: all
     detectors:
@@ -54,6 +64,8 @@
         content: '"workspaces":\s*(?:\[[^\]]*]|[{][^}]*"packages":[^}]*})'
 - id: yarn
   name: Yarn
+  project_files:
+    - package.json
   detection:
     matching_strategy: all
     detectors:
