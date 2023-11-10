@@ -20,7 +20,6 @@ struct MDBookBuildOptions {
 
 #[derive(Deserialize)]
 struct MDBookConfig {
-    // build: Option<MDBookBuildOptions>,
     build: HashMap<String, String>
 }
 

@@ -141,12 +141,6 @@ pub enum FrameworkDetectionItem {
     Dependency { name: String },
 }
 
-#[derive(PartialEq, Serialize)]
-pub enum RequiredDependencies {
-    All(Vec<&'static str>),
-    Any(Vec<&'static str>),
-}
-
 // TODO: change name?
 /// Matching strategies to match on a framework
 #[derive(Debug, Deserialize, PartialEq, Serialize)]

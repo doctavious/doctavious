@@ -18,8 +18,6 @@ use crate::framework::{
 
 #[derive(Deserialize)]
 struct AntoraConfig {
-    // TODO: just map this a map
-    // output: Option<AntoraConfigOutputKeys>,
     output: HashMap<String, String>
 }
 

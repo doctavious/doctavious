@@ -16,8 +16,6 @@ use crate::framework::{
 
 #[derive(Deserialize)]
 struct DocFxConfig {
-    // TODO: make this a map
-    // build: DocFxConfigBuild,
     build: HashMap<String, String>
 }
 
