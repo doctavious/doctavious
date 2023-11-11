@@ -7,9 +7,9 @@ pub const WORKSPACES_STR: &str = include_str!("workspaces.yaml");
 pub struct Workspace {
     pub id: String,
     pub name: String,
-    #[serde(skip_serializing_if = "Vec::is_empty")]
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub project_files: Vec<String>,
-    #[serde(skip_serializing_if = "Vec::is_empty")]
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub configs: Vec<String>,
     pub detection: FrameworkDetector,
 }

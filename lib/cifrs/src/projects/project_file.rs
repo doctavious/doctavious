@@ -1,13 +1,19 @@
 use std::path::{Path, PathBuf};
 use std::{env, fs};
+use std::ops::Deref;
+use std::str::FromStr;
 
 use glob::glob;
+use lazy_static::lazy_static;
+use regex::Regex;
 use serde_derive::{Deserialize, Serialize};
 use serde_json::Value;
+use tracing::log::{debug, error};
 
 use crate::package_manager::PackageManager;
 use crate::projects::msbuild::MsBuildProj;
-use crate::CifrsResult;
+use crate::{CifrsError, CifrsResult};
+use crate::projects::project_file::ProjectFile::RequirementsTxt;
 
 // TODO: lets create a projects module and put this along side CSProj given their relationship
 // I think we should put them closer in proximity
@@ -17,6 +23,14 @@ use crate::CifrsResult;
 // path
 // type
 // content
+
+lazy_static! {
+    static ref MSBUILD_PROJECT_FILE_PATTERNS: Vec<Regex> = vec![
+        Regex::new("*.csproj").unwrap(),
+        Regex::new("*.fsproj").unwrap()
+    ];
+}
+
 
 pub struct Proj {
     pub path: PathBuf,
@@ -101,13 +115,13 @@ impl Proj {
 
 // impl would have a get_project_files() -> Vec<ProjectFiles>
 
-// Manifest
+// Manifest / ManifestFile
 // ProjectFileType
 // ProjectType
 // SpecFile
 #[non_exhaustive]
 #[remain::sorted]
-#[derive(Clone, Copy, Deserialize, Serialize)]
+#[derive(Clone, Copy, Debug, Deserialize, Serialize)]
 #[serde(rename_all = "lowercase")]
 pub enum ProjectFile {
     CargoToml,
@@ -120,30 +134,38 @@ pub enum ProjectFile {
     RequirementsTxt,
 }
 
-// random thought
-// pub struct ProjectFile<T> {
-//     pub path: String,
-//     pub raw_content: String,
-//     pub content: Option<T>
-// }
 
 impl ProjectFile {
-    // pub fn file_name(&self) -> &str {
-    //     match self {
-    //         ProjectFile::GemFile => "Gemfile",
-    //         ProjectFile::PackageJson => "package.json",
-    //         ProjectFile::PipFile => "pipfile",
-    //         ProjectFile::PyProject => "pyproject.toml",
-    //         ProjectFile::RequirementsTxt => "requirements.txt"
-    //     }
-    // }
+    pub fn from_path<S: AsRef<str>>(s: S) -> CifrsResult<Self> {
+        let path = s.as_ref();
+        for pattern in MSBUILD_PROJECT_FILE_PATTERNS.deref() {
+            if pattern.is_match(path) {
+                return Ok(ProjectFile::MsBuild);
+            }
+        }
+
+        match path {
+            "go.mod" => Ok(ProjectFile::GoMod),
+            "package.json" => Ok(ProjectFile::PackageJson),
+            "pipfile" => Ok(ProjectFile::PipFile),
+            "pyproject.toml" => Ok(ProjectFile::PyProject),
+            "requirements.txt" => Ok(RequirementsTxt),
+            "Gemfile" => Ok(ProjectFile::GemFile),
+            "cargo.toml" => Ok(ProjectFile::CargoToml),
+            _ => Err(CifrsError::UnknownProjectFilePath(path.to_string()))
+        }
+
+    }
+}
+
+
+impl ProjectFile {
 
     pub fn get_project_paths(&self) -> Vec<PathBuf> {
         match self {
+            ProjectFile::CargoToml => vec![PathBuf::from("cargo.toml")],
+            ProjectFile::GemFile => vec![PathBuf::from("Gemfile")],
             ProjectFile::GoMod => vec![PathBuf::from("go.mod")],
-            ProjectFile::PackageJson => vec![PathBuf::from("package.json")],
-            ProjectFile::PipFile => vec![PathBuf::from("pipfile")],
-            ProjectFile::PyProject => vec![PathBuf::from("pyproject.toml")],
             ProjectFile::MsBuild => {
                 for pattern in ["*.csproj", "*.fsproj"] {
                     let glob_paths = glob(pattern).expect("MsBuild config patterns should be valid globs");
@@ -154,9 +176,10 @@ impl ProjectFile {
                 }
                 vec![]
             }
+            ProjectFile::PackageJson => vec![PathBuf::from("package.json")],
+            ProjectFile::PipFile => vec![PathBuf::from("pipfile")],
+            ProjectFile::PyProject => vec![PathBuf::from("pyproject.toml")],
             ProjectFile::RequirementsTxt => vec![PathBuf::from("requirements.txt")],
-            ProjectFile::GemFile => vec![PathBuf::from("Gemfile")],
-            ProjectFile::CargoToml => vec![PathBuf::from("cargo.toml")],
         }
     }
 
@@ -178,103 +201,62 @@ impl ProjectFile {
     }
 
     pub fn has_dependency(&self, dependency: &str) -> CifrsResult<bool> {
-        let found = match self {
-            ProjectFile::CargoToml => {
-                let project_file_content = fs::read_to_string("cargo.toml")?;
-                let root: toml::Value = toml::from_str(project_file_content.as_str())?;
-                root.get("dependencies")
-                    .and_then(|o| o.get(dependency))
-                    .is_some()
+        for project_file_path in self.get_project_paths() {
+            if !project_file_path.is_file() {
+                debug!("Project file {:?} not found...skipping", &project_file_path);
             }
-            ProjectFile::GemFile => {
-                let project_file_content = fs::read_to_string("Gemfile")?;
-                project_file_content.contains(&format!("gem '{}'", dependency))
-            }
-            ProjectFile::GoMod => {
-                todo!("implement")
-            }
-            ProjectFile::MsBuild => {
-                println!("hello there...");
-                let mut has_dependency = false;
-                match env::current_dir() {
-                    Ok(p) => {
-                        println!("path...{:?}", p);
-                    }
-                    Err(e) => {
-                        println!("error getting cwd...{}", e);
-                    }
-                }
 
-                let paths = fs::read_dir("./").unwrap();
-                for path in paths {
-                    println!("path name: {}", path.unwrap().path().display())
-                }
-                for file in glob("*")? {
-                    println!("path...{:?}", file.unwrap());
-                }
-
-                for entry in glob("**/*.csproj")?.flatten() {
-                    if let Some(path_str) = entry.to_str() {
-                        let content = fs::read_to_string(path_str)?;
-                        let result: Result<MsBuildProj, _> = serde_xml_rs::from_str(content.as_str());
-                        // match result {
-                        //     Ok(r) => {
-                        //         println!("got project...{:?}", r);
-                        //     }
-                        //     Err(e) => {
-                        //         println!("serde error...{:?}", e);
-                        //     }
-                        // }
-                        if let Ok(build_proj) = result {
-                            println!("build proj...{:?}", build_proj);
-                            for item_group in build_proj.item_groups {
-                                // could also do item_group.package_references.unwrap_or_default()
-                                if let Some(package_references) = item_group.package_references {
-                                    for pkref in package_references {
-                                        if dependency == pkref.include {
-                                            has_dependency = true;
-                                            break;
-                                        }
-                                    }
+            match fs::read_to_string(&project_file_path) {
+                Ok(project_file_content) => {
+                    let found = match self {
+                        ProjectFile::CargoToml => {
+                            let root: toml::Value = toml::from_str(project_file_content.as_str())?;
+                            root["dependencies"][dependency].is_str() || root["dev-dependencies"][dependency].is_str()
+                        }
+                        ProjectFile::GemFile => {
+                            project_file_content.contains(&format!("gem '{dependency}'"))
+                        }
+                        ProjectFile::GoMod => {
+                            project_file_content.contains(dependency)
+                        }
+                        ProjectFile::MsBuild => {
+                            let mut has_dependency = false;
+                            if let Ok(build_proj) = serde_xml_rs::from_str::<MsBuildProj>(&project_file_content) {
+                                if build_proj.has_package_reference(dependency) {
+                                    has_dependency = true;
                                 }
                             }
+
+                            has_dependency
                         }
+                        ProjectFile::PackageJson => {
+                            let root: Value = serde_json::from_str(project_file_content.as_str())?;
+                            !root["dependencies"][dependency].is_null() || !root["devDependencies"][dependency].is_null()
+                        }
+                        ProjectFile::PipFile => {
+                            let root: toml::Value = toml::from_str(project_file_content.as_str())?;
+                            root["packages"][dependency].is_str() || root["dev-packages"][dependency].is_str()
+                        }
+                        ProjectFile::PyProject => {
+                            let root: toml::Value = toml::from_str(project_file_content.as_str())?;
+                            root["tool.poetry.dependencies"][dependency].is_str()
+                        }
+                        ProjectFile::RequirementsTxt => {
+                            project_file_content.contains(&format!("{dependency}=="))
+                        }
+                    };
+
+                    if found {
+                        return Ok(true);
                     }
                 }
+                Err(e) => {
+                    error!("Error reading project file: {:?}", &project_file_path);
+                }
+            }
+        }
 
-                has_dependency
-            }
-            ProjectFile::PackageJson => {
-                let project_file_content = fs::read_to_string("package.json")?;
-                let root: Value = serde_json::from_str(project_file_content.as_str())?;
-                // TODO: do we want to check devDependencies
-                root.get("dependencies")
-                    .and_then(|o| o.get(dependency))
-                    .is_some()
-            }
-            ProjectFile::PipFile => {
-                let project_file_content = fs::read_to_string("pipfile")?;
-                let root: toml::Value = toml::from_str(project_file_content.as_str())?;
-                // TODO: do we want to check dev-packages
-                root.get("packages")
-                    .and_then(|o| o.get(dependency))
-                    .is_some()
-            }
-            ProjectFile::PyProject => {
-                let project_file_content = fs::read_to_string("pyproject.toml")?;
-                let root: toml::Value = toml::from_str(project_file_content.as_str())?;
-                // might be to do these individual lookup
-                root.get("tool.poetry.dependencies")
-                    .and_then(|o| o.get(dependency))
-                    .is_some()
-            }
-            ProjectFile::RequirementsTxt => {
-                let project_file_content = fs::read_to_string("requirements.txt")?;
-                project_file_content.contains(&format!("{}==", dependency))
-            }
-        };
-
-        Ok(found)
+        Ok(false)
     }
 }
 

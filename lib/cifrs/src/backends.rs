@@ -14,12 +14,8 @@
 // (The limitation should be noted in the backend feature matrix in
 // the README.)
 
-use std::fs;
 use std::path::PathBuf;
 use serde_derive::{Deserialize, Serialize};
-use serde_json::Value;
-use crate::{Cifrs, CifrsResult};
-use crate::package_manager::PackageManager;
 
 use crate::projects::project_file::ProjectFile;
 

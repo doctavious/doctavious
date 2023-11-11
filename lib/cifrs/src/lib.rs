@@ -22,7 +22,6 @@ mod js_module;
 mod language;
 mod package_manager;
 mod projects;
-mod strategy;
 mod workspaces;
 
 #[remain::sorted]
@@ -63,6 +62,9 @@ pub enum CifrsError {
 
     #[error("Unknown framework extension: {0}")]
     UnknownFrameworkExtension(String),
+
+    #[error("Unknown project file: {0}")]
+    UnknownProjectFilePath(String)
 }
 
 pub type CifrsResult<T> = Result<T, CifrsError>;

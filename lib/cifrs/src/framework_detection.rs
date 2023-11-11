@@ -1,8 +1,10 @@
 use std::fs;
+use std::path::{Path, PathBuf};
 
 use regex::RegexBuilder;
 use serde_derive::Serialize;
 use serde_json::Value;
+use tracing::log::{debug, error};
 
 use crate::framework::{
     FrameworkDetectionItem, FrameworkInfo, FrameworkMatchingStrategy, FrameworkSupport,
@@ -25,9 +27,20 @@ use crate::CifrsResult;
 // which should have framework info
 // as well as project
 
-pub trait Dectector {
+pub trait Detectable {
 
-    fn detect<T>(&self) -> T;
+    // this could be something like a Match / MatchResult
+    // fn detect<T>(&self) -> Option<T>;
+
+    // could just expose FrameworkDetector
+
+    fn get_matching_strategy(&self) -> FrameworkMatchingStrategy;
+
+    fn get_detectors(&self) -> Vec<FrameworkDetectionItem>;
+
+    fn get_project_files(&self) -> Vec<ProjectFile>;
+
+    fn get_configuration_files(&self) -> Vec<PathBuf>;
 
 }
 
@@ -44,6 +57,121 @@ pub(crate) struct MatchResult {
     pub project: Option<ProjectFile>,
 
 }
+
+
+fn detect<T: Detectable>(framework: &T) -> Option<MatchResult> {
+    let mut results: Vec<Option<MatchResult>> = vec![];
+
+    match framework.get_matching_strategy() {
+        FrameworkMatchingStrategy::All => {
+            for detector in &framework.get_detectors() {
+                results.push(c(framework, detector));
+            }
+        }
+        FrameworkMatchingStrategy::Any => {
+            let mut matched = None;
+            for item in &framework.get_detectors() {
+                let result = c(framework, item);
+                if result.is_some() {
+                    matched = result;
+                    break;
+                }
+            }
+
+            results.push(matched);
+        }
+    }
+
+    if results.iter().all(|&r| r.is_some()) {
+        return *results.first().unwrap();
+    }
+
+    None
+}
+
+fn check_file<P: AsRef<Path>>(path: P, pattern: &Option<String>) -> Option<MatchResult> {
+    if let Ok(file_content) = fs::read_to_string(path) {
+        if let Some(pattern) = pattern {
+            let reg = RegexBuilder::new(pattern).multi_line(true).build().expect("Pattern should be valid");
+            if reg.is_match(&file_content) {
+                return Some(MatchResult { project: None });
+            }
+        }
+        return Some(MatchResult { project: None });
+    }
+
+    None
+}
+
+// TODO: should this return a result?
+fn c<T: Detectable>(framework: &T, item: &FrameworkDetectionItem) -> Option<MatchResult> {
+    match item {
+        FrameworkDetectionItem::Config { content } => {
+            for config in &framework.get_configuration_files() {
+                if check_file(config, content).is_some() {
+                    return Some(MatchResult { project: None });
+                }
+            }
+            None
+        }
+        FrameworkDetectionItem::Dependency { name: dependency } => {
+            for p in framework.get_project_files() {
+                match p.has_dependency(dependency) {
+                    Ok(found) => {
+                        if found {
+                            return Some(MatchResult { project: Some(p) });
+                        } else {
+                            debug!("Failed to find dependency {dependency} in project {:?}", &p);
+                        }
+                    }
+                    Err(e) => {
+                        error!("Error getting dependency from project file {:?}: {}", &p, e);
+                    }
+                }
+                // for path in p.get_project_paths() {
+                //     if !path.exists() {
+                //         debug!("project path {:?} does not exist...skipping", &path);
+                //         continue;
+                //     }
+                //
+                //     if path.is_dir() {
+                //         debug!("project path {:?} is a directory...skipping", &path);
+                //         continue;
+                //     }
+                //
+                //     match fs::read_to_string(&path) {
+                //         Ok(c) => {
+                //             match has_dependency(&p, c, dependency) {
+                //                 Ok(f) => {
+                //                     if f {
+                //                         return Some(MatchResult { project: Some(p) });
+                //                     } else {
+                //                         debug!("Failed to find dependency {dependency} in project {:?}", &p);
+                //                     }
+                //                 }
+                //                 Err(e) => {
+                //                     error!("Error checking for dependency {dependency} in project {:?}: {}", &p, e);
+                //                 }
+                //             }
+                //         }
+                //         Err(e) => {
+                //             error!("Error reading file: {:?}", &path);
+                //         }
+                //     }
+                // }
+            }
+            None
+        }
+        FrameworkDetectionItem::File { path, content } => {
+            if check_file(path, content).is_some() {
+                return Some(MatchResult { project: None });
+            }
+
+            None
+        }
+    }
+}
+
 
 pub(crate) fn detect_framework(
     frameworks: Vec<Box<dyn FrameworkSupport>>,
