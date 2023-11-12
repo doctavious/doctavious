@@ -104,7 +104,7 @@ mod tests {
     #[derive(Debug, Deserialize, Serialize)]
     struct SupportedFrameworks {
         // pub frameworks: Vec<Frameworks>,
-        pub frameworks: Vec<FrameworkInfo>
+        pub frameworks: Vec<FrameworkInfo>,
     }
 
     #[test]

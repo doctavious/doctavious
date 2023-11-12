@@ -1,5 +1,10 @@
+use std::borrow::Cow;
+use std::path::PathBuf;
 use serde_derive::{Deserialize, Serialize};
-use crate::framework::FrameworkDetector;
+
+use crate::framework::{FrameworkDetectionItem, FrameworkDetector, FrameworkMatchingStrategy};
+use crate::framework_detection::Detectable;
+use crate::projects::project_file::ProjectFile;
 
 pub const WORKSPACES_STR: &str = include_str!("workspaces.yaml");
 
@@ -10,8 +15,30 @@ pub struct Workspace {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub project_files: Vec<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub configs: Vec<String>,
+    pub configs: Vec<PathBuf>,
     pub detection: FrameworkDetector,
+}
+
+impl Detectable for Workspace {
+    fn get_matching_strategy(&self) -> &FrameworkMatchingStrategy {
+        &self.detection.matching_strategy
+    }
+
+    fn get_detectors(&self) -> &Vec<FrameworkDetectionItem> {
+        &self.detection.detectors
+    }
+
+    // For Frameworks this should return &Vec but this looks to returning an owned type
+    // Maybe this calls for a Cow?
+    fn get_project_files(&self) -> Cow<Vec<ProjectFile>> {
+        Cow::Owned(self.project_files.iter()
+            .filter_map(|p| ProjectFile::from_path(p).ok())
+            .collect::<Vec<ProjectFile>>())
+    }
+
+    fn get_configuration_files(&self) -> &Vec<PathBuf> {
+        &self.configs
+    }
 }
 
 #[cfg(test)]

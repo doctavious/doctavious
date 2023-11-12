@@ -3,6 +3,7 @@
 // change be changed via build.build-dir
 
 use std::collections::HashMap;
+
 use serde::Deserialize;
 use serde_derive::Serialize;
 
@@ -20,7 +21,7 @@ struct MDBookBuildOptions {
 
 #[derive(Deserialize)]
 struct MDBookConfig {
-    build: HashMap<String, String>
+    build: HashMap<String, String>,
 }
 
 #[derive(Debug, Deserialize, PartialEq, Serialize)]
@@ -81,7 +82,6 @@ impl FrameworkSupport for MDBook {
                     if let Some(build_dir) = c.build.get("build-dir") {
                         return build_dir.to_string();
                     }
-
                 }
                 Err(e) => {
                     // log warning/error

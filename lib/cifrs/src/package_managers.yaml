@@ -33,7 +33,7 @@
 - id: cargo
   name: Cargo
   project_files:
-    - cargo.toml
+    - Cargo.toml
   install_command: cargo add
   lock_file: Cargo.lock
   detection:

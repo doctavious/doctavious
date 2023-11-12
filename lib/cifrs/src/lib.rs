@@ -64,7 +64,7 @@ pub enum CifrsError {
     UnknownFrameworkExtension(String),
 
     #[error("Unknown project file: {0}")]
-    UnknownProjectFilePath(String)
+    UnknownProjectFilePath(String),
 }
 
 pub type CifrsResult<T> = Result<T, CifrsError>;
@@ -131,42 +131,50 @@ impl Cifrs {
         Ok(dirs)
     }
 
-    pub fn detect_workspace<P: AsRef<Path>>(cwd: P) -> CifrsResult<()> {
+    pub fn detect_workspace<P: AsRef<Path>>(cwd: P) -> CifrsResult<Workspace> {
         let workspaces: Vec<Workspace> = serde_yaml::from_str(WORKSPACES_STR).expect("");
-        let mut results: Vec<Option<MatchResult>> = vec![];
+
         for workspace in workspaces {
-            match &workspace.detection.matching_strategy {
-                FrameworkMatchingStrategy::All => {
-                    for detector in &workspace.detection.detectors {
-                        results.push(Cifrs::check_workspace(&cwd, &workspace, detector));
-                    }
-                }
-                FrameworkMatchingStrategy::Any => {
-                    let mut matched = None;
-                    for item in &workspace.detection.detectors {
-                        let result = Cifrs::check_workspace(&cwd, &workspace, item);
-                        if result.is_some() {
-                            matched = result;
-                            break;
-                        }
-                    }
-
-                    results.push(matched);
-                }
+            let m = framework_detection::detect(&workspace);
+            // TODO: return MatchResult?
+            if m.is_some() {
+                return Ok(workspace);
             }
-
-            if results.iter().all(|&r| r.is_some()) {
-                // return *results.first().unwrap();
-            }
-
-
         }
 
-        Ok(())
+        Err(CifrsError::MissingFrameworkConfig())
+
+        // let mut results: Vec<Option<MatchResult>> = vec![];
+        // for workspace in workspaces {
+        //     match &workspace.detection.matching_strategy {
+        //         FrameworkMatchingStrategy::All => {
+        //             for detector in &workspace.detection.detectors {
+        //                 results.push(Cifrs::check_workspace(&cwd, &workspace, detector));
+        //             }
+        //         }
+        //         FrameworkMatchingStrategy::Any => {
+        //             let mut matched = None;
+        //             for item in &workspace.detection.detectors {
+        //                 let result = Cifrs::check_workspace(&cwd, &workspace, item);
+        //                 if result.is_some() {
+        //                     matched = result;
+        //                     break;
+        //                 }
+        //             }
+        //
+        //             results.push(matched);
+        //         }
+        //     }
+        //
+        //     if results.iter().all(|&r| r.is_some()) {
+        //         // return *results.first().unwrap();
+        //     }
+        // }
+        //
+        // Ok(())
     }
 
-
-    fn matches(path: &Path, framework: &FrameworkInfo) -> Option<MatchResult> {
+    fn matches<'a>(path: &'a Path, framework: &'a FrameworkInfo) -> Option<MatchResult> {
         let mut results: Vec<Option<MatchResult>> = vec![];
 
         match &framework.detection.matching_strategy {
@@ -197,10 +205,10 @@ impl Cifrs {
     }
 
     // TODO: what should this return?
-    fn check(
-        dir: &Path,
-        framework: &FrameworkInfo,
-        item: &FrameworkDetectionItem,
+    fn check<'a>(
+        dir: &'a Path,
+        framework: &'a FrameworkInfo,
+        item: &'a FrameworkDetectionItem,
     ) -> Option<MatchResult> {
         match item {
             FrameworkDetectionItem::Config { content } => {
@@ -283,11 +291,10 @@ impl Cifrs {
         }
     }
 
-
-    fn check_workspace<P: AsRef<Path>>(
+    fn check_workspace<'a, P: AsRef<Path>>(
         dir: P,
-        workspace: &Workspace,
-        item: &FrameworkDetectionItem,
+        workspace: &'a Workspace,
+        item: &'a FrameworkDetectionItem,
     ) -> Option<MatchResult> {
         match item {
             FrameworkDetectionItem::File { path, content } => {
@@ -366,19 +373,25 @@ impl Cifrs {
 
 #[cfg(test)]
 mod tests {
+    use std::env;
     use directories::BaseDirs;
+
     use crate::Cifrs;
 
     #[test]
     fn check_frameworks() {
         let base_dir = BaseDirs::new().unwrap();
         let home_dir = base_dir.home_dir();
-        let framework = Cifrs::detect_frameworks(&home_dir.join("workspace/seancarroll.github.io")).unwrap();
+        let framework =
+            Cifrs::detect_frameworks(&home_dir.join("workspace/seancarroll.github.io")).unwrap();
         println!("{:?}", framework)
     }
 
-    // #[test]
-    // fn build() {
-    //
-    // }
+    #[test]
+    fn check_workspace() {
+        let cwd = env::current_dir().unwrap();
+        println!("{:?}", cwd);
+        let workspace = Cifrs::detect_workspace(cwd).unwrap();
+        println!("{:?}", workspace);
+    }
 }

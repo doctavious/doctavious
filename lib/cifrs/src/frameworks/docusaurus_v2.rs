@@ -33,7 +33,6 @@ use crate::framework::{
     FrameworkMatchingStrategy, FrameworkSupport,
 };
 
-
 #[derive(Debug, Deserialize, PartialEq, Serialize)]
 pub struct DocusaurusV2 {
     #[serde(flatten)]

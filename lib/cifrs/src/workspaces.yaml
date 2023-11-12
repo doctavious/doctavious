@@ -9,7 +9,7 @@
 - id: cargo
   name: Cargo
   project_files:
-    - cargo.toml
+    - Cargo.toml
   detection:
     matching_strategy: all
     detectors:

@@ -4,6 +4,7 @@
 // docfx build [-o:<output_path>] [-t:<template folder>]
 
 use std::collections::HashMap;
+
 use serde::Deserialize;
 use serde_derive::Serialize;
 
@@ -16,7 +17,7 @@ use crate::framework::{
 
 #[derive(Deserialize)]
 struct DocFxConfig {
-    build: HashMap<String, String>
+    build: HashMap<String, String>,
 }
 
 impl ConfigurationFileDeserialization for DocFxConfig {}
@@ -77,12 +78,12 @@ impl FrameworkSupport for DocFx {
     fn get_output_dir(&self) -> String {
         if !self.info.configs.is_empty() {
             match read_config_files::<DocFxConfig>(&self.info.configs) {
-                Ok(c) =>  {
+                Ok(c) => {
                     // return c.build.dest
                     if let Some(dest) = c.build.get("dest") {
                         return dest.to_string();
                     }
-                },
+                }
                 Err(e) => {
                     // log warning/error
                     println!("{}", e);

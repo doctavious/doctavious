@@ -8,6 +8,7 @@ edition = "2021"
 [dependencies]
 anyhow = { workspace = true }
 glob = { workspace = true }
+lazy_static = { workspace = true }
 regex = { workspace = true }
 remain = { workspace = true }
 serde = { workspace = true }

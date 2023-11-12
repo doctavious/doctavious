@@ -15,6 +15,7 @@
 // the README.)
 
 use std::path::PathBuf;
+
 use serde_derive::{Deserialize, Serialize};
 
 use crate::projects::project_file::ProjectFile;
@@ -51,7 +52,6 @@ pub enum LanguageBackends {
 }
 
 impl LanguageBackends {
-
     pub fn project_files(&self) -> &[ProjectFile] {
         match self {
             LanguageBackends::DotNet => &[ProjectFile::MsBuild],
@@ -86,9 +86,7 @@ pub struct LanguageBackend {
 
     // we were calling this a project_file
     // pub spec_file: String,
-
-    pub project_files: Vec<String>
-
+    pub project_files: Vec<String>,
 }
 
 // build systems arent necessarily tied to a run time e.g. buck2 can be used across languages
@@ -98,7 +96,6 @@ pub struct LanguageBackend {
 // has supported package managers however project file is used to determine which package manager
 // is appropriate
 //
-
 
 // vercel has the following logic to detect projects
 // from the cwd they call `getWorkspaces` with a max traversal depth of 3

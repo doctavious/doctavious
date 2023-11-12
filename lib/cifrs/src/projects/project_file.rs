@@ -1,19 +1,19 @@
-use std::path::{Path, PathBuf};
-use std::{env, fs};
 use std::ops::Deref;
+use std::path::{Path, PathBuf};
 use std::str::FromStr;
+use std::{env, fs};
 
 use glob::glob;
 use lazy_static::lazy_static;
 use regex::Regex;
 use serde_derive::{Deserialize, Serialize};
 use serde_json::Value;
-use tracing::log::{debug, error};
+use tracing::{debug, error};
 
 use crate::package_manager::PackageManager;
 use crate::projects::msbuild::MsBuildProj;
-use crate::{CifrsError, CifrsResult};
 use crate::projects::project_file::ProjectFile::RequirementsTxt;
+use crate::{CifrsError, CifrsResult};
 
 // TODO: lets create a projects module and put this along side CSProj given their relationship
 // I think we should put them closer in proximity
@@ -30,7 +30,6 @@ lazy_static! {
         Regex::new("*.fsproj").unwrap()
     ];
 }
-
 
 pub struct Proj {
     pub path: PathBuf,
@@ -134,7 +133,6 @@ pub enum ProjectFile {
     RequirementsTxt,
 }
 
-
 impl ProjectFile {
     pub fn from_path<S: AsRef<str>>(s: S) -> CifrsResult<Self> {
         let path = s.as_ref();
@@ -151,24 +149,22 @@ impl ProjectFile {
             "pyproject.toml" => Ok(ProjectFile::PyProject),
             "requirements.txt" => Ok(RequirementsTxt),
             "Gemfile" => Ok(ProjectFile::GemFile),
-            "cargo.toml" => Ok(ProjectFile::CargoToml),
-            _ => Err(CifrsError::UnknownProjectFilePath(path.to_string()))
+            "Cargo.toml" => Ok(ProjectFile::CargoToml),
+            _ => Err(CifrsError::UnknownProjectFilePath(path.to_string())),
         }
-
     }
 }
 
-
 impl ProjectFile {
-
     pub fn get_project_paths(&self) -> Vec<PathBuf> {
         match self {
-            ProjectFile::CargoToml => vec![PathBuf::from("cargo.toml")],
+            ProjectFile::CargoToml => vec![PathBuf::from("Cargo.toml")],
             ProjectFile::GemFile => vec![PathBuf::from("Gemfile")],
             ProjectFile::GoMod => vec![PathBuf::from("go.mod")],
             ProjectFile::MsBuild => {
                 for pattern in ["*.csproj", "*.fsproj"] {
-                    let glob_paths = glob(pattern).expect("MsBuild config patterns should be valid globs");
+                    let glob_paths =
+                        glob(pattern).expect("MsBuild config patterns should be valid globs");
                     let paths: Vec<PathBuf> = glob_paths.filter_map(|p| p.ok()).collect();
                     if !paths.is_empty() {
                         return paths;
@@ -211,17 +207,18 @@ impl ProjectFile {
                     let found = match self {
                         ProjectFile::CargoToml => {
                             let root: toml::Value = toml::from_str(project_file_content.as_str())?;
-                            root["dependencies"][dependency].is_str() || root["dev-dependencies"][dependency].is_str()
+                            root["dependencies"][dependency].is_str()
+                                || root["dev-dependencies"][dependency].is_str()
                         }
                         ProjectFile::GemFile => {
                             project_file_content.contains(&format!("gem '{dependency}'"))
                         }
-                        ProjectFile::GoMod => {
-                            project_file_content.contains(dependency)
-                        }
+                        ProjectFile::GoMod => project_file_content.contains(dependency),
                         ProjectFile::MsBuild => {
                             let mut has_dependency = false;
-                            if let Ok(build_proj) = serde_xml_rs::from_str::<MsBuildProj>(&project_file_content) {
+                            if let Ok(build_proj) =
+                                serde_xml_rs::from_str::<MsBuildProj>(&project_file_content)
+                            {
                                 if build_proj.has_package_reference(dependency) {
                                     has_dependency = true;
                                 }
@@ -231,11 +228,13 @@ impl ProjectFile {
                         }
                         ProjectFile::PackageJson => {
                             let root: Value = serde_json::from_str(project_file_content.as_str())?;
-                            !root["dependencies"][dependency].is_null() || !root["devDependencies"][dependency].is_null()
+                            !root["dependencies"][dependency].is_null()
+                                || !root["devDependencies"][dependency].is_null()
                         }
                         ProjectFile::PipFile => {
                             let root: toml::Value = toml::from_str(project_file_content.as_str())?;
-                            root["packages"][dependency].is_str() || root["dev-packages"][dependency].is_str()
+                            root["packages"][dependency].is_str()
+                                || root["dev-packages"][dependency].is_str()
                         }
                         ProjectFile::PyProject => {
                             let root: toml::Value = toml::from_str(project_file_content.as_str())?;
