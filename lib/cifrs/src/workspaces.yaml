@@ -16,6 +16,15 @@
       - type: file
         path: Cargo.toml
         content: '[workspace]'
+- id: msbuild
+  name: MSBuild
+  project_files:
+    - '*.sln'
+  detection:
+    matching_strategy: all
+    detectors:
+      - type: file
+        path: '*.sln'
 - id: npm
   name: NPM
   project_files:
@@ -39,6 +48,7 @@
       - type: file
         path: workspace.json
         content: '"projects":\s*[{][^}]'
+      # TODO(Sean): I dont think this is correct
       - type: file
         path: project.json
         content: '"projects":\s*[{][^}]'
@@ -55,13 +65,12 @@
 - id: rush
   name: Rush
   project_files:
-    - package.json
+    - rush.json
   detection:
     matching_strategy: all
     detectors:
       - type: file
-        path: package.json
-        content: '"workspaces":\s*(?:\[[^\]]*]|[{][^}]*"packages":[^}]*})'
+        path: rush.json
 - id: yarn
   name: Yarn
   project_files:

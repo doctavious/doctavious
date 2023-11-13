@@ -65,6 +65,9 @@ pub enum CifrsError {
 
     #[error("Unknown project file: {0}")]
     UnknownProjectFilePath(String),
+
+    #[error("Unknown workspace implementation: {0}")]
+    UnknownWorkspaceImplementation(String),
 }
 
 pub type CifrsResult<T> = Result<T, CifrsError>;
@@ -374,6 +377,7 @@ impl Cifrs {
 #[cfg(test)]
 mod tests {
     use std::env;
+
     use directories::BaseDirs;
 
     use crate::Cifrs;

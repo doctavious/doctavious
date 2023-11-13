@@ -83,7 +83,10 @@ pub(crate) fn detect<T: Detectable>(framework: &T) -> Option<MatchResult> {
 }
 
 // TODO: should this return a result?
-fn check<'a, T: Detectable>(framework: &'a T, item: &'a FrameworkDetectionItem) -> Option<MatchResult> {
+fn check<'a, T: Detectable>(
+    framework: &'a T,
+    item: &'a FrameworkDetectionItem,
+) -> Option<MatchResult> {
     match item {
         FrameworkDetectionItem::Config { content } => {
             for config in framework.get_configuration_files() {
