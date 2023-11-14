@@ -41,9 +41,9 @@ pub(crate) struct MatchResult {
 }
 
 // TODO: Probably wont use this and will use one in lib.rs
-pub(crate) fn detect_framework<T: Detectable>(frameworks: Vec<T>) -> Option<T> {
+pub(crate) fn detect_framework<P: AsRef<Path>, T: Detectable>(cwd: P, frameworks: Vec<T>) -> Option<T> {
     for framework in frameworks {
-        let match_result = detect(&framework);
+        let match_result = detect(&cwd, &framework);
         if match_result.is_some() {
             return Some(framework);
         }
@@ -52,19 +52,19 @@ pub(crate) fn detect_framework<T: Detectable>(frameworks: Vec<T>) -> Option<T> {
     None
 }
 
-pub(crate) fn detect<T: Detectable>(framework: &T) -> Option<MatchResult> {
+pub(crate) fn detect<P: AsRef<Path>, T: Detectable>(cwd: P, framework: &T) -> Option<MatchResult> {
     let mut results: Vec<Option<MatchResult>> = vec![];
 
     match framework.get_matching_strategy() {
         FrameworkMatchingStrategy::All => {
             for detector in framework.get_detectors() {
-                results.push(check(framework, detector));
+                results.push(check(&cwd, framework, detector));
             }
         }
         FrameworkMatchingStrategy::Any => {
             let mut matched = None;
             for item in framework.get_detectors() {
-                let result = check(framework, item);
+                let result = check(&cwd, framework, item);
                 if result.is_some() {
                     matched = result;
                     break;
@@ -83,14 +83,15 @@ pub(crate) fn detect<T: Detectable>(framework: &T) -> Option<MatchResult> {
 }
 
 // TODO: should this return a result?
-fn check<'a, T: Detectable>(
+fn check<'a, P: AsRef<Path>, T: Detectable>(
+    cwd: P,
     framework: &'a T,
     item: &'a FrameworkDetectionItem,
 ) -> Option<MatchResult> {
     match item {
         FrameworkDetectionItem::Config { content } => {
             for config in framework.get_configuration_files() {
-                if check_file(config, content).is_some() {
+                if check_file(cwd.as_ref().join(config), content).is_some() {
                     return Some(MatchResult { project: None });
                 }
             }
@@ -98,7 +99,7 @@ fn check<'a, T: Detectable>(
         }
         FrameworkDetectionItem::Dependency { name: dependency } => {
             for p in framework.get_project_files().iter() {
-                match p.has_dependency(dependency) {
+                match p.has_dependency(&cwd, dependency) {
                     Ok(found) => {
                         if found {
                             return Some(MatchResult { project: Some(*p) });
@@ -114,7 +115,7 @@ fn check<'a, T: Detectable>(
             None
         }
         FrameworkDetectionItem::File { path, content } => {
-            if check_file(path, content).is_some() {
+            if check_file(cwd.as_ref().join(path), content).is_some() {
                 return Some(MatchResult { project: None });
             }
 

@@ -196,8 +196,9 @@ impl ProjectFile {
         }
     }
 
-    pub fn has_dependency(&self, dependency: &str) -> CifrsResult<bool> {
-        for project_file_path in self.get_project_paths() {
+    pub fn has_dependency<P: AsRef<Path>>(&self, cwd: P, dependency: &str) -> CifrsResult<bool> {
+        for path in self.get_project_paths() {
+            let project_file_path = cwd.as_ref().join(path);
             if !project_file_path.is_file() {
                 debug!("Project file {:?} not found...skipping", &project_file_path);
             }
@@ -346,7 +347,7 @@ python = "^3.7"
             }
 
             let found = ProjectFile::MsBuild
-                .has_dependency("Microsoft.Orleans.Server")
+                .has_dependency(&tmp_dir,"Microsoft.Orleans.Server")
                 .unwrap();
             println!("dependency found: {}", found);
             assert!(found);

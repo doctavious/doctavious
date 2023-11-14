@@ -1,3 +1,5 @@
+use std::collections::HashSet;
+use std::env::current_dir;
 use std::fs;
 use std::path::{Path, PathBuf};
 
@@ -8,7 +10,7 @@ use serde_json::Value;
 use thiserror::Error;
 
 use crate::framework::{FrameworkDetectionItem, FrameworkInfo, FrameworkMatchingStrategy};
-use crate::framework_detection::MatchResult;
+use crate::framework_detection::{Detectable, MatchResult};
 use crate::frameworks::FRAMEWORKS_STR;
 use crate::projects::msbuild::MsBuildProj;
 use crate::projects::project_file::ProjectFile;
@@ -97,12 +99,18 @@ impl Cifrs {
     /// Determine Frameworks
     /// returns vec of frameworks
     pub fn detect_frameworks<P: AsRef<Path>>(path: P) -> CifrsResult<FrameworkInfo> {
+        if !path.as_ref().is_dir() {
+            // TODO: return error
+        }
+
         // TODO: should we decide if monorepo / workspace?
         // vercel build has a max depth of 3. should we try and determine max depth
         // based on if its a monorepo/workspace or individual project?
-        let dirs = Cifrs::directories_to_check(path)?;
-        for framework in Cifrs::get_frameworks()?.frameworks {
-            for dir in &dirs {
+        let workspace = Cifrs::detect_workspace(&path)?;
+        let project_paths = Cifrs::get_workspace_package_paths(&path, workspace)?;
+
+        for dir in &project_paths {
+            for framework in Cifrs::get_frameworks()?.frameworks {
                 let m = Cifrs::matches(dir, &framework);
                 // TODO: return MatchResult?
                 if m.is_some() {
@@ -119,62 +127,43 @@ impl Cifrs {
     }
 
     pub fn build<P: AsRef<Path>>(path: P, install: bool) -> CifrsResult<()> {
-        let dirs = Cifrs::directories_to_check(path);
+        let workspace = Cifrs::detect_workspace(&path)?;
+        let project_paths = Cifrs::get_workspace_package_paths(path, workspace)?;
+
         Ok(())
     }
 
-    pub fn directories_to_check<P: AsRef<Path>>(path: P) -> CifrsResult<Vec<PathBuf>> {
-        let mut dirs = vec![path.as_ref().to_path_buf()];
-        // for entry in fs::read_dir(path)?.flatten() {
-        //     if entry.path().is_dir() {
-        //         dirs.push(entry.path());
-        //     }
-        // }
-
-        Ok(dirs)
-    }
-
-    pub fn detect_workspace<P: AsRef<Path>>(cwd: P) -> CifrsResult<Workspace> {
+    pub fn detect_workspace<P: AsRef<Path>>(cwd: P) -> CifrsResult<Option<Workspace>> {
+        // TODO: should we try and detect workspace deeper than the current root directory?
         let workspaces: Vec<Workspace> = serde_yaml::from_str(WORKSPACES_STR).expect("");
 
         for workspace in workspaces {
-            let m = framework_detection::detect(&workspace);
-            // TODO: return MatchResult?
+            let m = framework_detection::detect(&cwd, &workspace);
             if m.is_some() {
-                return Ok(workspace);
+                return Ok(Some(workspace));
             }
         }
 
-        Err(CifrsError::MissingFrameworkConfig())
+        Ok(None)
+    }
 
-        // let mut results: Vec<Option<MatchResult>> = vec![];
-        // for workspace in workspaces {
-        //     match &workspace.detection.matching_strategy {
-        //         FrameworkMatchingStrategy::All => {
-        //             for detector in &workspace.detection.detectors {
-        //                 results.push(Cifrs::check_workspace(&cwd, &workspace, detector));
-        //             }
-        //         }
-        //         FrameworkMatchingStrategy::Any => {
-        //             let mut matched = None;
-        //             for item in &workspace.detection.detectors {
-        //                 let result = Cifrs::check_workspace(&cwd, &workspace, item);
-        //                 if result.is_some() {
-        //                     matched = result;
-        //                     break;
-        //                 }
-        //             }
-        //
-        //             results.push(matched);
-        //         }
-        //     }
-        //
-        //     if results.iter().all(|&r| r.is_some()) {
-        //         // return *results.first().unwrap();
-        //     }
-        // }
-        //
-        // Ok(())
+    fn get_workspace_package_paths<P: AsRef<Path>>(cwd: P, workspace: Option<Workspace>) -> CifrsResult<Vec<PathBuf>> {
+        let mut package_paths = HashSet::new();
+
+        if let Some(workspace) = workspace {
+            package_paths.extend(workspace.get_package_paths(&cwd)?);
+        }
+
+        // make sure root is in
+        package_paths.insert(cwd.as_ref().to_path_buf());
+
+        // not uncommon for "docs" to not be part of workspace packages so if its present add it
+        let docs_path = PathBuf::from("./docs");
+        if docs_path.is_dir() {
+            package_paths.insert(docs_path);
+        }
+
+        Ok(Vec::from_iter(package_paths))
     }
 
     fn matches<'a>(path: &'a Path, framework: &'a FrameworkInfo) -> Option<MatchResult> {

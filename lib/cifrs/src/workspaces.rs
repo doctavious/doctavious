@@ -13,6 +13,7 @@ use crate::{CifrsError, CifrsResult};
 
 pub const WORKSPACES_STR: &str = include_str!("workspaces.yaml");
 
+
 #[derive(Debug, Deserialize, PartialEq, Serialize)]
 pub struct Workspace {
     pub id: String,
@@ -28,7 +29,7 @@ impl Workspace {
     // TODO: Get workspace package paths
     // TODO: should make an associated enum?
     // TODO: need cwd
-    fn get_package_paths(&self, cwd: PathBuf) -> CifrsResult<Vec<PathBuf>> {
+    pub fn get_package_paths<P: AsRef<Path>>(&self, cwd: P) -> CifrsResult<Vec<PathBuf>> {
         match self.id.as_str() {
             "cargo" => self.get_cargo_workspace_package_paths(),
             "msbuild" => self.get_msbuild_solution_workspace_package_paths(cwd),
@@ -140,9 +141,9 @@ impl Workspace {
         Ok(vec![])
     }
 
-    fn get_msbuild_solution_workspace_package_paths(
+    fn get_msbuild_solution_workspace_package_paths<P: AsRef<Path>>(
         &self,
-        cwd: PathBuf,
+        cwd: P,
     ) -> CifrsResult<Vec<PathBuf>> {
         for entry in fs::read_dir(cwd)?.flatten() {
             if entry.path().to_str().is_some_and(|p| p.contains("*.sln")) {
