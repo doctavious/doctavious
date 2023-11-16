@@ -13,7 +13,6 @@ use crate::{CifrsError, CifrsResult};
 
 pub const WORKSPACES_STR: &str = include_str!("workspaces.yaml");
 
-
 #[derive(Debug, Deserialize, PartialEq, Serialize)]
 pub struct Workspace {
     pub id: String,

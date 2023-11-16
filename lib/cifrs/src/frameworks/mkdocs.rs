@@ -2,6 +2,8 @@
 // site --> default
 // change be changed via site_dir
 
+use std::path::PathBuf;
+
 use serde::Deserialize;
 use serde_derive::Serialize;
 
@@ -23,7 +25,7 @@ pub struct MKDocs {
 }
 
 impl MKDocs {
-    fn new(configs: Vec<String>) -> Self {
+    fn new(configs: Vec<PathBuf>) -> Self {
         Self {
             info: FrameworkInfo {
                 id: "mkdocs".to_string(),
@@ -60,7 +62,7 @@ impl MKDocs {
 
 impl Default for MKDocs {
     fn default() -> Self {
-        MKDocs::new(Vec::from(["mkdocs.yml".to_string()]))
+        MKDocs::new(Vec::from(["mkdocs.yml".into()]))
     }
 }
 
@@ -98,7 +100,7 @@ mod tests {
     #[test]
     fn test_hugo() {
         let mkdocs = MKDocs::new(vec![
-            "tests/fixtures/framework_configs/mkdocs/mkdocs.yml".to_string()
+            "tests/fixtures/framework_configs/mkdocs/mkdocs.yml".into()
         ]);
 
         let output = mkdocs.get_output_dir();

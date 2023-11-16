@@ -3,6 +3,8 @@
 // outDir overrides
 // dependency - adapter-static
 
+use std::path::PathBuf;
+
 use serde::Deserialize;
 use serde_derive::Serialize;
 use swc_ecma_ast::Program;
@@ -33,7 +35,7 @@ pub struct SvelteKit {
 }
 
 impl SvelteKit {
-    fn new(configs: Vec<String>) -> Self {
+    fn new(configs: Vec<PathBuf>) -> Self {
         Self {
             info: FrameworkInfo {
                 id: "sveltekit".to_string(),
@@ -70,7 +72,7 @@ impl SvelteKit {
 
 impl Default for SvelteKit {
     fn default() -> Self {
-        SvelteKit::new(vec!["svelte.config.js".to_string()])
+        SvelteKit::new(vec!["svelte.config.js".into()])
     }
 }
 
@@ -136,7 +138,7 @@ mod tests {
         let sveltekit = SvelteKit::new(
             // tests/fixtures/framework_configs/sveltekit/svelte.config.js
             // tests/fixtures/framework_configs/sveltekit/svelte.config.js
-            vec!["tests/fixtures/framework_configs/sveltekit/svelte.config.js".to_string()],
+            vec!["tests/fixtures/framework_configs/sveltekit/svelte.config.js".into()],
         );
 
         let output = sveltekit.get_output_dir();

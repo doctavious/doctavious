@@ -5,6 +5,7 @@
 // BUILDDIR env var
 
 use std::env;
+use std::path::PathBuf;
 
 use serde_derive::{Deserialize, Serialize};
 
@@ -22,7 +23,7 @@ pub struct Sphinx {
 }
 
 impl Sphinx {
-    fn new(configs: Vec<String>) -> Self {
+    fn new(configs: Vec<PathBuf>) -> Self {
         Self {
             info: FrameworkInfo {
                 id: "sphinx".to_string(),
@@ -61,7 +62,7 @@ impl Default for Sphinx {
     fn default() -> Self {
         // this is relative to source and i dont think we need it as it doesnt help with build
         // TODO: should we remove?
-        Sphinx::new(vec!["conf.py".to_string()])
+        Sphinx::new(vec!["conf.py".into()])
     }
 }
 
@@ -88,7 +89,7 @@ mod tests {
     #[test]
     fn test_sphinx() {
         let sphinx = Sphinx::new(vec![
-            "tests/fixtures/framework_configs/sphinx/config.py".to_string()
+            "tests/fixtures/framework_configs/sphinx/config.py".into()
         ]);
 
         let output = sphinx.get_output_dir();
@@ -99,7 +100,7 @@ mod tests {
     fn should_use_env_var_when_present() {
         temp_env::with_var("BUILDDIR", Some("build"), || {
             let sphinx = Sphinx::new(vec![
-                "tests/fixtures/framework_configs/sphinx/config.py".to_string()
+                "tests/fixtures/framework_configs/sphinx/config.py".into()
             ]);
 
             let output = sphinx.get_output_dir();

@@ -6,6 +6,8 @@
 // do we allow to customize the script we look for? ex: instead of 'build' we look for 'docs:build'
 // package.json
 
+use std::path::PathBuf;
+
 use serde::Deserialize;
 use serde_derive::Serialize;
 use swc_ecma_ast::Program;
@@ -31,7 +33,7 @@ pub struct VitePress {
 }
 
 impl VitePress {
-    fn new(configs: Vec<String>) -> Self {
+    fn new(configs: Vec<PathBuf>) -> Self {
         Self {
             info: FrameworkInfo {
                 id: "vitepress".to_string(),
@@ -59,11 +61,11 @@ impl VitePress {
 impl Default for VitePress {
     fn default() -> Self {
         VitePress::new(vec![
-            ".vitepress/config.cjs".to_string(),
-            ".vitepress/config.js".to_string(),
-            ".vitepress/config.mjs".to_string(),
-            ".vitepress/config.mts".to_string(),
-            ".vitepress/config.ts".to_string(),
+            ".vitepress/config.cjs".into(),
+            ".vitepress/config.js".into(),
+            ".vitepress/config.mjs".into(),
+            ".vitepress/config.mts".into(),
+            ".vitepress/config.ts".into(),
         ])
     }
 }
@@ -139,8 +141,8 @@ mod tests {
     #[test]
     fn test_vitepress() {
         let configs = [
-            "tests/fixtures/framework_configs/vitepress/config.js".to_string(),
-            "tests/fixtures/framework_configs/vitepress/config.ts".to_string(),
+            "tests/fixtures/framework_configs/vitepress/config.js".into(),
+            "tests/fixtures/framework_configs/vitepress/config.ts".into(),
         ];
         for config in configs {
             let vitepress = VitePress::new(vec![config]);

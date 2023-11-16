@@ -8,6 +8,8 @@
 // nuxt generate
 // dist/
 
+use std::path::PathBuf;
+
 use serde::Deserialize;
 use serde_derive::Serialize;
 use swc_ecma_ast::Program;
@@ -33,7 +35,7 @@ pub struct NuxtJS {
 }
 
 impl NuxtJS {
-    fn new(configs: Vec<String>) -> Self {
+    fn new(configs: Vec<PathBuf>) -> Self {
         Self {
             info: FrameworkInfo {
                 id: "nuxt".to_string(),
@@ -65,7 +67,7 @@ impl NuxtJS {
 
 impl Default for NuxtJS {
     fn default() -> Self {
-        NuxtJS::new(Vec::from(["nuxt.config.js".to_string()]))
+        NuxtJS::new(Vec::from(["nuxt.config.js".into()]))
     }
 }
 
@@ -124,7 +126,7 @@ mod tests {
 
     #[test]
     fn test_nuxtjs() {
-        for config in ["tests/fixtures/framework_configs/nuxtjs/nuxt.config.js".to_string()] {
+        for config in ["tests/fixtures/framework_configs/nuxtjs/nuxt.config.js".into()] {
             let nuxtjs = NuxtJS::new(vec![config]);
 
             let output = nuxtjs.get_output_dir();

@@ -8,6 +8,8 @@
 // /public
 // can be changed via publishDir
 
+use std::path::PathBuf;
+
 use serde::Deserialize;
 use serde_derive::Serialize;
 
@@ -30,7 +32,7 @@ pub struct Hugo {
 }
 
 impl Hugo {
-    fn new(configs: Vec<String>) -> Self {
+    fn new(configs: Vec<PathBuf>) -> Self {
         Self {
             info: FrameworkInfo {
                 id: "hexo".to_string(),
@@ -68,12 +70,12 @@ impl Hugo {
 impl Default for Hugo {
     fn default() -> Self {
         Hugo::new(Vec::from([
-            "config.json".to_string(),
-            "config.toml".to_string(),
-            "config.yaml".to_string(),
-            "hugo.json".to_string(),
-            "hugo.toml".to_string(),
-            "hugo.yaml".to_string(),
+            "config.json".into(),
+            "config.toml".into(),
+            "config.yaml".into(),
+            "hugo.json".into(),
+            "hugo.toml".into(),
+            "hugo.yaml".into(),
         ]))
     }
 }
@@ -112,7 +114,7 @@ mod tests {
     #[test]
     fn test_hugo() {
         let hugo = Hugo::new(vec![
-            "tests/fixtures/framework_configs/hugo/config.toml".to_string()
+            "tests/fixtures/framework_configs/hugo/config.toml".into()
         ]);
 
         let output = hugo.get_output_dir();

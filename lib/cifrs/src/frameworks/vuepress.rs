@@ -14,6 +14,8 @@
 // .vuepress/config.toml
 // .vuepress/config.ts
 
+use std::path::PathBuf;
+
 use serde::Deserialize;
 use serde_derive::Serialize;
 use swc_ecma_ast::Program;
@@ -39,7 +41,7 @@ pub struct VuePress {
 }
 
 impl VuePress {
-    fn new(configs: Vec<String>) -> Self {
+    fn new(configs: Vec<PathBuf>) -> Self {
         Self {
             info: FrameworkInfo {
                 id: "vuepress".to_string(),
@@ -80,10 +82,10 @@ impl VuePress {
 impl Default for VuePress {
     fn default() -> Self {
         VuePress::new(vec![
-            ".vuepress/config.js".to_string(),
-            ".vuepress/config.yml".to_string(),
-            ".vuepress/config.toml".to_string(),
-            ".vuepress/config.ts".to_string(),
+            ".vuepress/config.js".into(),
+            ".vuepress/config.yml".into(),
+            ".vuepress/config.toml".into(),
+            ".vuepress/config.ts".into(),
         ])
     }
 }
@@ -162,9 +164,9 @@ mod tests {
     #[test]
     fn test_vuepress() {
         let configs = [
-            "tests/fixtures/framework_configs/vuepress/config.js".to_string(),
-            "tests/fixtures/framework_configs/vuepress/config.toml".to_string(),
-            "tests/fixtures/framework_configs/vuepress/config.ts".to_string(),
+            "tests/fixtures/framework_configs/vuepress/config.js".into(),
+            "tests/fixtures/framework_configs/vuepress/config.toml".into(),
+            "tests/fixtures/framework_configs/vuepress/config.ts".into(),
         ];
         for config in configs {
             let vuepress = VuePress::new(vec![config]);

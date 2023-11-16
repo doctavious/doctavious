@@ -6,6 +6,7 @@
 // antora generate <playbook> --to-dir <dir>
 
 use std::collections::HashMap;
+use std::path::PathBuf;
 
 use serde::Deserialize;
 use serde_derive::Serialize;
@@ -36,7 +37,7 @@ pub struct Antora {
 }
 
 impl Antora {
-    fn new(configs: Vec<String>) -> Self {
+    fn new(configs: Vec<PathBuf>) -> Self {
         Self {
             info: FrameworkInfo {
                 id: "antora".to_string(),
@@ -78,7 +79,7 @@ impl Antora {
 
 impl Default for Antora {
     fn default() -> Self {
-        Antora::new(Vec::from(["antora-playbook.yaml".to_string()]))
+        Antora::new(Vec::from(["antora-playbook.yaml".into()]))
     }
 }
 
@@ -117,7 +118,7 @@ mod tests {
     #[test]
     fn test_antora() {
         let antora = Antora::new(vec![
-            "tests/fixtures/framework_configs/antora/antora-playbook.yaml".to_string(),
+            "tests/fixtures/framework_configs/antora/antora-playbook.yaml".into(),
         ]);
 
         let output = antora.get_output_dir();

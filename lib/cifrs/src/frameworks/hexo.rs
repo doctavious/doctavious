@@ -5,6 +5,8 @@
 // hexo generate
 // hexo --config custom.yml
 
+use std::path::PathBuf;
+
 use serde::Deserialize;
 use serde_derive::Serialize;
 
@@ -27,7 +29,7 @@ pub struct Hexo {
 }
 
 impl Hexo {
-    fn new(configs: Vec<String>) -> Self {
+    fn new(configs: Vec<PathBuf>) -> Self {
         Self {
             info: FrameworkInfo {
                 id: "hexo".to_string(),
@@ -61,7 +63,7 @@ impl Hexo {
 
 impl Default for Hexo {
     fn default() -> Self {
-        Hexo::new(Vec::from(["_config.yml".to_string()]))
+        Hexo::new(Vec::from(["_config.yml".into()]))
     }
 }
 
@@ -99,7 +101,7 @@ mod tests {
     #[test]
     fn test_hexo() {
         let hexo = Hexo::new(vec![
-            "tests/fixtures/framework_configs/hexo/_config.yml".to_string()
+            "tests/fixtures/framework_configs/hexo/_config.yml".into()
         ]);
 
         let output = hexo.get_output_dir();

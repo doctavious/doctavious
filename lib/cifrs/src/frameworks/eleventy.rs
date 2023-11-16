@@ -7,6 +7,8 @@
 // dir.output
 // defaults to _site
 
+use std::path::PathBuf;
+
 use serde::Deserialize;
 use serde_derive::Serialize;
 use swc_ecma_ast::Program;
@@ -34,7 +36,7 @@ pub struct Eleventy {
 }
 
 impl Eleventy {
-    fn new(configs: Vec<String>) -> Self {
+    fn new(configs: Vec<PathBuf>) -> Self {
         Self {
             info: FrameworkInfo {
                 id: "eleventy".to_string(),
@@ -69,9 +71,9 @@ impl Eleventy {
 impl Default for Eleventy {
     fn default() -> Self {
         Eleventy::new(Vec::from([
-            ".eleventy.js".to_string(),
-            "eleventy.config.js".to_string(),
-            "eleventy.config.cjs".to_string(),
+            ".eleventy.js".into(),
+            "eleventy.config.js".into(),
+            "eleventy.config.cjs".into(),
         ]))
     }
 }
@@ -122,7 +124,7 @@ mod tests {
     #[test]
     fn test_eleventy() {
         let eleventy = Eleventy::new(vec![
-            "tests/fixtures/framework_configs/eleventy/.eleventy.js".to_string(),
+            "tests/fixtures/framework_configs/eleventy/.eleventy.js".into(),
         ]);
 
         let output = eleventy.get_output_dir();

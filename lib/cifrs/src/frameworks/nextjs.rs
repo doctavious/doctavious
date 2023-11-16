@@ -5,6 +5,8 @@
 // .next -> default directory
 // change be changed via distDir
 
+use std::path::PathBuf;
+
 use serde::Deserialize;
 use serde_derive::Serialize;
 use swc_ecma_ast::Program;
@@ -30,7 +32,7 @@ pub struct NextJS {
 }
 
 impl NextJS {
-    fn new(configs: Vec<String>) -> Self {
+    fn new(configs: Vec<PathBuf>) -> Self {
         Self {
             info: FrameworkInfo {
                 id: "nextjs".to_string(),
@@ -58,8 +60,8 @@ impl NextJS {
 impl Default for NextJS {
     fn default() -> Self {
         NextJS::new(Vec::from([
-            "next.config.js".to_string(),
-            "next.config.mjs".to_string(),
+            "next.config.js".into(),
+            "next.config.mjs".into(),
         ]))
     }
 }
@@ -133,8 +135,8 @@ mod tests {
     #[test]
     fn test_nextjs() {
         for config in [
-            "tests/fixtures/framework_configs/nextjs/next_js_v1.mjs".to_string(),
-            "tests/fixtures/framework_configs/nextjs/next_js_v2.mjs".to_string(),
+            "tests/fixtures/framework_configs/nextjs/next_js_v1.mjs".into(),
+            "tests/fixtures/framework_configs/nextjs/next_js_v2.mjs".into(),
         ] {
             let nextjs = NextJS::new(vec![config]);
 

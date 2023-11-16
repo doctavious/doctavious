@@ -1,3 +1,5 @@
+use std::path::PathBuf;
+
 use serde::Deserialize;
 use serde_derive::Serialize;
 use swc_ecma_ast::Program;
@@ -23,7 +25,7 @@ pub struct Nuxt3JS {
 }
 
 impl Nuxt3JS {
-    fn new(configs: Vec<String>) -> Self {
+    fn new(configs: Vec<PathBuf>) -> Self {
         Self {
             info: FrameworkInfo {
                 id: "nuxt-v3".to_string(),
@@ -51,9 +53,9 @@ impl Nuxt3JS {
 impl Default for Nuxt3JS {
     fn default() -> Self {
         Nuxt3JS::new(Vec::from([
-            "nuxt.config.js".to_string(),
-            "nuxt.config.mjs".to_string(),
-            "nuxt.config.ts".to_string(),
+            "nuxt.config.js".into(),
+            "nuxt.config.mjs".into(),
+            "nuxt.config.ts".into(),
         ]))
     }
 }
@@ -102,8 +104,8 @@ mod tests {
     #[test]
     fn test_nuxtjs() {
         for config in [
-            "tests/fixtures/framework_configs/nuxt3js/nuxt_nitro.config.ts".to_string(),
-            "tests/fixtures/framework_configs/nuxt3js/nuxt_vite.config.ts".to_string(),
+            "tests/fixtures/framework_configs/nuxt3js/nuxt_nitro.config.ts".into(),
+            "tests/fixtures/framework_configs/nuxt3js/nuxt_vite.config.ts".into(),
         ] {
             let nuxtjs = Nuxt3JS::new(vec![config]);
 

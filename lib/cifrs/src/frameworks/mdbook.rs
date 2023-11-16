@@ -3,6 +3,7 @@
 // change be changed via build.build-dir
 
 use std::collections::HashMap;
+use std::path::PathBuf;
 
 use serde::Deserialize;
 use serde_derive::Serialize;
@@ -31,7 +32,7 @@ pub struct MDBook {
 }
 
 impl MDBook {
-    fn new(configs: Vec<String>) -> Self {
+    fn new(configs: Vec<PathBuf>) -> Self {
         Self {
             info: FrameworkInfo {
                 id: "mdbook".to_string(),
@@ -63,7 +64,7 @@ impl MDBook {
 
 impl Default for MDBook {
     fn default() -> Self {
-        MDBook::new(Vec::from(["book.toml".to_string()]))
+        MDBook::new(Vec::from(["book.toml".into()]))
     }
 }
 
@@ -104,7 +105,7 @@ mod tests {
     #[test]
     fn test_mdbook() {
         let book = MDBook::new(vec![
-            "tests/fixtures/framework_configs/mdbook/book.toml".to_string()
+            "tests/fixtures/framework_configs/mdbook/book.toml".into()
         ]);
 
         let output = book.get_output_dir();

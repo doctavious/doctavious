@@ -347,7 +347,7 @@ python = "^3.7"
             }
 
             let found = ProjectFile::MsBuild
-                .has_dependency(&tmp_dir,"Microsoft.Orleans.Server")
+                .has_dependency(&tmp_dir, "Microsoft.Orleans.Server")
                 .unwrap();
             println!("dependency found: {}", found);
             assert!(found);

@@ -23,6 +23,8 @@
 
 // TODO: support monorepo
 
+use std::path::PathBuf;
+
 use serde::Deserialize;
 use serde_derive::Serialize;
 
@@ -45,7 +47,7 @@ impl DocusaurusV2 {
     // for but the contents can have different structures that we ultimately want to test for.
     // This forces us to have test config file names that differ from the predefined ones we would
     // look for outside testing. I dont have a better idea on how to do this.
-    fn new(configs: Vec<String>) -> Self {
+    fn new(configs: Vec<PathBuf>) -> Self {
         Self {
             info: FrameworkInfo {
                 id: "docusarus-v2".to_string(),
@@ -83,7 +85,7 @@ impl DocusaurusV2 {
 
 impl Default for DocusaurusV2 {
     fn default() -> Self {
-        DocusaurusV2::new(Vec::from(["docusaurus.config.js".to_string()]))
+        DocusaurusV2::new(Vec::from(["docusaurus.config.js".into()]))
     }
 }
 
@@ -108,7 +110,7 @@ mod tests {
     fn test_docusaurus() {
         // TODO: lets just put file contents in tests and write to tempdir + known file
         let docusaurus = DocusaurusV2::new(vec![
-            "tests/fixtures/framework_configs/docusaurus2/docusaurus.config.js".to_string(),
+            "tests/fixtures/framework_configs/docusaurus2/docusaurus.config.js".into(),
         ]);
 
         let output = docusaurus.get_output_dir();

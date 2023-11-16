@@ -5,6 +5,8 @@
 
 // gatsby build
 
+use std::path::PathBuf;
+
 use serde::Deserialize;
 use serde_derive::Serialize;
 use swc_ecma_ast::Program;
@@ -36,7 +38,7 @@ pub struct Gatsby {
 }
 
 impl Gatsby {
-    fn new(configs: Vec<String>) -> Self {
+    fn new(configs: Vec<PathBuf>) -> Self {
         Self {
             info: FrameworkInfo {
                 id: "gatsby".to_string(),
@@ -64,8 +66,8 @@ impl Gatsby {
 impl Default for Gatsby {
     fn default() -> Self {
         Gatsby::new(Vec::from([
-            "gatsby-config.js".to_string(),
-            "gatsby-config.ts".to_string(),
+            "gatsby-config.js".into(),
+            "gatsby-config.ts".into(),
         ]))
     }
 }
@@ -122,7 +124,7 @@ mod tests {
     #[test]
     fn test_gatsby() {
         let gatsby = Gatsby::new(vec![
-            "tests/fixtures/framework_configs/gatsby/gatsby-config.js".to_string(),
+            "tests/fixtures/framework_configs/gatsby/gatsby-config.js".into(),
         ]);
 
         let output = gatsby.get_output_dir();

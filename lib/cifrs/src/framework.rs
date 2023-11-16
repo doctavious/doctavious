@@ -1,11 +1,13 @@
+use std::borrow::Cow;
 use std::fs;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use serde::Deserialize;
 use serde_derive::Serialize;
 use swc_ecma_ast::Program;
 
 use crate::backends::LanguageBackends;
+use crate::framework_detection::Detectable;
 use crate::frameworks::antora::Antora;
 use crate::frameworks::astro::Astro;
 use crate::frameworks::docfx::DocFx;
@@ -24,6 +26,7 @@ use crate::frameworks::sveltekit::SvelteKit;
 use crate::frameworks::vitepress::VitePress;
 use crate::frameworks::vuepress::VuePress;
 use crate::js_module::parse_js_module;
+use crate::projects::project_file::ProjectFile;
 use crate::{CifrsError, CifrsResult};
 
 // FrameworkDefinition
@@ -44,7 +47,7 @@ pub struct FrameworkInfo {
     pub website: String,
 
     /// List of potential config files
-    pub configs: Vec<String>,
+    pub configs: Vec<PathBuf>,
 
     // TODO: this could be SoftwareFramework / SoftwarePlatform.
     // Potentially solves for the scenario of needed multiple languages such as C#/F#
@@ -55,6 +58,24 @@ pub struct FrameworkInfo {
     pub detection: FrameworkDetector,
 
     pub build: FrameworkBuildSettings,
+}
+
+impl Detectable for FrameworkInfo {
+    fn get_matching_strategy(&self) -> &FrameworkMatchingStrategy {
+        &self.detection.matching_strategy
+    }
+
+    fn get_detectors(&self) -> &Vec<FrameworkDetectionItem> {
+        &self.detection.detectors
+    }
+
+    fn get_project_files(&self) -> Cow<Vec<ProjectFile>> {
+        Cow::Owned(self.backend.project_files().to_vec())
+    }
+
+    fn get_configuration_files(&self) -> &Vec<PathBuf> {
+        &self.configs
+    }
 }
 
 impl FrameworkInfo {
@@ -223,7 +244,7 @@ pub trait ConfigurationFileDeserialization: for<'a> Deserialize<'a> {
     }
 }
 
-pub(crate) fn read_config_files<T>(files: &Vec<String>) -> CifrsResult<T>
+pub(crate) fn read_config_files<T>(files: &Vec<PathBuf>) -> CifrsResult<T>
 where
     T: ConfigurationFileDeserialization,
 {

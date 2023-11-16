@@ -41,7 +41,10 @@ pub(crate) struct MatchResult {
 }
 
 // TODO: Probably wont use this and will use one in lib.rs
-pub(crate) fn detect_framework<P: AsRef<Path>, T: Detectable>(cwd: P, frameworks: Vec<T>) -> Option<T> {
+pub(crate) fn detect_framework<P: AsRef<Path>, T: Detectable>(
+    cwd: P,
+    frameworks: Vec<T>,
+) -> Option<T> {
     for framework in frameworks {
         let match_result = detect(&cwd, &framework);
         if match_result.is_some() {

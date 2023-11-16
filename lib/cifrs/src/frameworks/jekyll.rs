@@ -5,6 +5,8 @@
 // destination: DIR
 // jekyll build -d, --destination DIR
 
+use std::path::PathBuf;
+
 use serde::Deserialize;
 use serde_derive::Serialize;
 
@@ -26,7 +28,7 @@ pub struct Jekyll {
 }
 
 impl Jekyll {
-    fn new(configs: Vec<String>) -> Self {
+    fn new(configs: Vec<PathBuf>) -> Self {
         Self {
             info: FrameworkInfo {
                 id: "jekyll".to_string(),
@@ -70,10 +72,7 @@ impl Jekyll {
 
 impl Default for Jekyll {
     fn default() -> Self {
-        Jekyll::new(Vec::from([
-            "_config.yml".to_string(),
-            "_config.toml".to_string(),
-        ]))
+        Jekyll::new(Vec::from(["_config.yml".into(), "_config.toml".into()]))
     }
 }
 
@@ -111,7 +110,7 @@ mod tests {
     #[test]
     fn test_jekyll() {
         let jekyll = Jekyll::new(vec![
-            "tests/fixtures/framework_configs/jekyll/_config.yml".to_string()
+            "tests/fixtures/framework_configs/jekyll/_config.yml".into()
         ]);
 
         let output = jekyll.get_output_dir();

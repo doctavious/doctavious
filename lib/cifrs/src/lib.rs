@@ -2,16 +2,19 @@ use std::collections::HashSet;
 use std::env::current_dir;
 use std::fs;
 use std::path::{Path, PathBuf};
+use std::process::{Command, ExitStatus};
 
 use glob::PatternError;
 use regex::RegexBuilder;
 use serde_derive::{Deserialize, Serialize};
 use serde_json::Value;
 use thiserror::Error;
+use tracing::{debug, error};
 
 use crate::framework::{FrameworkDetectionItem, FrameworkInfo, FrameworkMatchingStrategy};
 use crate::framework_detection::{Detectable, MatchResult};
 use crate::frameworks::FRAMEWORKS_STR;
+use crate::package_manager::PackageManagerInfo;
 use crate::projects::msbuild::MsBuildProj;
 use crate::projects::project_file::ProjectFile;
 use crate::workspaces::{Workspace, WORKSPACES_STR};
@@ -103,14 +106,12 @@ impl Cifrs {
             // TODO: return error
         }
 
-        // TODO: should we decide if monorepo / workspace?
-        // vercel build has a max depth of 3. should we try and determine max depth
-        // based on if its a monorepo/workspace or individual project?
         let workspace = Cifrs::detect_workspace(&path)?;
         let project_paths = Cifrs::get_workspace_package_paths(&path, workspace)?;
 
         for dir in &project_paths {
             for framework in Cifrs::get_frameworks()?.frameworks {
+                framework_detection::detect(&dir, &framework);
                 let m = Cifrs::matches(dir, &framework);
                 // TODO: return MatchResult?
                 if m.is_some() {
@@ -126,15 +127,121 @@ impl Cifrs {
         Ok(serde_yaml::from_str(FRAMEWORKS_STR)?)
     }
 
-    pub fn build<P: AsRef<Path>>(path: P, install: bool) -> CifrsResult<()> {
-        let workspace = Cifrs::detect_workspace(&path)?;
-        let project_paths = Cifrs::get_workspace_package_paths(path, workspace)?;
+    pub fn build<P: AsRef<Path>>(path: &P, install: bool) -> CifrsResult<()> {
+        let framework = Cifrs::detect_frameworks(path)?;
+
+        if install {
+            let package_manager_info = Cifrs::detect_package_manager(&path, &framework);
+            // TODO(Sean): if we can't get package_manager should this fail?
+            if let Some(package_manager_info) = package_manager_info {
+                let install_status = Cifrs::do_install(&package_manager_info)?;
+                if !install_status.success() {
+                    let install_status_code = install_status
+                        .code()
+                        .map_or("unknown".to_string(), |s| s.to_string());
+                    println!("install failed with code: {:?}", install_status_code);
+                    // TODO: probably should just use anyhow
+                    return Err(CifrsError::IoError(std::io::Error::new(
+                        std::io::ErrorKind::Other,
+                        format!("install failed with code: {:?}", install_status_code),
+                    )));
+                }
+            }
+        }
+
+        let build_status = Cifrs::do_build(&framework)?;
+        if !build_status.success() {
+            let build_status_code = build_status
+                .code()
+                .map_or("unknown".to_string(), |s| s.to_string());
+            println!("build failed with code: {:?}", build_status_code);
+            // TODO: probably should just use anyhow
+            return Err(CifrsError::IoError(std::io::Error::new(
+                std::io::ErrorKind::Other,
+                format!("build failed with code: {:?}", build_status_code),
+            )));
+        }
 
         Ok(())
     }
 
+    fn detect_package_manager<P: AsRef<Path>>(
+        cwd: P,
+        framework: &FrameworkInfo,
+    ) -> Option<PackageManagerInfo> {
+        // for workspace in &framework.backend {
+        //     let m = framework_detection::detect(&cwd, &workspace);
+        //     if m.is_some() {
+        //         return Ok(Some(workspace));
+        //     }
+        // }
+
+        None
+    }
+
+    // fn detect_package_manager<'a>(framework_info: &FrameworkInfo) -> Option<PackageManagerInfo> {
+    //     let mut results: Vec<bool> = vec![];
+    //     for package_manager in framework_info.language.get_package_managers() {
+    //         let package_manager_info = package_manager.info();
+    //         match package_manager_info.detection.matching_strategy {
+    //             FrameworkMatchingStrategy::All => {
+    //                 for detector in &package_manager_info.detection.detectors {
+    //                     results.push(check(&detector));
+    //                 }
+    //             }
+    //             FrameworkMatchingStrategy::Any => {
+    //                 let mut matched = false;
+    //                 for detector in &package_manager_info.detection.detectors {
+    //                     let result = check(&detector);
+    //                     if result {
+    //                         matched = result;
+    //                         break;
+    //                     }
+    //                 }
+    //
+    //                 results.push(matched);
+    //             }
+    //         }
+    //
+    //         println!("{:?}", serde_json::to_string(&results));
+    //         if  results.iter().all(|&r| r) {
+    //             return Some(package_manager_info);
+    //         }
+    //     }
+    //
+    //     return None;
+    // }
+
+    fn do_install(package_manager: &PackageManagerInfo) -> CifrsResult<ExitStatus> {
+        println!("install command {}", &package_manager.install_command);
+        let install_command = package_manager.install_command;
+        let mut install_process = if cfg!(target_os = "windows") {
+            Command::new("cmd").args(["/C", install_command]).spawn()
+        } else {
+            Command::new("sh").args(["-c", install_command]).spawn()
+        }?;
+
+        let status = install_process.wait()?;
+        return Ok(status);
+    }
+
+    fn do_build(info: &FrameworkInfo) -> CifrsResult<ExitStatus> {
+        println!("build command {}", &info.build.command);
+        let mut build_process = if cfg!(target_os = "windows") {
+            Command::new("cmd")
+                .args(["/C", &info.build.command])
+                .spawn()
+        } else {
+            Command::new("sh").args(["-c", &info.build.command]).spawn()
+        }?;
+
+        let status = build_process.wait()?;
+        return Ok(status);
+    }
+
     pub fn detect_workspace<P: AsRef<Path>>(cwd: P) -> CifrsResult<Option<Workspace>> {
         // TODO: should we try and detect workspace deeper than the current root directory?
+        // Vercel uses a max depth of 3 but not sure what use cases that covers.
         let workspaces: Vec<Workspace> = serde_yaml::from_str(WORKSPACES_STR).expect("");
 
         for workspace in workspaces {
@@ -147,7 +254,10 @@ impl Cifrs {
         Ok(None)
     }
 
-    fn get_workspace_package_paths<P: AsRef<Path>>(cwd: P, workspace: Option<Workspace>) -> CifrsResult<Vec<PathBuf>> {
+    fn get_workspace_package_paths<P: AsRef<Path>>(
+        cwd: P,
+        workspace: Option<Workspace>,
+    ) -> CifrsResult<Vec<PathBuf>> {
         let mut package_paths = HashSet::new();
 
         if let Some(workspace) = workspace {
@@ -207,14 +317,15 @@ impl Cifrs {
                 for config in &framework.configs {
                     if let Ok(file_content) = fs::read_to_string(dir.join(config)) {
                         if let Some(content) = content {
-                            match RegexBuilder::new(content).multi_line(true).build() {
+                            let regex = RegexBuilder::new(content).multi_line(true).build();
+                            match regex {
                                 Ok(regex) => {
                                     if regex.is_match(file_content.as_str()) {
                                         return Some(MatchResult { project: None });
                                     }
                                 }
-                                Err(e) => {
-                                    // TODO: log
+                                Err(ref e) => {
+                                    error!("Invalid regex {:?}: {}", &regex, e);
                                 }
                             }
                         }
@@ -227,34 +338,28 @@ impl Cifrs {
                 for p in framework.backend.project_files() {
                     for project_path in p.get_project_paths() {
                         let path = dir.join(project_path);
-                        if !path.exists() {
-                            // TODO: log
-                            continue;
+                        if !path.is_file() {
+                            debug!("File {:?} not found skipping...", &path);
                         }
 
-                        if path.is_dir() {
-                            // TODO: log
-                            continue;
-                        }
-
-                        match fs::read_to_string(path) {
-                            Ok(c) => {
-                                match Cifrs::has_dependency(p, c, dependency) {
-                                    Ok(f) => {
-                                        if f {
-                                            return Some(MatchResult { project: Some(*p) });
-                                        } else {
-                                            // TODO: log -- dependency not found
-                                        }
-                                    }
-                                    Err(_) => {
-                                        // TODO: log -- error checking file for dependency
+                        match fs::read_to_string(&path) {
+                            Ok(c) => match Cifrs::has_dependency(p, c, dependency) {
+                                Ok(f) => {
+                                    if f {
+                                        return Some(MatchResult { project: Some(*p) });
+                                    } else {
+                                        debug!(
+                                            "Dependency {} not found for project {:?}",
+                                            &dependency, &p
+                                        );
                                     }
                                 }
-                            }
+                                Err(e) => {
+                                    debug!("Error getting dependency {} not found for project {:?}: {}", &dependency, &p, e);
+                                }
+                            },
                             Err(e) => {
-                                // TODO: log -- error reading file
-                                continue;
+                                error!("Failed to read file {:?}: {}", &path, e);
                             }
                         }
                     }
@@ -264,15 +369,16 @@ impl Cifrs {
             FrameworkDetectionItem::File { path, content } => {
                 if let Ok(file_content) = fs::read_to_string(dir.join(path)) {
                     if let Some(content) = content {
-                        match RegexBuilder::new(content).multi_line(true).build() {
+                        // TODO: should be use expect here
+                        let regex = RegexBuilder::new(content).multi_line(true).build();
+                        match regex {
                             Ok(regex) => {
                                 if regex.is_match(file_content.as_str()) {
                                     return Some(MatchResult { project: None });
                                 }
                             }
-                            Err(e) => {
-                                // TODO: log
-                                println!("error with regex {e}")
+                            Err(ref e) => {
+                                error!("Invalid regex {:?}: {}", &regex, e);
                             }
                         }
                     }

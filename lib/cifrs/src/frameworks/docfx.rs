@@ -4,6 +4,7 @@
 // docfx build [-o:<output_path>] [-t:<template folder>]
 
 use std::collections::HashMap;
+use std::path::PathBuf;
 
 use serde::Deserialize;
 use serde_derive::Serialize;
@@ -34,7 +35,7 @@ pub struct DocFx {
 }
 
 impl DocFx {
-    fn new(configs: Vec<String>) -> Self {
+    fn new(configs: Vec<PathBuf>) -> Self {
         Self {
             info: FrameworkInfo {
                 id: "docfx".to_string(),
@@ -66,7 +67,7 @@ impl DocFx {
 
 impl Default for DocFx {
     fn default() -> Self {
-        DocFx::new(Vec::from(["docfx.json".to_string()]))
+        DocFx::new(Vec::from(["docfx.json".into()]))
     }
 }
 
@@ -103,7 +104,7 @@ mod tests {
     #[test]
     fn test_docfx() {
         let docfx = DocFx::new(vec![
-            "tests/fixtures/framework_configs/docfx/docfx.json".to_string()
+            "tests/fixtures/framework_configs/docfx/docfx.json".into()
         ]);
 
         let output = docfx.get_output_dir();

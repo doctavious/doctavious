@@ -4,6 +4,8 @@
 // outDir: './my-custom-build-directory'
 // defaults to "./dist"
 
+use std::path::PathBuf;
+
 use serde::Deserialize;
 use serde_derive::Serialize;
 use swc_ecma_ast::Program;
@@ -24,7 +26,7 @@ pub struct Astro {
 }
 
 impl Astro {
-    fn new(configs: Vec<String>) -> Self {
+    fn new(configs: Vec<PathBuf>) -> Self {
         Self {
             info: FrameworkInfo {
                 id: "astro".to_string(),
@@ -58,7 +60,7 @@ impl Astro {
 
 impl Default for Astro {
     fn default() -> Self {
-        Astro::new(Vec::from(["astro.config.mjs".to_string()]))
+        Astro::new(Vec::from(["astro.config.mjs".into()]))
     }
 }
 
@@ -109,7 +111,7 @@ mod tests {
     #[test]
     fn test_astro() {
         let astro = Astro::new(vec![
-            "tests/fixtures/framework_configs/astro/astro.config.mjs".to_string(),
+            "tests/fixtures/framework_configs/astro/astro.config.mjs".into(),
         ]);
 
         let output = astro.get_output_dir();
