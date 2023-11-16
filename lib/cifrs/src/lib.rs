@@ -1,22 +1,16 @@
 use std::collections::HashSet;
-use std::env::current_dir;
-use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::{Command, ExitStatus};
 
 use glob::PatternError;
-use regex::RegexBuilder;
 use serde_derive::{Deserialize, Serialize};
-use serde_json::Value;
 use thiserror::Error;
-use tracing::{debug, error};
+use tracing::error;
 
-use crate::framework::{FrameworkDetectionItem, FrameworkInfo, FrameworkMatchingStrategy};
-use crate::framework_detection::{Detectable, MatchResult};
+use crate::framework::FrameworkInfo;
+use crate::framework_detection::Detectable;
 use crate::frameworks::FRAMEWORKS_STR;
 use crate::package_manager::PackageManagerInfo;
-use crate::projects::msbuild::MsBuildProj;
-use crate::projects::project_file::ProjectFile;
 use crate::workspaces::{Workspace, WORKSPACES_STR};
 
 mod backends;
@@ -111,8 +105,7 @@ impl Cifrs {
 
         for dir in &project_paths {
             for framework in Cifrs::get_frameworks()?.frameworks {
-                framework_detection::detect(&dir, &framework);
-                let m = Cifrs::matches(dir, &framework);
+                let m = framework_detection::detect(&dir, &framework);
                 // TODO: return MatchResult?
                 if m.is_some() {
                     return Ok(framework);
@@ -275,198 +268,6 @@ impl Cifrs {
 
         Ok(Vec::from_iter(package_paths))
     }
-
-    fn matches<'a>(path: &'a Path, framework: &'a FrameworkInfo) -> Option<MatchResult> {
-        let mut results: Vec<Option<MatchResult>> = vec![];
-
-        match &framework.detection.matching_strategy {
-            FrameworkMatchingStrategy::All => {
-                for detector in &framework.detection.detectors {
-                    results.push(Cifrs::check(path, &framework, detector));
-                }
-            }
-            FrameworkMatchingStrategy::Any => {
-                let mut matched = None;
-                for item in &framework.detection.detectors {
-                    let result = Cifrs::check(path, &framework, item);
-                    if result.is_some() {
-                        matched = result;
-                        break;
-                    }
-                }
-
-                results.push(matched);
-            }
-        }
-
-        if results.iter().all(|&r| r.is_some()) {
-            return *results.first().unwrap();
-        }
-
-        None
-    }
-
-    // TODO: what should this return?
-    fn check<'a>(
-        dir: &'a Path,
-        framework: &'a FrameworkInfo,
-        item: &'a FrameworkDetectionItem,
-    ) -> Option<MatchResult> {
-        match item {
-            FrameworkDetectionItem::Config { content } => {
-                for config in &framework.configs {
-                    if let Ok(file_content) = fs::read_to_string(dir.join(config)) {
-                        if let Some(content) = content {
-                            let regex = RegexBuilder::new(content).multi_line(true).build();
-                            match regex {
-                                Ok(regex) => {
-                                    if regex.is_match(file_content.as_str()) {
-                                        return Some(MatchResult { project: None });
-                                    }
-                                }
-                                Err(ref e) => {
-                                    error!("Invalid regex {:?}: {}", &regex, e);
-                                }
-                            }
-                        }
-                        return Some(MatchResult { project: None });
-                    }
-                }
-                None
-            }
-            FrameworkDetectionItem::Dependency { name: dependency } => {
-                for p in framework.backend.project_files() {
-                    for project_path in p.get_project_paths() {
-                        let path = dir.join(project_path);
-                        if !path.is_file() {
-                            debug!("File {:?} not found skipping...", &path);
-                        }
-
-                        match fs::read_to_string(&path) {
-                            Ok(c) => match Cifrs::has_dependency(p, c, dependency) {
-                                Ok(f) => {
-                                    if f {
-                                        return Some(MatchResult { project: Some(*p) });
-                                    } else {
-                                        debug!(
-                                            "Dependency {} not found for project {:?}",
-                                            &dependency, &p
-                                        );
-                                    }
-                                }
-                                Err(e) => {
-                                    debug!("Error getting dependency {} not found for project {:?}: {}", &dependency, &p, e);
-                                }
-                            },
-                            Err(e) => {
-                                error!("Failed to read file {:?}: {}", &path, e);
-                            }
-                        }
-                    }
-                }
-                None
-            }
-            FrameworkDetectionItem::File { path, content } => {
-                if let Ok(file_content) = fs::read_to_string(dir.join(path)) {
-                    if let Some(content) = content {
-                        // TODO: should be use expect here
-                        let regex = RegexBuilder::new(content).multi_line(true).build();
-                        match regex {
-                            Ok(regex) => {
-                                if regex.is_match(file_content.as_str()) {
-                                    return Some(MatchResult { project: None });
-                                }
-                            }
-                            Err(ref e) => {
-                                error!("Invalid regex {:?}: {}", &regex, e);
-                            }
-                        }
-                    }
-                    return Some(MatchResult { project: None });
-                }
-                None
-            }
-        }
-    }
-
-    fn check_workspace<'a, P: AsRef<Path>>(
-        dir: P,
-        workspace: &'a Workspace,
-        item: &'a FrameworkDetectionItem,
-    ) -> Option<MatchResult> {
-        match item {
-            FrameworkDetectionItem::File { path, content } => {
-                if let Ok(file_content) = fs::read_to_string(dir.as_ref().join(path)) {
-                    if let Some(content) = content {
-                        match RegexBuilder::new(content).multi_line(true).build() {
-                            Ok(regex) => {
-                                if regex.is_match(file_content.as_str()) {
-                                    return Some(MatchResult { project: None });
-                                }
-                            }
-                            Err(e) => {
-                                // TODO: log
-                                println!("error with regex {e}")
-                            }
-                        }
-                    }
-                    return Some(MatchResult { project: None });
-                }
-                None
-            }
-            _ => {
-                // TODO:(Sean): config doesnt yet fit within workspace detection and dependency
-                // probably doesnt make sense. Should error?
-                None
-            }
-        }
-    }
-
-    fn has_dependency(
-        project_type: &ProjectFile,
-        content: String,
-        dependency: &str,
-    ) -> CifrsResult<bool> {
-        let found = match project_type {
-            ProjectFile::CargoToml => {
-                let root: toml::Value = toml::from_str(content.as_str())?;
-                // TODO: do we want to check dev-packages
-                root.get("dependencies")
-                    .and_then(|o| o.get(dependency))
-                    .is_some()
-            }
-            ProjectFile::MsBuild => {
-                let build_proj: MsBuildProj = serde_xml_rs::from_str(content.as_str())?;
-                build_proj.has_package_reference(dependency)
-            }
-            ProjectFile::GemFile => content.contains(&format!("gem '{}'", dependency)),
-            ProjectFile::GoMod => content.contains(dependency),
-            ProjectFile::PackageJson => {
-                let root: Value = serde_json::from_str(content.as_str())?;
-                // TODO: do we want to check devDependencies
-                root.get("dependencies")
-                    .and_then(|o| o.get(dependency))
-                    .is_some()
-            }
-            ProjectFile::PipFile => {
-                let root: toml::Value = toml::from_str(content.as_str())?;
-                // TODO: do we want to check dev-packages
-                root.get("packages")
-                    .and_then(|o| o.get(dependency))
-                    .is_some()
-            }
-            ProjectFile::PyProject => {
-                let root: toml::Value = toml::from_str(content.as_str())?;
-                // might be to do these individual lookup
-                root.get("tool.poetry.dependencies")
-                    .and_then(|o| o.get(dependency))
-                    .is_some()
-            }
-            ProjectFile::RequirementsTxt => content.contains(&format!("{}==", dependency)),
-        };
-
-        Ok(found)
-    }
 }
 
 #[cfg(test)]
@@ -493,4 +294,6 @@ mod tests {
         let workspace = Cifrs::detect_workspace(cwd).unwrap();
         println!("{:?}", workspace);
     }
+
+    // TODO: when testing building docs considering adding Netflix's hollow as an example
 }
