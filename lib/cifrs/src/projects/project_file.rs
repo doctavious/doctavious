@@ -206,16 +206,16 @@ impl ProjectFile {
             match fs::read_to_string(&project_file_path) {
                 Ok(project_file_content) => {
                     let found = match self {
-                        ProjectFile::CargoToml => {
+                        Self::CargoToml => {
                             let root: toml::Value = toml::from_str(project_file_content.as_str())?;
                             root["dependencies"][dependency].is_str()
                                 || root["dev-dependencies"][dependency].is_str()
                         }
-                        ProjectFile::GemFile => {
+                        Self::GemFile => {
                             project_file_content.contains(&format!("gem '{dependency}'"))
                         }
-                        ProjectFile::GoMod => project_file_content.contains(dependency),
-                        ProjectFile::MsBuild => {
+                        Self::GoMod => project_file_content.contains(dependency),
+                        Self::MsBuild => {
                             let mut has_dependency = false;
                             if let Ok(build_proj) =
                                 serde_xml_rs::from_str::<MsBuildProj>(&project_file_content)
@@ -227,23 +227,24 @@ impl ProjectFile {
 
                             has_dependency
                         }
-                        ProjectFile::PackageJson => {
+                        Self::PackageJson => {
                             let root: Value = serde_json::from_str(project_file_content.as_str())?;
                             !root["dependencies"][dependency].is_null()
                                 || !root["devDependencies"][dependency].is_null()
                         }
-                        ProjectFile::PipFile => {
+                        Self::PipFile => {
                             let root: toml::Value = toml::from_str(project_file_content.as_str())?;
                             root["packages"][dependency].is_str()
                                 || root["dev-packages"][dependency].is_str()
                         }
-                        ProjectFile::PyProject => {
+                        Self::PyProject => {
                             let root: toml::Value = toml::from_str(project_file_content.as_str())?;
                             root["tool.poetry.dependencies"][dependency].is_str()
                         }
-                        ProjectFile::RequirementsTxt => {
-                            project_file_content.contains(&format!("{dependency}=="))
-                        }
+                        Self::RequirementsTxt => project_file_content
+                            .lines()
+                            .find(|l| l.trim().starts_with(dependency))
+                            .is_some(),
                     };
 
                     if found {
