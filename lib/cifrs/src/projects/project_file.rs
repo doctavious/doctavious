@@ -156,104 +156,106 @@ impl ProjectFile {
 }
 
 impl ProjectFile {
-    pub fn get_project_paths(&self) -> Vec<PathBuf> {
+    // TODO: should return option?
+    pub fn get_project_path<P: AsRef<Path>>(&self, cwd: P) -> PathBuf {
+        let dir = cwd.as_ref();
         match self {
-            ProjectFile::CargoToml => vec![PathBuf::from("Cargo.toml")],
-            ProjectFile::GemFile => vec![PathBuf::from("Gemfile")],
-            ProjectFile::GoMod => vec![PathBuf::from("go.mod")],
-            ProjectFile::MsBuild => {
-                for pattern in ["*.csproj", "*.fsproj"] {
-                    let glob_paths =
-                        glob(pattern).expect("MsBuild config patterns should be valid globs");
-                    let paths: Vec<PathBuf> = glob_paths.filter_map(|p| p.ok()).collect();
-                    if !paths.is_empty() {
-                        return paths;
+            Self::CargoToml => dir.join("Cargo.toml"),
+            Self::GemFile => dir.join("Gemfile"),
+            Self::GoMod => dir.join("go.mod"),
+            Self::MsBuild => {
+                for entry in fs::read_dir(&cwd).unwrap().flatten() {
+                    // TODO: improve this. Should come from project
+                    if entry
+                        .path()
+                        .extension()
+                        .and_then(|e| e.to_str())
+                        .is_some_and(|s| ["csproj", "fsproj"].contains(&s))
+                    {
+                        return entry.path();
                     }
                 }
-                vec![]
+
+                dir.join(".csproj")
             }
-            ProjectFile::PackageJson => vec![PathBuf::from("package.json")],
-            ProjectFile::PipFile => vec![PathBuf::from("pipfile")],
-            ProjectFile::PyProject => vec![PathBuf::from("pyproject.toml")],
-            ProjectFile::RequirementsTxt => vec![PathBuf::from("requirements.txt")],
+            Self::PackageJson => dir.join("package.json"),
+            Self::PipFile => dir.join("pipfile"),
+            Self::PyProject => dir.join("pyproject.toml"),
+            Self::RequirementsTxt => dir.join("requirements.txt"),
         }
     }
 
     pub fn supported_package_managers(&self) -> &[PackageManager] {
         match self {
-            ProjectFile::CargoToml => &[PackageManager::Cargo],
-            ProjectFile::GemFile => &[PackageManager::Bundler],
-            ProjectFile::GoMod => &[PackageManager::GoModules],
-            ProjectFile::MsBuild => &[PackageManager::Nuget],
-            ProjectFile::PackageJson => &[
+            Self::CargoToml => &[PackageManager::Cargo],
+            Self::GemFile => &[PackageManager::Bundler],
+            Self::GoMod => &[PackageManager::GoModules],
+            Self::MsBuild => &[PackageManager::Nuget],
+            Self::PackageJson => &[
                 PackageManager::Npm,
                 PackageManager::Pnpm,
                 PackageManager::Yarn,
             ],
-            ProjectFile::PipFile => &[PackageManager::Pip],
-            ProjectFile::PyProject => &[PackageManager::Pip, PackageManager::Poetry],
-            ProjectFile::RequirementsTxt => &[PackageManager::Pip],
+            Self::PipFile => &[PackageManager::Pip],
+            Self::PyProject => &[PackageManager::Pip, PackageManager::Poetry],
+            Self::RequirementsTxt => &[PackageManager::Pip],
         }
     }
 
     pub fn has_dependency<P: AsRef<Path>>(&self, cwd: P, dependency: &str) -> CifrsResult<bool> {
-        for path in self.get_project_paths() {
-            let project_file_path = cwd.as_ref().join(path);
-            if !project_file_path.is_file() {
-                debug!("Project file {:?} not found...skipping", &project_file_path);
-            }
+        let project_file_path = self.get_project_path(&cwd);
+        if !project_file_path.is_file() {
+            debug!("Project file {:?} not found...skipping", &project_file_path);
+        }
 
-            match fs::read_to_string(&project_file_path) {
-                Ok(project_file_content) => {
-                    let found = match self {
-                        Self::CargoToml => {
-                            let root: toml::Value = toml::from_str(project_file_content.as_str())?;
-                            root["dependencies"][dependency].is_str()
-                                || root["dev-dependencies"][dependency].is_str()
-                        }
-                        Self::GemFile => {
-                            project_file_content.contains(&format!("gem '{dependency}'"))
-                        }
-                        Self::GoMod => project_file_content.contains(dependency),
-                        Self::MsBuild => {
-                            let mut has_dependency = false;
-                            if let Ok(build_proj) =
-                                serde_xml_rs::from_str::<MsBuildProj>(&project_file_content)
-                            {
-                                if build_proj.has_package_reference(dependency) {
-                                    has_dependency = true;
-                                }
-                            }
-
-                            has_dependency
-                        }
-                        Self::PackageJson => {
-                            let root: Value = serde_json::from_str(project_file_content.as_str())?;
-                            !root["dependencies"][dependency].is_null()
-                                || !root["devDependencies"][dependency].is_null()
-                        }
-                        Self::PipFile => {
-                            let root: toml::Value = toml::from_str(project_file_content.as_str())?;
-                            root["packages"][dependency].is_str()
-                                || root["dev-packages"][dependency].is_str()
-                        }
-                        Self::PyProject => {
-                            let root: toml::Value = toml::from_str(project_file_content.as_str())?;
-                            root["tool.poetry.dependencies"][dependency].is_str()
-                        }
-                        Self::RequirementsTxt => project_file_content
-                            .lines()
-                            .find(|l| l.trim().starts_with(dependency))
-                            .is_some(),
-                    };
-
-                    if found {
-                        return Ok(true);
+        match fs::read_to_string(&project_file_path) {
+            Ok(project_file_content) => {
+                let found = match self {
+                    Self::CargoToml => {
+                        let root: toml::Value = toml::from_str(project_file_content.as_str())?;
+                        root["dependencies"][dependency].is_str()
+                            || root["dev-dependencies"][dependency].is_str()
                     }
+                    Self::GemFile => project_file_content.contains(&format!("gem '{dependency}'")),
+                    Self::GoMod => project_file_content.contains(dependency),
+                    Self::MsBuild => {
+                        let mut has_dependency = false;
+                        if let Ok(build_proj) =
+                            serde_xml_rs::from_str::<MsBuildProj>(&project_file_content)
+                        {
+                            if build_proj.has_package_reference(dependency) {
+                                has_dependency = true;
+                            }
+                        }
+
+                        has_dependency
+                    }
+                    Self::PackageJson => {
+                        let root: Value = serde_json::from_str(project_file_content.as_str())?;
+                        !root["dependencies"][dependency].is_null()
+                            || !root["devDependencies"][dependency].is_null()
+                    }
+                    Self::PipFile => {
+                        let root: toml::Value = toml::from_str(project_file_content.as_str())?;
+                        root["packages"][dependency].is_str()
+                            || root["dev-packages"][dependency].is_str()
+                    }
+                    Self::PyProject => {
+                        let root: toml::Value = toml::from_str(project_file_content.as_str())?;
+                        root["tool.poetry.dependencies"][dependency].is_str()
+                    }
+                    Self::RequirementsTxt => project_file_content
+                        .lines()
+                        .find(|l| l.trim().starts_with(dependency))
+                        .is_some(),
+                };
+
+                if found {
+                    return Ok(true);
                 }
-                Err(e) => {
-                    error!("Error reading project file: {:?}", &project_file_path);
-                }
+            }
+            Err(e) => {
+                error!("Error reading project file: {:?}", &project_file_path);
             }
         }
 

@@ -30,7 +30,7 @@ impl Workspace {
     // TODO: need cwd
     pub fn get_package_paths<P: AsRef<Path>>(&self, cwd: P) -> CifrsResult<Vec<PathBuf>> {
         match self.id.as_str() {
-            "cargo" => self.get_cargo_workspace_package_paths(),
+            "cargo" => self.get_cargo_workspace_package_paths(&cwd),
             "msbuild" => self.get_msbuild_solution_workspace_package_paths(cwd),
             "npm" => self.get_package_json_workspace_package_paths(),
             "nx" => self.get_nx_workspace_package_paths(),
@@ -41,9 +41,13 @@ impl Workspace {
         }
     }
 
-    fn get_cargo_workspace_package_paths(&self) -> CifrsResult<Vec<PathBuf>> {
+    fn get_cargo_workspace_package_paths<P: AsRef<Path>>(
+        &self,
+        cwd: P,
+    ) -> CifrsResult<Vec<PathBuf>> {
         for project_file in &self.project_files {
-            let root: toml::Value = toml::from_str(project_file)?;
+            let path = cwd.as_ref().join(project_file.as_str());
+            let root: toml::Value = toml::from_str(path.to_str().unwrap())?;
             if let Some(members) = root["workspace"]["members"].as_array() {
                 let mut paths = Vec::new();
                 for member in members {

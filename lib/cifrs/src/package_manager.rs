@@ -1,6 +1,11 @@
+use std::borrow::Cow;
+use std::path::PathBuf;
+
 use serde_derive::{Deserialize, Serialize};
 
 use crate::framework::{FrameworkDetectionItem, FrameworkDetector, FrameworkMatchingStrategy};
+use crate::framework_detection::Detectable;
+use crate::projects::project_file::ProjectFile;
 
 // TODO: could add PDM and Anaconda (Python)
 #[non_exhaustive]
@@ -8,10 +13,27 @@ use crate::framework::{FrameworkDetectionItem, FrameworkDetector, FrameworkMatch
 #[derive(Debug, Deserialize, PartialEq, Serialize)]
 #[non_exhaustive]
 #[serde(rename_all = "lowercase")]
+// #[serde(tag = "id")]
 pub enum PackageManager {
-    Bundler,
     // #[serde(rename = "bundler")]
     // Bundler(PackageManagerInfo),
+    // #[serde(rename = "cargo")]
+    // Cargo(PackageManagerInfo),
+    // #[serde(rename = "go")]
+    // GoModules(PackageManagerInfo),
+    // #[serde(rename = "npm")]
+    // Npm(PackageManagerInfo),
+    // #[serde(rename = "nuget")]
+    // Nuget(PackageManagerInfo),
+    // #[serde(rename = "pip")]
+    // Pip(PackageManagerInfo),
+    // #[serde(rename = "pnpm")]
+    // Pnpm(PackageManagerInfo),
+    // #[serde(rename = "poetry")]
+    // Poetry(PackageManagerInfo),
+    // #[serde(rename = "yarn")]
+    // yarn(PackageManagerInfo),
+    Bundler,
     Cargo,
     GoModules,
     Npm,
@@ -22,10 +44,37 @@ pub enum PackageManager {
     Yarn,
 }
 
-#[derive(Serialize)]
+impl Detectable for PackageManagerInfo {
+    fn get_matching_strategy(&self) -> &FrameworkMatchingStrategy {
+        &self.detection.matching_strategy
+    }
+
+    fn get_detectors(&self) -> &Vec<FrameworkDetectionItem> {
+        &self.detection.detectors
+    }
+
+    // For Frameworks this should return &Vec but this looks to returning an owned type
+    // Maybe this calls for a Cow?
+    fn get_project_files(&self) -> Cow<Vec<ProjectFile>> {
+        Cow::Owned(
+            self.project_files
+                .iter()
+                .filter_map(|p| ProjectFile::from_path(p).ok())
+                .collect::<Vec<ProjectFile>>(),
+        )
+    }
+
+    fn get_configuration_files(&self) -> &Vec<PathBuf> {
+        &self.configs
+    }
+}
+
+#[derive(Debug, Serialize)]
 pub struct PackageManagerInfo {
-    pub name: &'static str,
-    pub install_command: &'static str,
+    // pub name: &'static str,
+    pub name: String,
+    // pub install_command: &'static str,
+    pub install_command: String,
 
     // TODO: do we want to change to known_project_files?
     // we would also bring the concept of a exact known file or something like glob
@@ -34,7 +83,14 @@ pub struct PackageManagerInfo {
     // pub project_files: &'a [ProjectFile],
 
     // TODO: multiple files?
-    pub lock_file: &'static str,
+    // pub lock_file: &'static str,
+    pub lock_file: String,
+
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub project_files: Vec<String>,
+
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub configs: Vec<PathBuf>,
 
     // TODO: should we use something specific to package managers?
     // maybe it makes more sense as a trait?
@@ -63,9 +119,11 @@ impl<'a> PackageManager {
     pub fn info(&self) -> PackageManagerInfo {
         match self {
             PackageManager::Cargo => PackageManagerInfo {
-                name: "cargo",
-                install_command: "cargo add",
-                lock_file: "Cargo.lock",
+                name: "cargo".to_string(),
+                install_command: "cargo add".to_string(),
+                lock_file: "Cargo.lock".to_string(),
+                project_files: vec![],
+                configs: vec![],
                 detection: FrameworkDetector {
                     matching_strategy: FrameworkMatchingStrategy::Any,
                     detectors: vec![
@@ -82,10 +140,12 @@ impl<'a> PackageManager {
             },
             PackageManager::GoModules => {
                 PackageManagerInfo {
-                    name: "go",
-                    install_command: "go get",
+                    name: "go".to_string(),
+                    install_command: "go get".to_string(),
                     // TODO: not sure this is appropriate for a lock file
-                    lock_file: "go.sum",
+                    lock_file: "go.sum".to_string(),
+                    project_files: vec![],
+                    configs: vec![],
                     detection: FrameworkDetector {
                         matching_strategy: FrameworkMatchingStrategy::Any,
                         detectors: vec![FrameworkDetectionItem::File {
@@ -100,12 +160,14 @@ impl<'a> PackageManager {
                 // https://github.com/vercel/vercel/blob/main/packages/hydrogen/src/build.ts#L112
                 // https://github.com/vercel/vercel/blob/main/packages/build-utils/src/fs/run-user-scripts.ts#L613
                 PackageManagerInfo {
-                    name: "npm",
-                    install_command: "npm install",
-                    lock_file: "package-lock.json",
+                    name: "npm".to_string(),
+                    install_command: "npm install".to_string(),
+                    lock_file: "package-lock.json".to_string(),
                     // TODO: if package.json is found with no packageManager should we default
                     // to NPM? Which would mean we would be forced to make sure its at the end
                     // or a way to say content not present
+                    project_files: vec![],
+                    configs: vec![],
                     detection: FrameworkDetector {
                         matching_strategy: FrameworkMatchingStrategy::Any,
                         detectors: vec![
@@ -122,9 +184,11 @@ impl<'a> PackageManager {
                 }
             }
             PackageManager::Nuget => PackageManagerInfo {
-                name: "nuget",
-                install_command: "dotnet add",
-                lock_file: "packages.lock.json",
+                name: "nuget".to_string(),
+                install_command: "dotnet add".to_string(),
+                lock_file: "packages.lock.json".to_string(),
+                project_files: vec![],
+                configs: vec![],
                 detection: FrameworkDetector {
                     matching_strategy: FrameworkMatchingStrategy::Any,
                     detectors: vec![FrameworkDetectionItem::File {
@@ -134,9 +198,11 @@ impl<'a> PackageManager {
                 },
             },
             PackageManager::Poetry => PackageManagerInfo {
-                name: "poetry",
-                install_command: "poetry install",
-                lock_file: "poetry.lock",
+                name: "poetry".to_string(),
+                install_command: "poetry install".to_string(),
+                lock_file: "poetry.lock".to_string(),
+                project_files: vec![],
+                configs: vec![],
                 detection: FrameworkDetector {
                     matching_strategy: FrameworkMatchingStrategy::Any,
                     detectors: vec![
@@ -152,9 +218,11 @@ impl<'a> PackageManager {
                 },
             },
             PackageManager::Pip => PackageManagerInfo {
-                name: "pip",
-                install_command: "pip install",
-                lock_file: "pipfile.lock",
+                name: "pip".to_string(),
+                install_command: "pip install".to_string(),
+                lock_file: "pipfile.lock".to_string(),
+                project_files: vec![],
+                configs: vec![],
                 detection: FrameworkDetector {
                     matching_strategy: FrameworkMatchingStrategy::Any,
                     detectors: vec![
@@ -174,9 +242,11 @@ impl<'a> PackageManager {
                 },
             },
             PackageManager::Pnpm => PackageManagerInfo {
-                name: "pnpm",
-                install_command: "pnpm install",
-                lock_file: "pnpm-lock.yaml",
+                name: "pnpm".to_string(),
+                install_command: "pnpm install".to_string(),
+                lock_file: "pnpm-lock.yaml".to_string(),
+                project_files: vec![],
+                configs: vec![],
                 detection: FrameworkDetector {
                     matching_strategy: FrameworkMatchingStrategy::Any,
                     detectors: vec![
@@ -192,9 +262,11 @@ impl<'a> PackageManager {
                 },
             },
             PackageManager::Bundler => PackageManagerInfo {
-                name: "bundler",
-                install_command: "bundle install",
-                lock_file: "Gemfile.lock",
+                name: "bundler".to_string(),
+                install_command: "bundle install".to_string(),
+                lock_file: "Gemfile.lock".to_string(),
+                project_files: vec![],
+                configs: vec![],
                 detection: FrameworkDetector {
                     matching_strategy: FrameworkMatchingStrategy::Any,
                     detectors: vec![
@@ -210,9 +282,11 @@ impl<'a> PackageManager {
                 },
             },
             PackageManager::Yarn => PackageManagerInfo {
-                name: "yarn",
-                install_command: "yarn install",
-                lock_file: "yarn.lock",
+                name: "yarn".to_string(),
+                install_command: "yarn install".to_string(),
+                lock_file: "yarn.lock".to_string(),
+                project_files: vec![],
+                configs: vec![],
                 detection: FrameworkDetector {
                     matching_strategy: FrameworkMatchingStrategy::Any,
                     detectors: vec![

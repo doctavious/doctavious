@@ -14,7 +14,7 @@
 // (The limitation should be noted in the backend feature matrix in
 // the README.)
 
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use serde_derive::{Deserialize, Serialize};
 
@@ -67,12 +67,11 @@ impl LanguageBackends {
         }
     }
 
-    fn get_project_file(&self) -> Option<PathBuf> {
+    fn get_project_file<P: AsRef<Path>>(&self, cwd: P) -> Option<PathBuf> {
         for p in self.project_files() {
-            for path in p.get_project_paths() {
-                if path.exists() {
-                    return Some(path);
-                }
+            let project_path = p.get_project_path(&cwd);
+            if project_path.exists() {
+                return Some(project_path);
             }
         }
 

@@ -15,7 +15,7 @@
     detectors:
       - type: file
         path: Cargo.toml
-        content: '[workspace]'
+        content: '\[workspace\]'
 # TODO: looks like docfx site isnt always included in sln
 - id: msbuild
   name: MSBuild

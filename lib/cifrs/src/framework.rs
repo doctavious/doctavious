@@ -47,6 +47,7 @@ pub struct FrameworkInfo {
     pub website: String,
 
     /// List of potential config files
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub configs: Vec<PathBuf>,
 
     // TODO: this could be SoftwareFramework / SoftwarePlatform.

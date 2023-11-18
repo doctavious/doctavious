@@ -10,7 +10,7 @@ use tracing::error;
 use crate::framework::FrameworkInfo;
 use crate::framework_detection::Detectable;
 use crate::frameworks::FRAMEWORKS_STR;
-use crate::package_manager::PackageManagerInfo;
+use crate::package_manager::{PackageManager, PackageManagerInfo};
 use crate::workspaces::{Workspace, WORKSPACES_STR};
 
 mod backends;
@@ -124,7 +124,7 @@ impl Cifrs {
         let framework = Cifrs::detect_frameworks(path)?;
 
         if install {
-            let package_manager_info = Cifrs::detect_package_manager(&path, &framework);
+            let package_manager_info = Cifrs::detect_framework_package_manager(&path, &framework);
             // TODO(Sean): if we can't get package_manager should this fail?
             if let Some(package_manager_info) = package_manager_info {
                 let install_status = Cifrs::do_install(&package_manager_info)?;
@@ -158,56 +158,35 @@ impl Cifrs {
         Ok(())
     }
 
-    fn detect_package_manager<P: AsRef<Path>>(
+    fn detect_package_manager<P: AsRef<Path>>(cwd: P) -> Option<PackageManagerInfo> {
+        for pm in PackageManager::ALL {
+            let m = framework_detection::detect(&cwd, &pm.info());
+            if m.is_some() {
+                return Some(pm.info());
+            }
+        }
+        None
+    }
+
+    fn detect_framework_package_manager<P: AsRef<Path>>(
         cwd: P,
         framework: &FrameworkInfo,
     ) -> Option<PackageManagerInfo> {
-        // for workspace in &framework.backend {
-        //     let m = framework_detection::detect(&cwd, &workspace);
-        //     if m.is_some() {
-        //         return Ok(Some(workspace));
-        //     }
-        // }
+        for p in framework.backend.project_files() {
+            for pm in p.supported_package_managers() {
+                let m = framework_detection::detect(&cwd, &pm.info());
+                if m.is_some() {
+                    return Some(pm.info());
+                }
+            }
+        }
 
         None
     }
 
-    // fn detect_package_manager<'a>(framework_info: &FrameworkInfo) -> Option<PackageManagerInfo> {
-    //     let mut results: Vec<bool> = vec![];
-    //     for package_manager in framework_info.language.get_package_managers() {
-    //         let package_manager_info = package_manager.info();
-    //         match package_manager_info.detection.matching_strategy {
-    //             FrameworkMatchingStrategy::All => {
-    //                 for detector in &package_manager_info.detection.detectors {
-    //                     results.push(check(&detector));
-    //                 }
-    //             }
-    //             FrameworkMatchingStrategy::Any => {
-    //                 let mut matched = false;
-    //                 for detector in &package_manager_info.detection.detectors {
-    //                     let result = check(&detector);
-    //                     if result {
-    //                         matched = result;
-    //                         break;
-    //                     }
-    //                 }
-    //
-    //                 results.push(matched);
-    //             }
-    //         }
-    //
-    //         println!("{:?}", serde_json::to_string(&results));
-    //         if  results.iter().all(|&r| r) {
-    //             return Some(package_manager_info);
-    //         }
-    //     }
-    //
-    //     return None;
-    // }
-
     fn do_install(package_manager: &PackageManagerInfo) -> CifrsResult<ExitStatus> {
         println!("install command {}", &package_manager.install_command);
-        let install_command = package_manager.install_command;
+        let install_command = package_manager.install_command.as_str();
         let mut install_process = if cfg!(target_os = "windows") {
             Command::new("cmd").args(["/C", install_command]).spawn()
         } else {
@@ -287,6 +266,16 @@ mod tests {
         println!("{:?}", framework)
     }
 
+    // TODO: when testing building docs considering adding Netflix's hollow as an example
+    #[test]
+    fn check_hollow() {
+        let base_dir = BaseDirs::new().unwrap();
+        let home_dir = base_dir.home_dir();
+        let framework =
+            Cifrs::detect_frameworks(&home_dir.join("workspace/netflix/hollow")).unwrap();
+        println!("{:?}", framework)
+    }
+
     #[test]
     fn check_workspace() {
         let cwd = env::current_dir().unwrap();
@@ -295,5 +284,21 @@ mod tests {
         println!("{:?}", workspace);
     }
 
-    // TODO: when testing building docs considering adding Netflix's hollow as an example
+    #[test]
+    fn check_package_manager() {
+        let cwd = env::current_dir().unwrap();
+        println!("{:?}", cwd);
+        let package_manager = Cifrs::detect_package_manager(cwd).unwrap();
+        println!("{:?}", package_manager);
+    }
+
+    #[test]
+    fn check_site_package_manager() {
+        let base_dir = BaseDirs::new().unwrap();
+        let home_dir = base_dir.home_dir();
+        let package_manager =
+            Cifrs::detect_package_manager(&home_dir.join("workspace/seancarroll.github.io"))
+                .unwrap();
+        println!("{:?}", package_manager)
+    }
 }

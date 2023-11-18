@@ -137,8 +137,9 @@ fn check_file<'a, P: AsRef<Path>>(path: P, pattern: &Option<String>) -> Option<M
             if reg.is_match(&file_content) {
                 return Some(MatchResult { project: None });
             }
+        } else {
+            return Some(MatchResult { project: None });
         }
-        return Some(MatchResult { project: None });
     }
 
     None
