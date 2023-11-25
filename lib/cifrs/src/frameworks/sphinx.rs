@@ -7,104 +7,42 @@
 use std::env;
 use std::path::PathBuf;
 
-use serde_derive::{Deserialize, Serialize};
+use serde_derive::Deserialize;
 
-use crate::backends::LanguageBackends;
-use crate::framework::{
-    ConfigurationFileDeserialization, FrameworkBuildArg, FrameworkBuildArgs,
-    FrameworkBuildSettings, FrameworkDetectionItem, FrameworkDetector, FrameworkInfo,
-    FrameworkMatchingStrategy, FrameworkSupport,
-};
+// ConfigurationFileDeserialization
+use crate::framework::{FrameworkConfiguration, FrameworkConfigurationFormat, FrameworkSupport};
+use crate::CifrsResult;
 
-#[derive(Debug, Deserialize, PartialEq, Serialize)]
-pub struct Sphinx {
-    #[serde(flatten)]
-    info: FrameworkInfo,
-}
 
-impl Sphinx {
-    fn new(configs: Vec<PathBuf>) -> Self {
-        Self {
-            info: FrameworkInfo {
-                id: "sphinx".to_string(),
-                name: "Sphinx".to_string(),
-                website: "https://www.sphinx-doc.org/en/master/".to_string(),
-                configs,
-                // language: Language::Python,
-                backend: LanguageBackends::Python,
-                detection: FrameworkDetector {
-                    matching_strategy: FrameworkMatchingStrategy::All,
-                    detectors: vec![FrameworkDetectionItem::Config { content: None }],
-                },
-                build: FrameworkBuildSettings {
-                    command: "sphinx-build".to_string(),
-                    command_args: Some(FrameworkBuildArgs {
-                        source: Some(FrameworkBuildArg::Arg {
-                            index: 1,
-                            default_value: Some("docs".to_string()),
-                        }),
-                        config: None,
-                        output: Some(FrameworkBuildArg::Arg {
-                            index: 2,
-                            default_value: None,
-                        }), // TODO: should we default?
-                    }),
-                    // TODO: must be passed in to command which presents a problem if we dont know
-                    // where the build script is
-                    output_directory: "docs/_build".to_string(),
-                },
-            },
-        }
-    }
-}
-
-impl Default for Sphinx {
-    fn default() -> Self {
-        // this is relative to source and i dont think we need it as it doesnt help with build
-        // TODO: should we remove?
-        Sphinx::new(vec!["conf.py".into()])
-    }
-}
-
-impl FrameworkSupport for Sphinx {
-    fn get_info(&self) -> &FrameworkInfo {
-        &self.info
-    }
-
-    fn get_output_dir(&self) -> String {
-        env::var("BUILDDIR").unwrap_or(self.info.build.output_directory.to_string())
-        // if let Ok(build_dir) = env::var("BUILDDIR") {
-        //     return build_dir;
-        // }
-        //
-        // self.info.build.output_directory.to_string()
-    }
+pub fn get_output_dir(_format: &FrameworkConfigurationFormat) -> CifrsResult<Option<String>> {
+    Ok(env::var("BUILDDIR").ok())
 }
 
 #[cfg(test)]
 mod tests {
-    use super::Sphinx;
-    use crate::framework::FrameworkSupport;
+    use crate::framework::{FrameworkConfigurationFormat, FrameworkSupport};
 
     #[test]
     fn test_sphinx() {
-        let sphinx = Sphinx::new(vec![
-            "tests/fixtures/framework_configs/sphinx/config.py".into()
-        ]);
+        let config = FrameworkConfigurationFormat::from_path(
+            "tests/fixtures/framework_configs/sphinx/conf.py",
+        )
+        .unwrap();
 
-        let output = sphinx.get_output_dir();
-        assert_eq!(output, "docs/_build")
+        let output = super::get_output_dir(&config).unwrap();
+        assert_eq!(output, None)
     }
 
     #[test]
     fn should_use_env_var_when_present() {
         temp_env::with_var("BUILDDIR", Some("build"), || {
-            let sphinx = Sphinx::new(vec![
-                "tests/fixtures/framework_configs/sphinx/config.py".into()
-            ]);
+            let config = FrameworkConfigurationFormat::from_path(
+                "tests/fixtures/framework_configs/sphinx/conf.py",
+            )
+            .unwrap();
 
-            let output = sphinx.get_output_dir();
-            assert_eq!(output, "build")
+            let output = super::get_output_dir(&config).unwrap();
+            assert_eq!(output, Some(String::from("build")))
         });
     }
 }

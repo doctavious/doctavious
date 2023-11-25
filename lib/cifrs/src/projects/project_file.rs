@@ -10,7 +10,8 @@ use serde_derive::{Deserialize, Serialize};
 use serde_json::Value;
 use tracing::{debug, error};
 
-use crate::package_manager::PackageManager;
+use crate::package_manager::PackageManagerInfo;
+// use crate::package_manager::PackageManager;
 use crate::projects::msbuild::MsBuildProj;
 use crate::projects::project_file::ProjectFile::RequirementsTxt;
 use crate::{CifrsError, CifrsResult};
@@ -185,20 +186,34 @@ impl ProjectFile {
         }
     }
 
-    pub fn supported_package_managers(&self) -> &[PackageManager] {
+    // pub fn supported_package_managers(&self) -> &[PackageManager] {
+    //     match self {
+    //         Self::CargoToml => &[PackageManager::Cargo],
+    //         Self::GemFile => &[PackageManager::Bundler],
+    //         Self::GoMod => &[PackageManager::GoModules],
+    //         Self::MsBuild => &[PackageManager::Nuget],
+    //         Self::PackageJson => &[
+    //             PackageManager::Npm,
+    //             PackageManager::Pnpm,
+    //             PackageManager::Yarn,
+    //         ],
+    //         Self::PipFile => &[PackageManager::Pip],
+    //         Self::PyProject => &[PackageManager::Pip, PackageManager::Poetry],
+    //         Self::RequirementsTxt => &[PackageManager::Pip],
+    //     }
+    // }
+
+    pub fn supported_package_managers(&self) -> Vec<PackageManagerInfo> {
         match self {
-            Self::CargoToml => &[PackageManager::Cargo],
-            Self::GemFile => &[PackageManager::Bundler],
-            Self::GoMod => &[PackageManager::GoModules],
-            Self::MsBuild => &[PackageManager::Nuget],
-            Self::PackageJson => &[
-                PackageManager::Npm,
-                PackageManager::Pnpm,
-                PackageManager::Yarn,
-            ],
-            Self::PipFile => &[PackageManager::Pip],
-            Self::PyProject => &[PackageManager::Pip, PackageManager::Poetry],
-            Self::RequirementsTxt => &[PackageManager::Pip],
+            Self::CargoToml => PackageManagerInfo::find_by_ids(vec!["cargo"]),
+            Self::GemFile => PackageManagerInfo::find_by_ids(vec!["bundler"]),
+            Self::GoMod => PackageManagerInfo::find_by_ids(vec!["go"]),
+            // TODO: should be nuget? probably should look at packet?
+            Self::MsBuild => PackageManagerInfo::find_by_ids(vec!["nuget"]),
+            Self::PackageJson => PackageManagerInfo::find_by_ids(vec!["npm", "pnpm", "yarn"]),
+            Self::PipFile => PackageManagerInfo::find_by_ids(vec!["pip"]),
+            Self::PyProject => PackageManagerInfo::find_by_ids(vec!["pip", "poetry"]),
+            Self::RequirementsTxt => PackageManagerInfo::find_by_ids(vec!["pip"]),
         }
     }
 

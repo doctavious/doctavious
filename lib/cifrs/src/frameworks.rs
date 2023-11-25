@@ -1,4 +1,4 @@
-use serde_derive::{Deserialize, Serialize};
+use lazy_static::lazy_static;
 
 use crate::framework::FrameworkInfo;
 
@@ -24,92 +24,23 @@ pub mod vuepress;
 
 pub const FRAMEWORKS_STR: &str = include_str!("frameworks.yaml");
 
-#[derive(Debug, Deserialize, PartialEq, Serialize)]
-#[serde(tag = "id")]
-enum Frameworks {
-    #[serde(rename = "antora")]
-    Antora(FrameworkInfo),
-    #[serde(rename = "astro")]
-    Astro(FrameworkInfo),
-    #[serde(rename = "docfx")]
-    DocFx(FrameworkInfo),
-    #[serde(rename = "docusaurus-v2")]
-    DocusaurusV2(FrameworkInfo),
-    #[serde(rename = "eleventy")]
-    Eleventy(FrameworkInfo),
-    #[serde(rename = "gatsby")]
-    Gatsby(FrameworkInfo),
-    #[serde(rename = "Hexo")]
-    Hexo(FrameworkInfo),
-    #[serde(rename = "Hugo")]
-    Hugo(FrameworkInfo),
-    #[serde(rename = "Jekyll")]
-    Jekyll(FrameworkInfo),
-    #[serde(rename = "mdbook")]
-    MdBook(FrameworkInfo),
-    #[serde(rename = "mkdocs")]
-    MkDocs(FrameworkInfo),
-    #[serde(rename = "nextjs")]
-    Nextjs(FrameworkInfo),
-    #[serde(rename = "nextra")]
-    Nextra(FrameworkInfo),
-    #[serde(rename = "nuxtjs")]
-    Nuxtjs(FrameworkInfo),
-    #[serde(rename = "sphinx")]
-    Sphinx(FrameworkInfo),
-    #[serde(rename = "sveltekit")]
-    SvelteKit(FrameworkInfo),
-    #[serde(rename = "vitepress")]
-    Vitepress(FrameworkInfo),
-    #[serde(rename = "vuepress")]
-    Vuepress(FrameworkInfo),
+lazy_static! {
+
+    // TODO: probably doesnt need to be an owned type
+    static ref FRAMEWORKS_LIST: Vec<FrameworkInfo> = serde_yaml::from_str::<Vec<FrameworkInfo>>(FRAMEWORKS_STR)
+        .expect("frameworks.yaml should be deserializable");
 }
 
-// impl Frameworks {
-//
-//     fn get_output_dir(&self) -> () {
-//         match self {
-//             Frameworks::Antora(a) => {
-//                 a.id;
-//             }
-//             Frameworks::Astro(_) => {}
-//             Frameworks::DocFx(_) => {}
-//             Frameworks::DocusaurusV2(_) => {}
-//             Frameworks::Eleventy(_) => {}
-//             Frameworks::Gatsby(_) => {}
-//             Frameworks::Hexo(_) => {}
-//             Frameworks::Hugo(_) => {}
-//             Frameworks::Jekyll(_) => {}
-//             Frameworks::MdBook(_) => {}
-//             Frameworks::MkDocs(_) => {}
-//             Frameworks::Nextjs(_) => {}
-//             Frameworks::Nextra(_) => {}
-//             Frameworks::Nuxtjs(_) => {}
-//             Frameworks::Sphinx(_) => {}
-//             Frameworks::SvelteKit(_) => {}
-//             Frameworks::Vitepress(_) => {}
-//             Frameworks::Vuepress(_) => {}
-//         }
-//     }
-//
-// }
+pub fn get_all() -> Vec<FrameworkInfo> {
+    FRAMEWORKS_LIST.to_vec()
+}
 
 #[cfg(test)]
 mod tests {
-    use serde_derive::{Deserialize, Serialize};
-
-    use crate::framework::FrameworkInfo;
-    use crate::frameworks::{Frameworks, FRAMEWORKS_STR};
-
-    #[derive(Debug, Deserialize, Serialize)]
-    struct SupportedFrameworks {
-        // pub frameworks: Vec<Frameworks>,
-        pub frameworks: Vec<FrameworkInfo>,
-    }
+    use crate::frameworks::get_all;
 
     #[test]
     fn test_deserialize_frameworks_yaml() {
-        let frameworks: SupportedFrameworks = serde_yaml::from_str(FRAMEWORKS_STR).expect("");
-        println!("{}", serde_json::to_string(&frameworks).unwrap());
+        println!("{}", serde_json::to_string(&get_all()).unwrap());
     }
 }

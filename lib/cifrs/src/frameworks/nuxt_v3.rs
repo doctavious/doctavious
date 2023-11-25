@@ -1,14 +1,11 @@
 use std::path::PathBuf;
 
 use serde::Deserialize;
-use serde_derive::Serialize;
 use swc_ecma_ast::Program;
 
-use crate::backends::LanguageBackends;
+// read_config_files, ConfigurationFileDeserialization,
 use crate::framework::{
-    read_config_files, ConfigurationFileDeserialization, FrameworkBuildSettings,
-    FrameworkDetectionItem, FrameworkDetector, FrameworkInfo, FrameworkMatchingStrategy,
-    FrameworkSupport,
+    deser_config, FrameworkConfiguration, FrameworkConfigurationFormat, FrameworkSupport,
 };
 use crate::js_module::PropertyAccessor;
 use crate::{CifrsError, CifrsResult};
@@ -18,73 +15,8 @@ struct Nuxt3JSConfig {
     output: Option<String>,
 }
 
-#[derive(Debug, Deserialize, PartialEq, Serialize)]
-pub struct Nuxt3JS {
-    #[serde(flatten)]
-    info: FrameworkInfo,
-}
 
-impl Nuxt3JS {
-    fn new(configs: Vec<PathBuf>) -> Self {
-        Self {
-            info: FrameworkInfo {
-                id: "nuxt-v3".to_string(),
-                name: "Nuxt 3".to_string(),
-                website: "https://nuxtjs.org/".to_string(),
-                configs,
-                // language: Language::Javascript,
-                backend: LanguageBackends::JavaScript,
-                detection: FrameworkDetector {
-                    matching_strategy: FrameworkMatchingStrategy::All,
-                    detectors: vec![FrameworkDetectionItem::Dependency {
-                        name: "nuxt3".to_string(),
-                    }],
-                },
-                build: FrameworkBuildSettings {
-                    command: "nuxi generate".to_string(), // same as nuxi build --prerender true
-                    command_args: None,
-                    output_directory: ".output".to_string(),
-                },
-            },
-        }
-    }
-}
-
-impl Default for Nuxt3JS {
-    fn default() -> Self {
-        Nuxt3JS::new(Vec::from([
-            "nuxt.config.js".into(),
-            "nuxt.config.mjs".into(),
-            "nuxt.config.ts".into(),
-        ]))
-    }
-}
-
-impl FrameworkSupport for Nuxt3JS {
-    fn get_info(&self) -> &FrameworkInfo {
-        &self.info
-    }
-
-    fn get_output_dir(&self) -> String {
-        if !self.info.configs.is_empty() {
-            match read_config_files::<Nuxt3JSConfig>(&self.info.configs) {
-                Ok(c) => {
-                    if let Some(dest) = c.output {
-                        return dest;
-                    }
-                }
-                Err(e) => {
-                    // log warning/error
-                    println!("{}", e);
-                }
-            }
-        }
-
-        self.info.build.output_directory.to_string()
-    }
-}
-
-impl ConfigurationFileDeserialization for Nuxt3JSConfig {
+impl FrameworkConfiguration for Nuxt3JSConfig {
     fn from_js_module(program: &Program) -> CifrsResult<Self> {
         if let Some(module) = program.as_module() {
             let output = module.get_property_as_string("publicDir");
@@ -96,21 +28,24 @@ impl ConfigurationFileDeserialization for Nuxt3JSConfig {
     }
 }
 
+pub fn get_output_dir(format: &FrameworkConfigurationFormat) -> CifrsResult<Option<String>> {
+    let config = deser_config::<Nuxt3JSConfig>(format)?;
+    Ok(config.output)
+}
+
 #[cfg(test)]
 mod tests {
-    use super::Nuxt3JS;
-    use crate::framework::FrameworkSupport;
+    use crate::framework::{FrameworkConfigurationFormat, FrameworkSupport};
 
     #[test]
     fn test_nuxtjs() {
-        for config in [
-            "tests/fixtures/framework_configs/nuxt3js/nuxt_nitro.config.ts".into(),
-            "tests/fixtures/framework_configs/nuxt3js/nuxt_vite.config.ts".into(),
+        for path in [
+            "tests/fixtures/framework_configs/nuxt3js/nuxt_nitro.config.ts",
+            "tests/fixtures/framework_configs/nuxt3js/nuxt_vite.config.ts",
         ] {
-            let nuxtjs = Nuxt3JS::new(vec![config]);
-
-            let output = nuxtjs.get_output_dir();
-            assert_eq!(output, String::from("build"))
+            let config = FrameworkConfigurationFormat::from_path(path).unwrap();
+            let output = super::get_output_dir(&config).unwrap();
+            assert_eq!(output, Some(String::from("build")))
         }
     }
 }

@@ -17,14 +17,11 @@
 use std::path::PathBuf;
 
 use serde::Deserialize;
-use serde_derive::Serialize;
 use swc_ecma_ast::Program;
 
-use crate::backends::LanguageBackends;
+// read_config_files, ConfigurationFileDeserialization,
 use crate::framework::{
-    read_config_files, ConfigurationFileDeserialization, FrameworkBuildArg, FrameworkBuildArgs,
-    FrameworkBuildSettings, FrameworkDetectionItem, FrameworkDetector, FrameworkInfo,
-    FrameworkMatchingStrategy, FrameworkSupport,
+    deser_config, FrameworkConfiguration, FrameworkConfigurationFormat, FrameworkSupport,
 };
 use crate::js_module::PropertyAccessor;
 use crate::{CifrsError, CifrsResult};
@@ -34,87 +31,8 @@ struct VuePressConfig {
     dest: Option<String>,
 }
 
-#[derive(Debug, Deserialize, PartialEq, Serialize)]
-pub struct VuePress {
-    #[serde(flatten)]
-    info: FrameworkInfo,
-}
 
-impl VuePress {
-    fn new(configs: Vec<PathBuf>) -> Self {
-        Self {
-            info: FrameworkInfo {
-                id: "vuepress".to_string(),
-                name: "VuePress".to_string(),
-                website: "https://vuepress.vuejs.org/".to_string(),
-                configs,
-                // language: Language::Javascript,
-                backend: LanguageBackends::JavaScript,
-                detection: FrameworkDetector {
-                    matching_strategy: FrameworkMatchingStrategy::All,
-                    detectors: vec![FrameworkDetectionItem::Dependency {
-                        name: "vuepress".to_string(),
-                    }],
-                },
-                build: FrameworkBuildSettings {
-                    command: "vuepress build".to_string(),
-                    command_args: Some(FrameworkBuildArgs {
-                        source: Some(FrameworkBuildArg::Arg {
-                            index: 1,
-                            default_value: Some("docs".to_string()),
-                        }),
-                        config: Some(FrameworkBuildArg::Option {
-                            short: "-c".to_string(),
-                            long: "--config".to_string(),
-                        }),
-                        output: Some(FrameworkBuildArg::Option {
-                            short: "-d".to_string(),
-                            long: "--dest".to_string(),
-                        }),
-                    }),
-                    output_directory: ".vuepress/dist".to_string(),
-                },
-            },
-        }
-    }
-}
-
-impl Default for VuePress {
-    fn default() -> Self {
-        VuePress::new(vec![
-            ".vuepress/config.js".into(),
-            ".vuepress/config.yml".into(),
-            ".vuepress/config.toml".into(),
-            ".vuepress/config.ts".into(),
-        ])
-    }
-}
-
-impl FrameworkSupport for VuePress {
-    fn get_info(&self) -> &FrameworkInfo {
-        &self.info
-    }
-
-    fn get_output_dir(&self) -> String {
-        if !self.info.configs.is_empty() {
-            match read_config_files::<VuePressConfig>(&self.info.configs) {
-                Ok(c) => {
-                    if let Some(dest) = c.dest {
-                        return dest;
-                    }
-                }
-                Err(e) => {
-                    // log warning/error
-                    println!("{}", e);
-                }
-            }
-        }
-
-        self.info.build.output_directory.to_string()
-    }
-}
-
-impl ConfigurationFileDeserialization for VuePressConfig {
+impl FrameworkConfiguration for VuePressConfig {
     fn from_js_module(program: &Program) -> CifrsResult<Self> {
         // TODO: try and simplify
         if let Some(module) = program.as_module() {
@@ -122,57 +40,30 @@ impl ConfigurationFileDeserialization for VuePressConfig {
             if dest.is_some() {
                 return Ok(Self { dest });
             }
-            // TODO: get defineConfig?
-            // for item in &module.body {
-            //     // TODO: this should also look at ExportExpr
-            //     if let Some(ExportDefaultExpr(export_expression)) = item.as_module_decl() {
-            //         if let Some(call) = export_expression.expr.as_call() {
-            //             if is_call_ident(&call, "defineConfig") {
-            //                 let dest = get_call_string_property(&call, "dest");
-            //                 if dest.is_some() {
-            //                     return Ok(Self {
-            //                         dest
-            //                     });
-            //                 }
-            //             }
-            //         }
-            //     } else if let Some(Expr(stmt)) = item.as_stmt() {
-            //         let expression = &*stmt.expr;
-            //         if let Some(assign) = expression.as_assign() {
-            //             let rhs = &*assign.right;
-            //             if let Some(obj) = rhs.as_object() {
-            //                 let dest = get_string_property_value(&obj.props, "dest");
-            //                 if dest.is_some() {
-            //                     return Ok(Self {
-            //                         dest
-            //                     });
-            //                 }
-            //             }
-            //         }
-            //     }
-            // }
         }
         Err(CifrsError::InvalidConfig("vuepress".to_string()))
     }
 }
 
+pub fn get_output_dir(format: &FrameworkConfigurationFormat) -> CifrsResult<Option<String>> {
+    let config = deser_config::<VuePressConfig>(format)?;
+    Ok(config.dest)
+}
+
 #[cfg(test)]
 mod tests {
-    use super::VuePress;
-    use crate::framework::FrameworkSupport;
+    use crate::framework::{FrameworkConfigurationFormat, FrameworkSupport};
 
     #[test]
     fn test_vuepress() {
-        let configs = [
-            "tests/fixtures/framework_configs/vuepress/config.js".into(),
-            "tests/fixtures/framework_configs/vuepress/config.toml".into(),
-            "tests/fixtures/framework_configs/vuepress/config.ts".into(),
-        ];
-        for config in configs {
-            let vuepress = VuePress::new(vec![config]);
-
-            let output = vuepress.get_output_dir();
-            assert_eq!(output, String::from("build"))
+        for path in [
+            "tests/fixtures/framework_configs/vuepress/config.js",
+            "tests/fixtures/framework_configs/vuepress/config.toml",
+            "tests/fixtures/framework_configs/vuepress/config.ts",
+        ] {
+            let config = FrameworkConfigurationFormat::from_path(path).unwrap();
+            let output = super::get_output_dir(&config).unwrap();
+            assert_eq!(output, Some(String::from("build")))
         }
     }
 }

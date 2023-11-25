@@ -8,29 +8,16 @@ use swc_ecma_ast::Program;
 
 use crate::backends::LanguageBackends;
 use crate::framework_detection::Detectable;
-use crate::frameworks::antora::Antora;
-use crate::frameworks::astro::Astro;
-use crate::frameworks::docfx::DocFx;
-use crate::frameworks::docusaurus_v2::DocusaurusV2;
-use crate::frameworks::eleventy::Eleventy;
-use crate::frameworks::gatsby::Gatsby;
-use crate::frameworks::hexo::Hexo;
-use crate::frameworks::hugo::Hugo;
-use crate::frameworks::jekyll::Jekyll;
-use crate::frameworks::mdbook::MDBook;
-use crate::frameworks::mkdocs::MKDocs;
-use crate::frameworks::nextjs::NextJS;
-use crate::frameworks::nuxtjs::NuxtJS;
-use crate::frameworks::sphinx::Sphinx;
-use crate::frameworks::sveltekit::SvelteKit;
-use crate::frameworks::vitepress::VitePress;
-use crate::frameworks::vuepress::VuePress;
+use crate::frameworks::{
+    antora, astro, docfx, docusaurus_v2, eleventy, gatsby, hexo, hugo, jekyll, mdbook, mkdocs,
+    nextjs, nuxt_v3, nuxtjs, sphinx, sveltekit, vitepress, vuepress,
+};
 use crate::js_module::parse_js_module;
 use crate::projects::project_file::ProjectFile;
 use crate::{CifrsError, CifrsResult};
 
 // FrameworkDefinition
-#[derive(Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 pub struct FrameworkInfo {
     pub id: String,
 
@@ -61,6 +48,51 @@ pub struct FrameworkInfo {
     pub build: FrameworkBuildSettings,
 }
 
+impl FrameworkInfo {
+    pub fn get_output_dir(&self) -> String {
+        for config in &self.configs {
+            if config.is_file() {
+                if let Ok(config_format) = FrameworkConfigurationFormat::from_path(config) {
+                    // this seems generally ok but some additional thoughts
+                    // could be an configuration enum and then make one call to get_output_dir
+                    // could just do a Box<dyn ConfigurationFile> and then do single get_output_dir
+                    // could just have each implementation return a common ConfigurationFile struct
+                    // which has an output dir.
+                    // I like the idea of the last option but not yet sure of the shape
+                    let output_dir = match self.id.as_str() {
+                        "antora" => antora::get_output_dir(&config_format),
+                        "astro" => astro::get_output_dir(&config_format),
+                        "docfx" => docfx::get_output_dir(&config_format),
+                        "docusaurus-v2" => docusaurus_v2::get_output_dir(&config_format),
+                        "eleventy" => eleventy::get_output_dir(&config_format),
+                        "gatsby" => gatsby::get_output_dir(&config_format),
+                        "hexo" => hexo::get_output_dir(&config_format),
+                        "hugo" => hugo::get_output_dir(&config_format),
+                        "jekyll" => jekyll::get_output_dir(&config_format),
+                        "mdbook" => mdbook::get_output_dir(&config_format),
+                        "mkdocs" => mkdocs::get_output_dir(&config_format),
+                        "nextjs" => nextjs::get_output_dir(&config_format),
+                        "nuxt-v2" => nuxtjs::get_output_dir(&config_format),
+                        "nuxt-v3" => nuxt_v3::get_output_dir(&config_format),
+                        "sphinx" => sphinx::get_output_dir(&config_format),
+                        "sveltekit" => sveltekit::get_output_dir(&config_format),
+                        "vitepress" => vitepress::get_output_dir(&config_format),
+                        "vuepress" => vuepress::get_output_dir(&config_format),
+                        _ => todo!(),
+                    };
+
+                    if let Ok(Some(output_dir)) = output_dir {
+                        return output_dir;
+                    }
+                }
+            }
+        }
+
+        self.build.output_directory.to_owned()
+    }
+
+}
+
 impl Detectable for FrameworkInfo {
     fn get_matching_strategy(&self) -> &FrameworkMatchingStrategy {
         &self.detection.matching_strategy
@@ -79,69 +111,14 @@ impl Detectable for FrameworkInfo {
     }
 }
 
-impl FrameworkInfo {
-    pub fn detected(&self) -> bool {
-        let mut results = vec![];
-        // let stop_on_first_found = FrameworkMatchingStrategy::Any == &self.detection.matching_strategy;
-        for detection in &self.detection.detectors {
-            let result = match detection {
-                FrameworkDetectionItem::Config { content } => {
-                    for config in &self.configs {
-                        if let Ok(file_content) = fs::read_to_string(config) {
-                            if let Some(content) = content {
-                                if file_content.contains(content) {
-                                    return true;
-                                }
-                                continue;
-                            }
-                            return true;
-                        }
-                    }
-
-                    false
-                }
-                FrameworkDetectionItem::Dependency { name: dependency } => {
-                    // for project_file in self.language.project_files() {
-                    //     if project_file.has_dependency(dependency) {
-                    //         return true;
-                    //     }
-                    // }
-                    // for pck_manager in self.language.get_package_managers() {
-                    //     if pck_manager.has_dependency(dependency) {
-                    //         return true;
-                    //     }
-                    // }
-                    false
-                }
-                _ => false,
-            };
-
-            match &self.detection.matching_strategy {
-                FrameworkMatchingStrategy::All => {
-                    results.push(result);
-                }
-                FrameworkMatchingStrategy::Any => {
-                    if result {
-                        results.push(result);
-                        break;
-                    }
-                }
-            }
-        }
-
-        // use std::convert::identity might be more idiomatic here
-        results.iter().all(|&r| r)
-    }
-}
-
 // TODO: rename to FrameworkDetection?
-#[derive(Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 pub struct FrameworkDetector {
     pub matching_strategy: FrameworkMatchingStrategy,
     pub detectors: Vec<FrameworkDetectionItem>,
 }
 
-#[derive(Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 #[serde(tag = "type")]
 pub enum FrameworkDetectionItem {
     // TODO: see if this can replace Config
@@ -165,7 +142,7 @@ pub enum FrameworkDetectionItem {
 
 // TODO: change name?
 /// Matching strategies to match on a framework
-#[derive(Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Debug, Clone, Copy, Deserialize, PartialEq, Serialize)]
 #[serde(rename_all = "lowercase")]
 pub enum FrameworkMatchingStrategy {
     /// Strategy that requires all detectors to match for the framework to be detected
@@ -175,7 +152,7 @@ pub enum FrameworkMatchingStrategy {
     Any,
 }
 
-#[derive(Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 pub struct FrameworkBuildSettings {
     pub command: String,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -183,7 +160,7 @@ pub struct FrameworkBuildSettings {
     pub output_directory: String,
 }
 
-#[derive(Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 pub struct FrameworkBuildArgs {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub source: Option<FrameworkBuildArg>,
@@ -193,7 +170,7 @@ pub struct FrameworkBuildArgs {
     pub output: Option<FrameworkBuildArg>,
 }
 
-#[derive(Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 #[serde(tag = "type")]
 pub enum FrameworkBuildArg {
     /// 0-based index of argument and default value
@@ -222,79 +199,58 @@ pub trait FrameworkSupport {
     }
 }
 
-// I tried to use Deserialize however I couldnt think of a good way to implement
-// Deserialize trait for Program to associated Config. If there is a way I think that would
-// be preferred. This trait still requires config struct implement Deserialize and we forward
-// to various serde implementations that support more strait forward deserialization formats
-// and provide a custom implementation for cases were we need to get data from JS modules
-pub trait ConfigurationFileDeserialization: for<'a> Deserialize<'a> {
-    fn from_json(s: &str) -> CifrsResult<Self> {
-        Ok(serde_json::from_str(s)?)
-    }
 
-    fn from_yaml(s: &str) -> CifrsResult<Self> {
-        Ok(serde_yaml::from_str(s)?)
-    }
-
-    fn from_toml(s: &str) -> CifrsResult<Self> {
-        Ok(toml::from_str(s)?)
-    }
+pub trait FrameworkConfiguration: for<'a> Deserialize<'a> {
 
     fn from_js_module(_program: &Program) -> CifrsResult<Self> {
         unimplemented!();
     }
+
+    // fn get_output_dir(&self) -> CifrsResult<Option<String>>;
 }
 
-pub(crate) fn read_config_files<T>(files: &Vec<PathBuf>) -> CifrsResult<T>
-where
-    T: ConfigurationFileDeserialization,
-{
-    for file in files {
-        let path = Path::new(&file);
-        if let Some(extension) = path.extension() {
-            if let Ok(content) = fs::read_to_string(file) {
+pub enum FrameworkConfigurationFormat {
+    EcmaScript(Program),
+    Json(serde_json::Value),
+    Python(String),
+    // tried toml::Value but could not figure out how to go from Value to struct
+    Toml(String),
+    Yaml(serde_yaml::Value),
+}
+
+impl FrameworkConfigurationFormat {
+    pub fn from_path<P: AsRef<Path>>(path: P) -> CifrsResult<Self> {
+        if let Some(extension) = path.as_ref().extension() {
+            if let Ok(content) = fs::read_to_string(&path) {
                 return match extension.to_str() {
-                    Some("json") => T::from_json(content.as_str()),
-                    Some("yaml") | Some("yml") => T::from_yaml(content.as_str()),
-                    Some("toml") => T::from_toml(content.as_str()),
-                    Some("js") | Some("ts") | Some("mjs") | Some("cjs") => {
-                        let program = parse_js_module(path.to_owned().into(), content)?;
-                        return T::from_js_module(&program);
-                    }
+                    Some("json") => Ok(Self::Json(serde_json::from_str(&content)?)),
+                    Some("yaml") | Some("yml") => Ok(Self::Yaml(serde_yaml::from_str(&content)?)),
+                    Some("toml") => Ok(Self::Toml(content)),
+                    Some("js") | Some("ts") | Some("mjs") | Some("cjs") => Ok(Self::EcmaScript(
+                        parse_js_module(path.as_ref().to_owned().into(), content)?,
+                    )),
+                    Some("py") => Ok(Self::Python(content)),
                     // TODO (Sean): we should just skip or warn
-                    _ => Err(CifrsError::UnknownFrameworkExtension(
+                    _ => Err(CifrsError::UnknownFrameworkFormat(
                         extension.to_string_lossy().to_string(),
                     )),
                 };
             }
         }
-    }
 
-    // TODO (Sean): better error message / handling
-    Err(CifrsError::MissingFrameworkConfig())
+        Err(CifrsError::UnknownFrameworkFormat(String::new()))
+    }
 }
 
-// I wish Box<dyn> hasnt necessary and maybe its not with a different structure
-// but I'm at a loss for how how to structure these frameworks and allow fn overrides,
-// so I suppose this will have to work until I or someone else comes up with something better
-pub fn get_frameworks() -> Vec<Box<dyn FrameworkSupport>> {
-    let mut frameworks = Vec::<Box<dyn FrameworkSupport>>::new();
-    frameworks.push(Box::new(Antora::default()));
-    frameworks.push(Box::new(Astro::default()));
-    frameworks.push(Box::new(DocFx::default()));
-    frameworks.push(Box::new(DocusaurusV2::default()));
-    frameworks.push(Box::new(Eleventy::default()));
-    frameworks.push(Box::new(Gatsby::default()));
-    frameworks.push(Box::new(Hexo::default()));
-    frameworks.push(Box::new(Hugo::default()));
-    frameworks.push(Box::new(Jekyll::default()));
-    frameworks.push(Box::new(MDBook::default()));
-    frameworks.push(Box::new(MKDocs::default()));
-    frameworks.push(Box::new(NextJS::default()));
-    frameworks.push(Box::new(NuxtJS::default()));
-    frameworks.push(Box::new(Sphinx::default()));
-    frameworks.push(Box::new(SvelteKit::default()));
-    frameworks.push(Box::new(VitePress::default()));
-    frameworks.push(Box::new(VuePress::default()));
-    frameworks
+pub fn deser_config<T>(format: &FrameworkConfigurationFormat) -> CifrsResult<T>
+where
+    T: FrameworkConfiguration,
+{
+    match format {
+        FrameworkConfigurationFormat::EcmaScript(p) => T::from_js_module(&p),
+        FrameworkConfigurationFormat::Json(c) => Ok(serde_json::from_value::<T>(c.to_owned())?),
+        FrameworkConfigurationFormat::Toml(c) => Ok(toml::from_str::<T>(c)?),
+        FrameworkConfigurationFormat::Yaml(c) => Ok(serde_yaml::from_value::<T>(c.to_owned())?),
+        _ => Err(CifrsError::UnknownFrameworkFormat("".to_string())),
+    }
 }

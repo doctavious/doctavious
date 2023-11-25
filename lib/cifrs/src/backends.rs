@@ -38,9 +38,26 @@ mod rust;
 // Poetry, etc. We initially went with having a package_manager module and to create package managers
 // for each. I think I prefer having backends be tied to language and then split out based package manager.
 
+// build systems arent necessarily tied to a run time e.g. buck2 can be used across languages
+
+// language runtime
+// has project file(s)
+// has supported package managers however project file is used to determine which package manager
+// is appropriate
+//
+
+// vercel has the following logic to detect projects
+// from the cwd they call `getWorkspaces` with a max traversal depth of 3
+// - calls `detectWorkspaceManagers` which is `detectFramework` but with a list of `workspaceManagers` (yarn, pnpm, rush, nx, etc) and returns first match as workspaceType
+// - returns list of type and paths/dirs
+// for each workspace they call `getWorkspacePackagePaths`
+// - reads corresponding files from workspace paths based on type to get list of package paths
+// for each package path they call `detectFrameworks` with a list of possible frameworks
+// return map of path and associated frameworks
+
 #[remain::sorted]
 #[non_exhaustive]
-#[derive(Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 #[serde(rename_all = "lowercase")]
 pub enum LanguageBackends {
     DotNet,
@@ -87,20 +104,3 @@ pub struct LanguageBackend {
     // pub spec_file: String,
     pub project_files: Vec<String>,
 }
-
-// build systems arent necessarily tied to a run time e.g. buck2 can be used across languages
-
-// language runtime
-// has project file(s)
-// has supported package managers however project file is used to determine which package manager
-// is appropriate
-//
-
-// vercel has the following logic to detect projects
-// from the cwd they call `getWorkspaces` with a max traversal depth of 3
-// - calls `detectWorkspaceManagers` which is `detectFramework` but with a list of `workspaceManagers` (yarn, pnpm, rush, nx, etc) and returns first match as workspaceType
-// - returns list of type and paths/dirs
-// for each workspace they call `getWorkspacePackagePaths`
-// - reads corresponding files from workspace paths based on type to get list of package paths
-// for each package path they call `detectFrameworks` with a list of possible frameworks
-// return map of path and associated frameworks

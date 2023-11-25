@@ -3,22 +3,19 @@ use std::path::{Path, PathBuf};
 use std::process::{Command, ExitStatus};
 
 use glob::PatternError;
-use serde_derive::{Deserialize, Serialize};
 use thiserror::Error;
 use tracing::error;
 
 use crate::framework::FrameworkInfo;
 use crate::framework_detection::Detectable;
-use crate::frameworks::FRAMEWORKS_STR;
-use crate::package_manager::{PackageManager, PackageManagerInfo};
-use crate::workspaces::{Workspace, WORKSPACES_STR};
+use crate::package_manager::PackageManagerInfo;
+use crate::workspaces::Workspace;
 
 mod backends;
 mod framework;
 mod framework_detection;
 mod frameworks;
 mod js_module;
-mod language;
 mod package_manager;
 mod projects;
 mod workspaces;
@@ -59,8 +56,8 @@ pub enum CifrsError {
     #[error("toml serialization error: `{0}`")]
     TomlSerializeError(#[from] toml::ser::Error),
 
-    #[error("Unknown framework extension: {0}")]
-    UnknownFrameworkExtension(String),
+    #[error("Unknown framework format: {0}")]
+    UnknownFrameworkFormat(String),
 
     #[error("Unknown project file: {0}")]
     UnknownProjectFilePath(String),
@@ -72,11 +69,6 @@ pub enum CifrsError {
 pub type CifrsResult<T> = Result<T, CifrsError>;
 
 pub struct Cifrs;
-
-#[derive(Debug, Deserialize, Serialize)]
-struct SupportedFrameworks {
-    pub frameworks: Vec<FrameworkInfo>,
-}
 
 impl Cifrs {
     // TODO: when looking for frameworks do we need to traverse more than one directory?
@@ -104,7 +96,7 @@ impl Cifrs {
         let project_paths = Cifrs::get_workspace_package_paths(&path, workspace)?;
 
         for dir in &project_paths {
-            for framework in Cifrs::get_frameworks()?.frameworks {
+            for framework in frameworks::get_all() {
                 let m = framework_detection::detect(&dir, &framework);
                 // TODO: return MatchResult?
                 if m.is_some() {
@@ -114,10 +106,6 @@ impl Cifrs {
         }
 
         Err(CifrsError::MissingFrameworkConfig())
-    }
-
-    pub fn get_frameworks() -> CifrsResult<SupportedFrameworks> {
-        Ok(serde_yaml::from_str(FRAMEWORKS_STR)?)
     }
 
     pub fn build<P: AsRef<Path>>(path: &P, install: bool) -> CifrsResult<()> {
@@ -133,7 +121,6 @@ impl Cifrs {
                         .code()
                         .map_or("unknown".to_string(), |s| s.to_string());
                     println!("install failed with code: {:?}", install_status_code);
-                    // TODO: probably should just use anyhow
                     return Err(CifrsError::IoError(std::io::Error::new(
                         std::io::ErrorKind::Other,
                         format!("install failed with code: {:?}", install_status_code),
@@ -148,7 +135,6 @@ impl Cifrs {
                 .code()
                 .map_or("unknown".to_string(), |s| s.to_string());
             println!("build failed with code: {:?}", build_status_code);
-            // TODO: probably should just use anyhow
             return Err(CifrsError::IoError(std::io::Error::new(
                 std::io::ErrorKind::Other,
                 format!("build failed with code: {:?}", build_status_code),
@@ -159,10 +145,10 @@ impl Cifrs {
     }
 
     fn detect_package_manager<P: AsRef<Path>>(cwd: P) -> Option<PackageManagerInfo> {
-        for pm in PackageManager::ALL {
-            let m = framework_detection::detect(&cwd, &pm.info());
+        for pm in package_manager::get_list() {
+            let m = framework_detection::detect(&cwd, &pm);
             if m.is_some() {
-                return Some(pm.info());
+                return Some(pm);
             }
         }
         None
@@ -174,9 +160,9 @@ impl Cifrs {
     ) -> Option<PackageManagerInfo> {
         for p in framework.backend.project_files() {
             for pm in p.supported_package_managers() {
-                let m = framework_detection::detect(&cwd, &pm.info());
+                let m = framework_detection::detect(&cwd, &pm);
                 if m.is_some() {
-                    return Some(pm.info());
+                    return Some(pm);
                 }
             }
         }
@@ -211,12 +197,10 @@ impl Cifrs {
         return Ok(status);
     }
 
-    pub fn detect_workspace<P: AsRef<Path>>(cwd: P) -> CifrsResult<Option<Workspace>> {
+    pub fn detect_workspace<'a, P: AsRef<Path>>(cwd: P) -> CifrsResult<Option<Workspace>> {
         // TODO: should we try and detect workspace deeper than the current root directory?
         // Vercel uses a max depth of 3 but not sure what use cases that covers.
-        let workspaces: Vec<Workspace> = serde_yaml::from_str(WORKSPACES_STR).expect("");
-
-        for workspace in workspaces {
+        for workspace in workspaces::get_all() {
             let m = framework_detection::detect(&cwd, &workspace);
             if m.is_some() {
                 return Ok(Some(workspace));

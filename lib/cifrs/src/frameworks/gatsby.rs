@@ -8,14 +8,11 @@
 use std::path::PathBuf;
 
 use serde::Deserialize;
-use serde_derive::Serialize;
 use swc_ecma_ast::Program;
 
-use crate::backends::LanguageBackends;
+//read_config_files, ConfigurationFileDeserialization,
 use crate::framework::{
-    read_config_files, ConfigurationFileDeserialization, FrameworkBuildSettings,
-    FrameworkDetectionItem, FrameworkDetector, FrameworkInfo, FrameworkMatchingStrategy,
-    FrameworkSupport,
+    deser_config, FrameworkConfiguration, FrameworkConfigurationFormat, FrameworkSupport,
 };
 use crate::js_module::{
     find_array_element, get_array_property, get_assignment_obj, get_obj_property,
@@ -31,70 +28,7 @@ struct GatsbyConfig {
     output: String,
 }
 
-#[derive(Debug, Deserialize, PartialEq, Serialize)]
-pub struct Gatsby {
-    #[serde(flatten)]
-    info: FrameworkInfo,
-}
-
-impl Gatsby {
-    fn new(configs: Vec<PathBuf>) -> Self {
-        Self {
-            info: FrameworkInfo {
-                id: "gatsby".to_string(),
-                name: "Gatsby".to_string(),
-                website: "https://www.gatsbyjs.com/".to_string(),
-                configs,
-                // language: Language::Javascript,
-                backend: LanguageBackends::JavaScript,
-                detection: FrameworkDetector {
-                    matching_strategy: FrameworkMatchingStrategy::All,
-                    detectors: vec![FrameworkDetectionItem::Dependency {
-                        name: "gatsby".to_string(),
-                    }],
-                },
-                build: FrameworkBuildSettings {
-                    command: "gatsby build".to_string(),
-                    command_args: None,
-                    output_directory: "/public".to_string(),
-                },
-            },
-        }
-    }
-}
-
-impl Default for Gatsby {
-    fn default() -> Self {
-        Gatsby::new(Vec::from([
-            "gatsby-config.js".into(),
-            "gatsby-config.ts".into(),
-        ]))
-    }
-}
-
-impl FrameworkSupport for Gatsby {
-    fn get_info(&self) -> &FrameworkInfo {
-        &self.info
-    }
-
-    fn get_output_dir(&self) -> String {
-        if !self.info.configs.is_empty() {
-            match read_config_files::<GatsbyConfig>(&self.info.configs) {
-                Ok(c) => {
-                    return c.output;
-                }
-                Err(e) => {
-                    // log warning/error
-                    println!("{}", e);
-                }
-            }
-        }
-
-        self.info.build.output_directory.to_string()
-    }
-}
-
-impl ConfigurationFileDeserialization for GatsbyConfig {
+impl FrameworkConfiguration for GatsbyConfig {
     fn from_js_module(program: &Program) -> CifrsResult<Self> {
         if let Some(obj) = get_assignment_obj(program) {
             if let Some(plugins) = get_array_property(obj, "plugins") {
@@ -116,18 +50,23 @@ impl ConfigurationFileDeserialization for GatsbyConfig {
     }
 }
 
+pub fn get_output_dir(format: &FrameworkConfigurationFormat) -> CifrsResult<Option<String>> {
+    let config = deser_config::<GatsbyConfig>(format)?;
+    Ok(Some(config.output))
+}
+
 #[cfg(test)]
 mod tests {
-    use super::Gatsby;
-    use crate::framework::FrameworkSupport;
+    use crate::framework::{FrameworkConfigurationFormat, FrameworkSupport};
 
     #[test]
     fn test_gatsby() {
-        let gatsby = Gatsby::new(vec![
-            "tests/fixtures/framework_configs/gatsby/gatsby-config.js".into(),
-        ]);
+        let config = FrameworkConfigurationFormat::from_path(
+            "tests/fixtures/framework_configs/gatsby/gatsby-config.js",
+        )
+        .unwrap();
 
-        let output = gatsby.get_output_dir();
-        assert_eq!(output, "dist")
+        let output = super::get_output_dir(&config).unwrap();
+        assert_eq!(output, Some(String::from("dist")))
     }
 }

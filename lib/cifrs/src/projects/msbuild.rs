@@ -1,4 +1,42 @@
+use std::fs;
+use std::path::{Path, PathBuf};
+use std::str::FromStr;
+
 use serde_derive::Deserialize;
+
+use crate::CifrsResult;
+
+/// A solution is a structure for organizing projects in Visual Studio and maintains state in a
+/// text-based solution, .sln, file.
+pub struct MsBuildSolutionFile {
+    pub project_paths: Vec<PathBuf>,
+}
+
+impl MsBuildSolutionFile {
+    /// Solution files contain project declarations of the format:
+    /// Project("{Project-Type-GUID}") = "Project-Name", "Project-Path.extension", "{Project-GUID}"
+    pub fn parse<P: AsRef<Path>>(path: P) -> CifrsResult<Self> {
+        let content = fs::read_to_string(path)?;
+
+        let mut project_paths = Vec::new();
+        for line in content.lines() {
+            if line.starts_with("Project") {
+                let project_parts = line.split(",").collect::<Vec<&str>>();
+                if project_parts.len() == 3 {
+                    if let Ok(project_file) = PathBuf::from_str(project_parts[1]) {
+                        if project_file.is_file() {
+                            if let Some(project_path) = project_file.parent() {
+                                project_paths.push(project_path.to_path_buf());
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        Ok(MsBuildSolutionFile { project_paths })
+    }
+}
 
 /// Required root element of an MSBuild project file.
 /// represent a MSBuild project file that contains the list of files included in a project along with

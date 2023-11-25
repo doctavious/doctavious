@@ -4,16 +4,27 @@ use std::path::{Path, PathBuf};
 use std::str::FromStr;
 
 use glob::glob;
+use lazy_static::lazy_static;
 use serde_derive::{Deserialize, Serialize};
 
 use crate::framework::{FrameworkDetectionItem, FrameworkDetector, FrameworkMatchingStrategy};
 use crate::framework_detection::Detectable;
+use crate::projects::msbuild::MsBuildSolutionFile;
 use crate::projects::project_file::ProjectFile;
 use crate::{CifrsError, CifrsResult};
 
 pub const WORKSPACES_STR: &str = include_str!("workspaces.yaml");
 
-#[derive(Debug, Deserialize, PartialEq, Serialize)]
+lazy_static! {
+    static ref WORKSPACES_LIST: Vec<Workspace> =
+        serde_yaml::from_str(WORKSPACES_STR).expect("workspaces.yaml should be deserializable");
+}
+
+pub fn get_all() -> Vec<Workspace> {
+    WORKSPACES_LIST.to_vec()
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct Workspace {
     pub id: String,
     pub name: String,
@@ -25,9 +36,6 @@ pub struct Workspace {
 }
 
 impl Workspace {
-    // TODO: Get workspace package paths
-    // TODO: should make an associated enum?
-    // TODO: need cwd
     pub fn get_package_paths<P: AsRef<Path>>(&self, cwd: P) -> CifrsResult<Vec<PathBuf>> {
         match self.id.as_str() {
             "cargo" => self.get_cargo_workspace_package_paths(&cwd),
@@ -53,7 +61,7 @@ impl Workspace {
                 for member in members {
                     if let Some(member_str) = member.as_str() {
                         for entry in glob(member_str)
-                            .expect("Cargo members should be valid path/glob")
+                            .expect("Workspace members should be valid path/glob")
                             .flatten()
                         {
                             paths.push(entry);
@@ -67,7 +75,6 @@ impl Workspace {
         Ok(vec![])
     }
 
-    // getPackageJsonWorkspacePackagePaths
     fn get_package_json_workspace_package_paths(&self) -> CifrsResult<Vec<PathBuf>> {
         for project_file in &self.project_files {
             let root: serde_json::Value = serde_json::from_str(project_file)?;
@@ -76,7 +83,7 @@ impl Workspace {
                 for member in members {
                     if let Some(member_str) = member.as_str() {
                         for entry in glob(member_str)
-                            .expect("Workspace should be valid path/glob")
+                            .expect("Workspace member should be valid path/glob")
                             .flatten()
                         {
                             paths.push(entry);
@@ -90,12 +97,10 @@ impl Workspace {
         Ok(vec![])
     }
 
-    // getNxWorkspacePackagePaths
     fn get_nx_workspace_package_paths(&self) -> CifrsResult<Vec<PathBuf>> {
         unimplemented!("Figure out how NX workspaces work in without workspace.json given it uses project inference")
     }
 
-    // getPnpmWorkspacePackagePaths
     fn get_pnpm_workspace_package_paths(&self) -> CifrsResult<Vec<PathBuf>> {
         // TODO: this shouldnt use project_files but pnpm-workspace.yaml
         for project_file in &self.project_files {
@@ -105,7 +110,7 @@ impl Workspace {
                 for member in members {
                     if let Some(member_str) = member.as_str() {
                         for entry in glob(member_str)
-                            .expect("Workspace should be valid path/glob")
+                            .expect("Workspace member should be valid path/glob")
                             .flatten()
                         {
                             paths.push(entry);
@@ -119,7 +124,6 @@ impl Workspace {
         Ok(vec![])
     }
 
-    // getRushWorkspacePackagePaths
     fn get_rush_workspace_package_paths(&self) -> CifrsResult<Vec<PathBuf>> {
         // projects
         for project_file in &self.project_files {
@@ -149,7 +153,7 @@ impl Workspace {
         cwd: P,
     ) -> CifrsResult<Vec<PathBuf>> {
         for entry in fs::read_dir(cwd)?.flatten() {
-            if entry.path().to_str().is_some_and(|p| p.contains("*.sln")) {
+            if entry.path().to_str().is_some_and(|p| p.ends_with(".sln")) {
                 let solution_file = MsBuildSolutionFile::parse(entry.path())?;
                 return Ok(solution_file.project_paths);
             }
@@ -184,45 +188,39 @@ impl Detectable for Workspace {
     }
 }
 
-struct MsBuildSolutionFile {
-    pub project_paths: Vec<PathBuf>,
-}
+impl Detectable for &Workspace {
+    fn get_matching_strategy(&self) -> &FrameworkMatchingStrategy {
+        &self.detection.matching_strategy
+    }
 
-/// A solution is a structure for organizing projects in Visual Studio and maintains state in a
-/// text-based solution, .sln, file.
-impl MsBuildSolutionFile {
-    /// Solution files contain project declarations of the format:
-    /// Project("{Project-Type-GUID}") = "Project-Name", "Project-Path.extension", "{Project-GUID}"
-    fn parse<P: AsRef<Path>>(path: P) -> CifrsResult<Self> {
-        let content = fs::read_to_string(path)?;
+    fn get_detectors(&self) -> &Vec<FrameworkDetectionItem> {
+        &self.detection.detectors
+    }
 
-        let mut project_paths = Vec::new();
-        for line in content.lines() {
-            if line.starts_with("Project") {
-                let project_parts = line.split(",").collect::<Vec<&str>>();
-                if project_parts.len() == 3 {
-                    if let Ok(project_file) = PathBuf::from_str(project_parts[1]) {
-                        if project_file.is_file() {
-                            if let Some(project_path) = project_file.parent() {
-                                project_paths.push(project_path.to_path_buf());
-                            }
-                        }
-                    }
-                }
-            }
-        }
+    // For Frameworks this should return &Vec but this looks to returning an owned type
+    // Maybe this calls for a Cow?
+    fn get_project_files(&self) -> Cow<Vec<ProjectFile>> {
+        Cow::Owned(
+            self.project_files
+                .iter()
+                .filter_map(|p| ProjectFile::from_path(p).ok())
+                .collect::<Vec<ProjectFile>>(),
+        )
+    }
 
-        Ok(MsBuildSolutionFile { project_paths })
+    fn get_configuration_files(&self) -> &Vec<PathBuf> {
+        &self.configs
     }
 }
 
 #[cfg(test)]
 mod tests {
+    use crate::workspaces;
     use crate::workspaces::{Workspace, WORKSPACES_STR};
 
     #[test]
     fn test_deserialize_workspace_yaml() {
-        let workspaces: Vec<Workspace> = serde_yaml::from_str(WORKSPACES_STR).expect("");
+        let workspaces = workspaces::get_all();
         println!("{}", serde_json::to_string(&workspaces).unwrap());
     }
 }

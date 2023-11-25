@@ -20,256 +20,256 @@
 # env
 # js module but could this just be a regex capture group pattern?
 # project file aka package.json build script
-frameworks:
-  - id: antora
-    name: Antora
-    website: https://antora.org/
-    configs:
-      - antora-playbook.yaml
-      - antora-playbook.yml
-    backend: javascript
-    build:
-      command: antora generate
-      command_args:
-        config:
-            type: arg
-            index: 1
-        output:
-          type: option
-          long: --to-dir
-      output_directory: build/site
-    detection:
-      matching_strategy: all
-      detectors:
-        - type: dependency
-          name: '@antora/cli'
-        - type: dependency
-          name: '@antora/site-generator'
-  - id: astro
-    name: Astro
-    website: https://astro.build
-    configs:
-      - astro.config.js
-      - astro.config.cjs
-      - astro.config.mjs
-      - astro.config.ts
-    backend: javascript
-    build:
-      command: astro build
-      command_args:
-        config:
-          type: option
-          long: --config
-      output_directory: ./dist
-    detection:
-      matching_strategy: all
-      detectors:
-        - type: dependency
-          name: astro
-  - id: docfx
-    name: DocFx
-    website: https://dotnet.github.io/docfx/
-    configs:
-      - docfx.json
-    backend: dotnet
-    build:
-      command: docfx build
-      command_args:
-        output:
-          type: option
-          short: -o
-      output_directory: _site
-    detection:
-      matching_strategy: all
-      detectors:
-        - type: config
-  - id: docusaurus-v2
-    name: Docusaurus V2
-    website: https://docusaurus.io/
-    configs:
-      - docusaurus.config.js
-    backend: javascript
-    build:
-      command: docusaurus build
-      command_args:
-        config:
-          type: option
-          long: --config
-        output:
-          type: option
-          long: --out-dir
-      output_directory: build
-    detection:
-      matching_strategy: all
-      detectors:
-        - type: dependency
-          name: '@docusaurus/core'
-  - id: eleventy
-    name: Eleventy
-    website: https://www.11ty.dev/
-    configs:
-      - .eleventy.js
-      - eleventy.config.js
-      - eleventy.config.cjs
-    backend: javascript
-    build:
-      command: eleventy
-      command_args:
-        output:
-          type: option
-          long: --output
-      output_directory: _site
-    detection:
-      matching_strategy: all
-      detectors:
-        - type: dependency
-          name: '@11ty/eleventy'
-  - id: gatsby
-    name: Gatsby
-    website: https://www.gatsbyjs.com/
-    configs:
-      - gatsby-config.js
-      - gatsby-config.ts
-    backend: javascript
-    build:
-      command: gatsby build
-      output_directory: /public
-    detection:
-      matching_strategy: all
-      detectors:
-        - type: dependency
-          name: 'gatsby'
-  - id: hexo
-    name: Hexo
-    website: https://hexo.io/
-    configs:
-      - _config.yaml
-      - _config.yml
-    backend: javascript
-    build:
-      command: hexo generate
-      command_args:
-        config:
-          type: option
-          long: --config
-      output_directory: public
-    detection:
-      matching_strategy: all
-      detectors:
-        - type: dependency
-          name: 'hexo'
-  - id: hugo
-    name: Hugo
-    website: https://gohugo.io/
-    configs:
-      - config.json
-      - config.toml
-      - config.yaml
-      - config.yml
-      - hugo.json
-      - hugo.toml
-      - hugo.yaml
-      - hugo.yml
-    backend: go
-    build:
-      command: hugo
-      command_args:
-        config:
-          type: option
-          long: --config
-        output:
-          type: option
-          long: --destination
-      output_directory: /public
-    detection:
-      matching_strategy: all
-      detectors:
-        - type: config
-          content: baseURL
-  - id: jekyll
-    name: Jekyll
-    website: https://jekyllrb.com/
-    configs:
-      - _config.yaml
-      - _config.yml
-      - _config.toml
-    backend: ruby
-    build:
-      command: jekyll build
-      command_args:
-        config:
-          type: option
-          long: --config
-        output:
-          type: option
-          short: -d
-          long: --destination
-      output_directory: _site
-    detection:
-      matching_strategy: any
-      detectors:
-        - type: dependency
-          name: jekyll
-        - type: file
-          path: Gemfile
-          content: jekyll_plugins
-  - id: mdbook
-    name: mdBook
-    website: https://rust-lang.github.io/mdBook/
-    configs:
-      - book.toml
-    backend: rust
-    build:
-      command: mdbook build
-      command_args:
-        output:
-          type: option
-          short: -d
-          long: --dest-dir
-      output_directory: ./book
-    detection:
-      matching_strategy: all
-      detectors:
-        - type: config
-  - id: mkdocs
-    name: MkDocs
-    website: https://www.mkdocs.org/
-    configs:
-      - mkdocs.yaml
-      - mkdocs.yml
-    backend: python
-    build:
-      command: mkdocs build
-      command_args:
-        config:
-          type: option
-          short: -f
-          long: --config-file
-        output:
-          type: option
-          short: -d
-          long: --site-dir
-      output_directory: site
-    detection:
-      matching_strategy: all
-      detectors:
-        - type: dependency
-          name: mkdocs
-  - id: nextjs
-    name: NextJS
-    website: https://nextjs.org/
-    configs:
-      - next.config.js
-      - next.config.mjs
-    backend: javascript
-    build:
-      command: next build
-      output_directory: .next
-    detection:
-      matching_strategy: all
-      detectors:
-        - type: dependency
-          name: next
+
+- id: antora
+  name: Antora
+  website: https://antora.org/
+  configs:
+    - antora-playbook.yaml
+    - antora-playbook.yml
+  backend: javascript
+  build:
+    command: antora generate
+    command_args:
+      config:
+          type: arg
+          index: 1
+      output:
+        type: option
+        long: --to-dir
+    output_directory: build/site
+  detection:
+    matching_strategy: all
+    detectors:
+      - type: dependency
+        name: '@antora/cli'
+      - type: dependency
+        name: '@antora/site-generator'
+- id: astro
+  name: Astro
+  website: https://astro.build
+  configs:
+    - astro.config.js
+    - astro.config.cjs
+    - astro.config.mjs
+    - astro.config.ts
+  backend: javascript
+  build:
+    command: astro build
+    command_args:
+      config:
+        type: option
+        long: --config
+    output_directory: ./dist
+  detection:
+    matching_strategy: all
+    detectors:
+      - type: dependency
+        name: astro
+- id: docfx
+  name: DocFx
+  website: https://dotnet.github.io/docfx/
+  configs:
+    - docfx.json
+  backend: dotnet
+  build:
+    command: docfx build
+    command_args:
+      output:
+        type: option
+        short: -o
+    output_directory: _site
+  detection:
+    matching_strategy: all
+    detectors:
+      - type: config
+- id: docusaurus-v2
+  name: Docusaurus V2
+  website: https://docusaurus.io/
+  configs:
+    - docusaurus.config.js
+  backend: javascript
+  build:
+    command: docusaurus build
+    command_args:
+      config:
+        type: option
+        long: --config
+      output:
+        type: option
+        long: --out-dir
+    output_directory: build
+  detection:
+    matching_strategy: all
+    detectors:
+      - type: dependency
+        name: '@docusaurus/core'
+- id: eleventy
+  name: Eleventy
+  website: https://www.11ty.dev/
+  configs:
+    - .eleventy.js
+    - eleventy.config.js
+    - eleventy.config.cjs
+  backend: javascript
+  build:
+    command: eleventy
+    command_args:
+      output:
+        type: option
+        long: --output
+    output_directory: _site
+  detection:
+    matching_strategy: all
+    detectors:
+      - type: dependency
+        name: '@11ty/eleventy'
+- id: gatsby
+  name: Gatsby
+  website: https://www.gatsbyjs.com/
+  configs:
+    - gatsby-config.js
+    - gatsby-config.ts
+  backend: javascript
+  build:
+    command: gatsby build
+    output_directory: /public
+  detection:
+    matching_strategy: all
+    detectors:
+      - type: dependency
+        name: 'gatsby'
+- id: hexo
+  name: Hexo
+  website: https://hexo.io/
+  configs:
+    - _config.yaml
+    - _config.yml
+  backend: javascript
+  build:
+    command: hexo generate
+    command_args:
+      config:
+        type: option
+        long: --config
+    output_directory: public
+  detection:
+    matching_strategy: all
+    detectors:
+      - type: dependency
+        name: 'hexo'
+- id: hugo
+  name: Hugo
+  website: https://gohugo.io/
+  configs:
+    - config.json
+    - config.toml
+    - config.yaml
+    - config.yml
+    - hugo.json
+    - hugo.toml
+    - hugo.yaml
+    - hugo.yml
+  backend: go
+  build:
+    command: hugo
+    command_args:
+      config:
+        type: option
+        long: --config
+      output:
+        type: option
+        long: --destination
+    output_directory: /public
+  detection:
+    matching_strategy: all
+    detectors:
+      - type: config
+        content: baseURL
+- id: jekyll
+  name: Jekyll
+  website: https://jekyllrb.com/
+  configs:
+    - _config.yaml
+    - _config.yml
+    - _config.toml
+  backend: ruby
+  build:
+    command: jekyll build
+    command_args:
+      config:
+        type: option
+        long: --config
+      output:
+        type: option
+        short: -d
+        long: --destination
+    output_directory: _site
+  detection:
+    matching_strategy: any
+    detectors:
+      - type: dependency
+        name: jekyll
+      - type: file
+        path: Gemfile
+        content: jekyll_plugins
+- id: mdbook
+  name: mdBook
+  website: https://rust-lang.github.io/mdBook/
+  configs:
+    - book.toml
+  backend: rust
+  build:
+    command: mdbook build
+    command_args:
+      output:
+        type: option
+        short: -d
+        long: --dest-dir
+    output_directory: ./book
+  detection:
+    matching_strategy: all
+    detectors:
+      - type: config
+- id: mkdocs
+  name: MkDocs
+  website: https://www.mkdocs.org/
+  configs:
+    - mkdocs.yaml
+    - mkdocs.yml
+  backend: python
+  build:
+    command: mkdocs build
+    command_args:
+      config:
+        type: option
+        short: -f
+        long: --config-file
+      output:
+        type: option
+        short: -d
+        long: --site-dir
+    output_directory: site
+  detection:
+    matching_strategy: all
+    detectors:
+      - type: dependency
+        name: mkdocs
+- id: nextjs
+  name: NextJS
+  website: https://nextjs.org/
+  configs:
+    - next.config.js
+    - next.config.mjs
+  backend: javascript
+  build:
+    command: next build
+    output_directory: .next
+  detection:
+    matching_strategy: all
+    detectors:
+      - type: dependency
+        name: next
 #  - id: nextra
 #    name: Nextra
 #    website: https://nextra.site/
@@ -279,123 +279,123 @@ frameworks:
 #    build:
 #      command: next build
 #      output_directory: .next
-  - id: nuxt-v2
-    name: Nuxt V2
-    website: https://v2.nuxt.com/
-    configs:
-      - nuxt.config.js
-    backend: javascript
-    build:
-      command: nuxt build
-      output_directory: .nuxt
-    detection:
-      matching_strategy: all
-      detectors:
-        - type: dependency
-          name: nuxt
-        - type: dependency
-          name: nuxt-edge
-  - id: nuxt-v3
-    name: Nuxt V3
-    website: https://nuxtjs.org/
-    configs:
-      - nuxt.config.js
-      - nuxt.config.mjs
-      - nuxt.config.ts
-    backend: javascript
-    build:
-      command: nuxi generate
-      output_directory: .output
-    detection:
-      matching_strategy: all
-      detectors:
-        - type: dependency
-          name: nuxt3
-  - id: sphinx
-    name: Sphinx
-    website: https://www.sphinx-doc.org/en/master/
-    configs:
-      - conf.py
-    backend: python
-    build:
-      command: sphinx-build
-      command_args:
-        source:
-          type: arg
-          index: 1
-          default_value: docs
-        output:
-          type: arg
-          index: 2
-      output_directory: docs/_build
-    detection:
-      matching_strategy: all
-      detectors:
-        - type: config
-  - id: sveltekit
-    name: Svelete Kit
-    website: https://kit.svelte.dev/
-    configs:
-      - svelte.config.js
-    backend: javascript
-    build:
-      command: vite build
-      command_args:
-        output:
-          type: option
-          long: --outDir
-      output_directory: build
-    detection:
-      matching_strategy: all
-      detectors:
-        - type: dependency
-          name: '@sveltejs/kit'
-  - id: vitepress
-    name: Vitepress
-    website: https://vitepress.vuejs.org/
-    configs:
-      - .vitepress/config.js
-      - .vitepress/config.cjs
-      - .vitepress/config.mjs
-      - .vitepress/config.mts
-      - .vitepress/config.ts
-    backend: javascript
-    build:
-      command: vitepress build docs
-      output_directory: docs/.vitepress/dist
-    detection:
-      matching_strategy: all
-      detectors:
-        - type: dependency
-          name: vitepress
-  - id: vuepress
-    name: Vuepress
-    website: https://vuepress.vuejs.org/
-    configs:
-      - .vuepress/config.js
-      - .vuepress/config.yaml
-      - .vuepress/config.yml
-      - .vuepress/config.toml
-      - .vuepress/config.ts
-    backend: javascript
-    build:
-      command: vuepress build
-      command_args:
-        source:
-          type: arg
-          index: 1
-          default_value: docs
-        config:
-          type: option
-          short: -c
-          long: --config
-        output:
-          type: option
-          short: -d
-          long: --dest
-      output_directory: .vuepress/dist
-    detection:
-      matching_strategy: all
-      detectors:
-        - type: dependency
-          name: vuepress
+- id: nuxt-v2
+  name: Nuxt V2
+  website: https://v2.nuxt.com/
+  configs:
+    - nuxt.config.js
+  backend: javascript
+  build:
+    command: nuxt build
+    output_directory: .nuxt
+  detection:
+    matching_strategy: all
+    detectors:
+      - type: dependency
+        name: nuxt
+      - type: dependency
+        name: nuxt-edge
+- id: nuxt-v3
+  name: Nuxt V3
+  website: https://nuxtjs.org/
+  configs:
+    - nuxt.config.js
+    - nuxt.config.mjs
+    - nuxt.config.ts
+  backend: javascript
+  build:
+    command: nuxi generate
+    output_directory: .output
+  detection:
+    matching_strategy: all
+    detectors:
+      - type: dependency
+        name: nuxt3
+- id: sphinx
+  name: Sphinx
+  website: https://www.sphinx-doc.org/en/master/
+  configs:
+    - conf.py
+  backend: python
+  build:
+    command: sphinx-build
+    command_args:
+      source:
+        type: arg
+        index: 1
+        default_value: docs
+      output:
+        type: arg
+        index: 2
+    output_directory: docs/_build
+  detection:
+    matching_strategy: all
+    detectors:
+      - type: config
+- id: sveltekit
+  name: Svelete Kit
+  website: https://kit.svelte.dev/
+  configs:
+    - svelte.config.js
+  backend: javascript
+  build:
+    command: vite build
+    command_args:
+      output:
+        type: option
+        long: --outDir
+    output_directory: build
+  detection:
+    matching_strategy: all
+    detectors:
+      - type: dependency
+        name: '@sveltejs/kit'
+- id: vitepress
+  name: Vitepress
+  website: https://vitepress.vuejs.org/
+  configs:
+    - .vitepress/config.js
+    - .vitepress/config.cjs
+    - .vitepress/config.mjs
+    - .vitepress/config.mts
+    - .vitepress/config.ts
+  backend: javascript
+  build:
+    command: vitepress build docs
+    output_directory: docs/.vitepress/dist
+  detection:
+    matching_strategy: all
+    detectors:
+      - type: dependency
+        name: vitepress
+- id: vuepress
+  name: Vuepress
+  website: https://vuepress.vuejs.org/
+  configs:
+    - .vuepress/config.js
+    - .vuepress/config.yaml
+    - .vuepress/config.yml
+    - .vuepress/config.toml
+    - .vuepress/config.ts
+  backend: javascript
+  build:
+    command: vuepress build
+    command_args:
+      source:
+        type: arg
+        index: 1
+        default_value: docs
+      config:
+        type: option
+        short: -c
+        long: --config
+      output:
+        type: option
+        short: -d
+        long: --dest
+    output_directory: .vuepress/dist
+  detection:
+    matching_strategy: all
+    detectors:
+      - type: dependency
+        name: vuepress

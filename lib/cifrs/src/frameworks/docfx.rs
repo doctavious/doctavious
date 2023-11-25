@@ -7,107 +7,46 @@ use std::collections::HashMap;
 use std::path::PathBuf;
 
 use serde::Deserialize;
-use serde_derive::Serialize;
 
-use crate::backends::LanguageBackends;
+// read_config_files, ConfigurationFileDeserialization,
 use crate::framework::{
-    read_config_files, ConfigurationFileDeserialization, FrameworkBuildArg, FrameworkBuildArgs,
-    FrameworkBuildSettings, FrameworkDetectionItem, FrameworkDetector, FrameworkInfo,
-    FrameworkMatchingStrategy, FrameworkSupport,
+    deser_config, FrameworkConfiguration, FrameworkConfigurationFormat, FrameworkSupport,
 };
+use crate::CifrsResult;
 
 #[derive(Deserialize)]
 struct DocFxConfig {
     build: HashMap<String, String>,
 }
 
-impl ConfigurationFileDeserialization for DocFxConfig {}
-
 #[derive(Deserialize)]
 struct DocFxConfigBuild {
     dest: String,
 }
 
-#[derive(Debug, Deserialize, PartialEq, Serialize)]
-pub struct DocFx {
-    #[serde(flatten)]
-    info: FrameworkInfo,
-}
+impl FrameworkConfiguration for DocFxConfig {}
 
-impl DocFx {
-    fn new(configs: Vec<PathBuf>) -> Self {
-        Self {
-            info: FrameworkInfo {
-                id: "docfx".to_string(),
-                name: "DocFX".to_string(),
-                website: "https://dotnet.github.io/docfx/".to_string(),
-                configs,
-                // language: Language::CSharp, // F# will be supported in the future.
-                backend: LanguageBackends::DotNet,
-                detection: FrameworkDetector {
-                    matching_strategy: FrameworkMatchingStrategy::All,
-                    detectors: vec![FrameworkDetectionItem::Config { content: None }],
-                },
-                build: FrameworkBuildSettings {
-                    command: "docfx build".to_string(),
-                    command_args: Some(FrameworkBuildArgs {
-                        source: None,
-                        config: None,
-                        output: Some(FrameworkBuildArg::Option {
-                            short: "-o".to_string(),
-                            long: "".to_string(),
-                        }),
-                    }),
-                    output_directory: "_site".to_string(),
-                },
-            },
-        }
-    }
-}
-
-impl Default for DocFx {
-    fn default() -> Self {
-        DocFx::new(Vec::from(["docfx.json".into()]))
-    }
-}
-
-impl FrameworkSupport for DocFx {
-    fn get_info(&self) -> &FrameworkInfo {
-        &self.info
+pub fn get_output_dir(format: &FrameworkConfigurationFormat) -> CifrsResult<Option<String>> {
+    let config = deser_config::<DocFxConfig>(format)?;
+    if let Some(dest) = config.build.get("dest") {
+        return Ok(Some(dest.to_string()));
     }
 
-    fn get_output_dir(&self) -> String {
-        if !self.info.configs.is_empty() {
-            match read_config_files::<DocFxConfig>(&self.info.configs) {
-                Ok(c) => {
-                    // return c.build.dest
-                    if let Some(dest) = c.build.get("dest") {
-                        return dest.to_string();
-                    }
-                }
-                Err(e) => {
-                    // log warning/error
-                    println!("{}", e);
-                }
-            }
-        }
-
-        self.info.build.output_directory.to_string()
-    }
+    Ok(None)
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::framework::FrameworkSupport;
-    use crate::frameworks::docfx::DocFx;
+    use crate::framework::{FrameworkConfigurationFormat, FrameworkSupport};
 
     #[test]
     fn test_docfx() {
-        let docfx = DocFx::new(vec![
-            "tests/fixtures/framework_configs/docfx/docfx.json".into()
-        ]);
+        let config = FrameworkConfigurationFormat::from_path(
+            "tests/fixtures/framework_configs/docfx/docfx.json",
+        )
+        .unwrap();
 
-        let output = docfx.get_output_dir();
-        assert_eq!(output, "dist")
+        let output = super::get_output_dir(&config).unwrap();
+        assert_eq!(output, Some(String::from("dist")))
     }
 }

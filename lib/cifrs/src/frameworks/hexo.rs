@@ -8,103 +8,37 @@
 use std::path::PathBuf;
 
 use serde::Deserialize;
-use serde_derive::Serialize;
 
-use crate::backends::LanguageBackends;
+// read_config_files, ConfigurationFileDeserialization,
 use crate::framework::{
-    read_config_files, ConfigurationFileDeserialization, FrameworkBuildArg, FrameworkBuildArgs,
-    FrameworkBuildSettings, FrameworkDetectionItem, FrameworkDetector, FrameworkInfo,
-    FrameworkMatchingStrategy, FrameworkSupport,
+    deser_config, FrameworkConfiguration, FrameworkConfigurationFormat, FrameworkSupport,
 };
+use crate::CifrsResult;
 
 #[derive(Deserialize)]
 struct HexoConfig {
     public_dir: Option<String>,
 }
 
-#[derive(Debug, Deserialize, PartialEq, Serialize)]
-pub struct Hexo {
-    #[serde(flatten)]
-    info: FrameworkInfo,
+impl FrameworkConfiguration for HexoConfig {}
+
+pub fn get_output_dir(format: &FrameworkConfigurationFormat) -> CifrsResult<Option<String>> {
+    let config = deser_config::<HexoConfig>(format)?;
+    Ok(config.public_dir)
 }
-
-impl Hexo {
-    fn new(configs: Vec<PathBuf>) -> Self {
-        Self {
-            info: FrameworkInfo {
-                id: "hexo".to_string(),
-                name: "Hexo".to_string(),
-                website: "https://hexo.io/".to_string(),
-                configs,
-                // language: Language::Javascript,
-                backend: LanguageBackends::JavaScript,
-                detection: FrameworkDetector {
-                    matching_strategy: FrameworkMatchingStrategy::All,
-                    detectors: vec![FrameworkDetectionItem::Dependency {
-                        name: "hexo".to_string(),
-                    }],
-                },
-                build: FrameworkBuildSettings {
-                    command: "hexo generate".to_string(),
-                    command_args: Some(FrameworkBuildArgs {
-                        source: None,
-                        config: Some(FrameworkBuildArg::Option {
-                            short: "".to_string(),
-                            long: "--config".to_string(),
-                        }),
-                        output: None,
-                    }),
-                    output_directory: "public".to_string(),
-                },
-            },
-        }
-    }
-}
-
-impl Default for Hexo {
-    fn default() -> Self {
-        Hexo::new(Vec::from(["_config.yml".into()]))
-    }
-}
-
-impl FrameworkSupport for Hexo {
-    fn get_info(&self) -> &FrameworkInfo {
-        &self.info
-    }
-
-    fn get_output_dir(&self) -> String {
-        if !self.info.configs.is_empty() {
-            match read_config_files::<HexoConfig>(&self.info.configs) {
-                Ok(c) => {
-                    if let Some(dir) = c.public_dir {
-                        return dir;
-                    }
-                }
-                Err(e) => {
-                    // log warning/error
-                    println!("{}", e);
-                }
-            }
-        }
-
-        self.info.build.output_directory.to_string()
-    }
-}
-
-impl ConfigurationFileDeserialization for HexoConfig {}
 
 #[cfg(test)]
 mod tests {
-    use super::Hexo;
-    use crate::framework::FrameworkSupport;
+    use crate::framework::{FrameworkConfigurationFormat, FrameworkSupport};
 
     #[test]
     fn test_hexo() {
-        let hexo = Hexo::new(vec![
-            "tests/fixtures/framework_configs/hexo/_config.yml".into()
-        ]);
+        let config = FrameworkConfigurationFormat::from_path(
+            "tests/fixtures/framework_configs/hexo/_config.yml",
+        )
+        .unwrap();
 
-        let output = hexo.get_output_dir();
-        assert_eq!(output, "build")
+        let output = super::get_output_dir(&config).unwrap();
+        assert_eq!(output, Some(String::from("build")))
     }
 }

@@ -6,14 +6,11 @@
 use std::path::PathBuf;
 
 use serde::Deserialize;
-use serde_derive::Serialize;
 use swc_ecma_ast::Program;
 
-use crate::backends::LanguageBackends;
+// read_config_files, ConfigurationFileDeserialization,
 use crate::framework::{
-    read_config_files, ConfigurationFileDeserialization, FrameworkBuildArg, FrameworkBuildArgs,
-    FrameworkBuildSettings, FrameworkDetectionItem, FrameworkDetector, FrameworkInfo,
-    FrameworkMatchingStrategy, FrameworkSupport,
+    deser_config, FrameworkConfiguration, FrameworkConfigurationFormat, FrameworkSupport,
 };
 use crate::js_module::{
     get_string_property_value, get_variable_declaration, get_variable_properties,
@@ -28,91 +25,11 @@ struct SvelteKitConfig {
     output: Option<String>,
 }
 
-#[derive(Debug, Deserialize, PartialEq, Serialize)]
-pub struct SvelteKit {
-    #[serde(flatten)]
-    info: FrameworkInfo,
-}
 
-impl SvelteKit {
-    fn new(configs: Vec<PathBuf>) -> Self {
-        Self {
-            info: FrameworkInfo {
-                id: "sveltekit".to_string(),
-                name: "SvelteKit".to_string(),
-                website: "https://kit.svelte.dev/".to_string(),
-                configs,
-                // language: Language::Javascript,
-                backend: LanguageBackends::JavaScript,
-                detection: FrameworkDetector {
-                    matching_strategy: FrameworkMatchingStrategy::All,
-                    detectors: vec![FrameworkDetectionItem::Dependency {
-                        name: "@sveltejs/kit".to_string(),
-                    }],
-                },
-                build: FrameworkBuildSettings {
-                    command: "vite build".to_string(),
-                    command_args: Some(FrameworkBuildArgs {
-                        source: None,
-                        config: None,
-                        output: Some(FrameworkBuildArg::Option {
-                            short: "".to_string(),
-                            long: "--outDir".to_string(),
-                        }),
-                    }),
-                    // TODO: validate
-                    // according to the following https://github.com/netlify/build/pull/4823
-                    // .svelte-kit is the internal build dir, not the publish dir.
-                    output_directory: "build".to_string(), //".svelte-kit",
-                },
-            },
-        }
-    }
-}
-
-impl Default for SvelteKit {
-    fn default() -> Self {
-        SvelteKit::new(vec!["svelte.config.js".into()])
-    }
-}
-
-impl FrameworkSupport for SvelteKit {
-    fn get_info(&self) -> &FrameworkInfo {
-        &self.info
-    }
-
-    fn get_output_dir(&self) -> String {
-        if !self.info.configs.is_empty() {
-            match read_config_files::<SvelteKitConfig>(&self.info.configs) {
-                Ok(c) => {
-                    if let Some(dest) = c.output {
-                        return dest;
-                    }
-                }
-                Err(e) => {
-                    // log warning/error
-                    println!("{}", e);
-                }
-            }
-        }
-
-        self.info.build.output_directory.to_string()
-    }
-}
-
-impl ConfigurationFileDeserialization for SvelteKitConfig {
+impl FrameworkConfiguration for SvelteKitConfig {
     fn from_js_module(program: &Program) -> CifrsResult<Self> {
         // TODO: not sure we need to specifically get 'config' and perhaps rather look for
         // kit and/or outDir
-        // if let Some(module) = program.as_module() {
-        //     let output = module.get_property_as_string("outDir");
-        //     if output.is_some() {
-        //         return Ok(Self {
-        //             output
-        //         });
-        //     }
-        // }
-
         let var = get_variable_declaration(program, "config");
         if let Some(var) = var {
             let properties = get_variable_properties(var, "kit");
@@ -128,20 +45,25 @@ impl ConfigurationFileDeserialization for SvelteKitConfig {
     }
 }
 
+pub fn get_output_dir(format: &FrameworkConfigurationFormat) -> CifrsResult<Option<String>> {
+    let config = deser_config::<SvelteKitConfig>(format)?;
+    Ok(config.output)
+}
+
 #[cfg(test)]
 mod tests {
-    use super::SvelteKit;
-    use crate::framework::FrameworkSupport;
+    use crate::framework::{FrameworkConfigurationFormat, FrameworkSupport};
 
     #[test]
     fn test_sveltekit() {
-        let sveltekit = SvelteKit::new(
-            // tests/fixtures/framework_configs/sveltekit/svelte.config.js
-            // tests/fixtures/framework_configs/sveltekit/svelte.config.js
-            vec!["tests/fixtures/framework_configs/sveltekit/svelte.config.js".into()],
-        );
+        // tests/fixtures/framework_configs/sveltekit/svelte.config.js
+        // tests/fixtures/framework_configs/sveltekit/svelte.config.js
+        let config = FrameworkConfigurationFormat::from_path(
+            "tests/fixtures/framework_configs/sveltekit/svelte.config.js",
+        )
+        .unwrap();
 
-        let output = sveltekit.get_output_dir();
-        assert_eq!(output, "build")
+        let output = super::get_output_dir(&config).unwrap();
+        assert_eq!(output, Some(String::from("build")))
     }
 }

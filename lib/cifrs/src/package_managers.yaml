@@ -1,5 +1,7 @@
 # Please keep this list alphabetized.
 
+# look at supporting dotnet paket
+
 - id: bun
   name: Bun
   project_files:

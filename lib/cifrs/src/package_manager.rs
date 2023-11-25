@@ -1,47 +1,52 @@
 use std::borrow::Cow;
+use std::collections::HashMap;
 use std::path::PathBuf;
 
+use lazy_static::lazy_static;
 use serde_derive::{Deserialize, Serialize};
 
 use crate::framework::{FrameworkDetectionItem, FrameworkDetector, FrameworkMatchingStrategy};
 use crate::framework_detection::Detectable;
 use crate::projects::project_file::ProjectFile;
 
-// TODO: could add PDM and Anaconda (Python)
-#[non_exhaustive]
-#[remain::sorted]
-#[derive(Debug, Deserialize, PartialEq, Serialize)]
-#[non_exhaustive]
-#[serde(rename_all = "lowercase")]
-// #[serde(tag = "id")]
-pub enum PackageManager {
-    // #[serde(rename = "bundler")]
-    // Bundler(PackageManagerInfo),
-    // #[serde(rename = "cargo")]
-    // Cargo(PackageManagerInfo),
-    // #[serde(rename = "go")]
-    // GoModules(PackageManagerInfo),
-    // #[serde(rename = "npm")]
-    // Npm(PackageManagerInfo),
-    // #[serde(rename = "nuget")]
-    // Nuget(PackageManagerInfo),
-    // #[serde(rename = "pip")]
-    // Pip(PackageManagerInfo),
-    // #[serde(rename = "pnpm")]
-    // Pnpm(PackageManagerInfo),
-    // #[serde(rename = "poetry")]
-    // Poetry(PackageManagerInfo),
-    // #[serde(rename = "yarn")]
-    // yarn(PackageManagerInfo),
-    Bundler,
-    Cargo,
-    GoModules,
-    Npm,
-    Nuget,
-    Pip,
-    Pnpm,
-    Poetry,
-    Yarn,
+pub const PACKAGE_MANAGER_STR: &str = include_str!("package_managers.yaml");
+
+// pub enum ProjectPaths {
+//     WellKnown(Vec<&'static str>),
+//     Glob(Vec<&'static str>)
+// }
+
+// // TODO: could add PDM and Anaconda (Python)
+// #[non_exhaustive]
+// #[remain::sorted]
+// #[derive(Debug, Deserialize, PartialEq, Serialize)]
+// #[non_exhaustive]
+// #[serde(rename_all = "lowercase")]
+// // #[serde(tag = "id")]
+// pub enum PackageManager {
+//     Bundler,
+//     Cargo,
+//     GoModules,
+//     Npm,
+//     Nuget,
+//     Pip,
+//     Pnpm,
+//     Poetry,
+//     Yarn,
+// }
+
+lazy_static! {
+
+    // TODO: probably doesnt need to be an owned type
+    static ref PACKAGE_MANAGER_MAP: HashMap<String, PackageManagerInfo> = serde_yaml::from_str::<Vec<PackageManagerInfo>>(PACKAGE_MANAGER_STR)
+        .expect("package_managers.yaml should be deserializable")
+        .iter().map(|v| (v.id.to_string(), v.to_owned()))
+        .collect();
+}
+
+// TODO: probably doesnt need to be an owned type
+pub fn get_list() -> Vec<PackageManagerInfo> {
+    PACKAGE_MANAGER_MAP.values().map(|v| v.to_owned()).collect()
 }
 
 impl Detectable for PackageManagerInfo {
@@ -69,8 +74,34 @@ impl Detectable for PackageManagerInfo {
     }
 }
 
-#[derive(Debug, Serialize)]
+impl Detectable for &PackageManagerInfo {
+    fn get_matching_strategy(&self) -> &FrameworkMatchingStrategy {
+        &self.detection.matching_strategy
+    }
+
+    fn get_detectors(&self) -> &Vec<FrameworkDetectionItem> {
+        &self.detection.detectors
+    }
+
+    // For Frameworks this should return &Vec but this looks to returning an owned type
+    // Maybe this calls for a Cow?
+    fn get_project_files(&self) -> Cow<Vec<ProjectFile>> {
+        Cow::Owned(
+            self.project_files
+                .iter()
+                .filter_map(|p| ProjectFile::from_path(p).ok())
+                .collect::<Vec<ProjectFile>>(),
+        )
+    }
+
+    fn get_configuration_files(&self) -> &Vec<PathBuf> {
+        &self.configs
+    }
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct PackageManagerInfo {
+    pub id: String,
     // pub name: &'static str,
     pub name: String,
     // pub install_command: &'static str,
@@ -97,403 +128,14 @@ pub struct PackageManagerInfo {
     pub detection: FrameworkDetector,
 }
 
-// pub enum ProjectPaths {
-//     WellKnown(Vec<&'static str>),
-//     Glob(Vec<&'static str>)
-// }
-
-impl<'a> PackageManager {
-    pub const ALL: &'a [PackageManager] = &[
-        // Bun
-        PackageManager::Bundler,
-        PackageManager::Cargo,
-        PackageManager::GoModules,
-        PackageManager::Npm,
-        PackageManager::Nuget,
-        PackageManager::Pip,
-        PackageManager::Pnpm,
-        PackageManager::Poetry,
-        PackageManager::Yarn,
-    ];
-
-    pub fn info(&self) -> PackageManagerInfo {
-        match self {
-            PackageManager::Cargo => PackageManagerInfo {
-                name: "cargo".to_string(),
-                install_command: "cargo add".to_string(),
-                lock_file: "Cargo.lock".to_string(),
-                project_files: vec![],
-                configs: vec![],
-                detection: FrameworkDetector {
-                    matching_strategy: FrameworkMatchingStrategy::Any,
-                    detectors: vec![
-                        FrameworkDetectionItem::File {
-                            path: "Cargo.lock".to_string(),
-                            content: None,
-                        },
-                        FrameworkDetectionItem::File {
-                            path: "Cargo.toml".to_string(),
-                            content: None,
-                        },
-                    ],
-                },
-            },
-            PackageManager::GoModules => {
-                PackageManagerInfo {
-                    name: "go".to_string(),
-                    install_command: "go get".to_string(),
-                    // TODO: not sure this is appropriate for a lock file
-                    lock_file: "go.sum".to_string(),
-                    project_files: vec![],
-                    configs: vec![],
-                    detection: FrameworkDetector {
-                        matching_strategy: FrameworkMatchingStrategy::Any,
-                        detectors: vec![FrameworkDetectionItem::File {
-                            path: "go.sum".to_string(),
-                            content: None,
-                        }],
-                    },
-                }
-            }
-            PackageManager::Npm => {
-                // TODO: check if package.json has 'build' script and use if available
-                // https://github.com/vercel/vercel/blob/main/packages/hydrogen/src/build.ts#L112
-                // https://github.com/vercel/vercel/blob/main/packages/build-utils/src/fs/run-user-scripts.ts#L613
-                PackageManagerInfo {
-                    name: "npm".to_string(),
-                    install_command: "npm install".to_string(),
-                    lock_file: "package-lock.json".to_string(),
-                    // TODO: if package.json is found with no packageManager should we default
-                    // to NPM? Which would mean we would be forced to make sure its at the end
-                    // or a way to say content not present
-                    project_files: vec![],
-                    configs: vec![],
-                    detection: FrameworkDetector {
-                        matching_strategy: FrameworkMatchingStrategy::Any,
-                        detectors: vec![
-                            FrameworkDetectionItem::File {
-                                path: "package-lock.json".to_string(),
-                                content: None,
-                            },
-                            FrameworkDetectionItem::File {
-                                path: "package.json".to_string(),
-                                content: Some(r#""packageManager":\\s*"npm@.*"""#.to_string()),
-                            },
-                        ],
-                    },
-                }
-            }
-            PackageManager::Nuget => PackageManagerInfo {
-                name: "nuget".to_string(),
-                install_command: "dotnet add".to_string(),
-                lock_file: "packages.lock.json".to_string(),
-                project_files: vec![],
-                configs: vec![],
-                detection: FrameworkDetector {
-                    matching_strategy: FrameworkMatchingStrategy::Any,
-                    detectors: vec![FrameworkDetectionItem::File {
-                        path: "packages.lock.json".to_string(),
-                        content: None,
-                    }],
-                },
-            },
-            PackageManager::Poetry => PackageManagerInfo {
-                name: "poetry".to_string(),
-                install_command: "poetry install".to_string(),
-                lock_file: "poetry.lock".to_string(),
-                project_files: vec![],
-                configs: vec![],
-                detection: FrameworkDetector {
-                    matching_strategy: FrameworkMatchingStrategy::Any,
-                    detectors: vec![
-                        FrameworkDetectionItem::File {
-                            path: "poetry.lock".to_string(),
-                            content: None,
-                        },
-                        FrameworkDetectionItem::File {
-                            path: "pyproject.toml".to_string(),
-                            content: Some("[tool.poetry]".to_string()),
-                        },
-                    ],
-                },
-            },
-            PackageManager::Pip => PackageManagerInfo {
-                name: "pip".to_string(),
-                install_command: "pip install".to_string(),
-                lock_file: "pipfile.lock".to_string(),
-                project_files: vec![],
-                configs: vec![],
-                detection: FrameworkDetector {
-                    matching_strategy: FrameworkMatchingStrategy::Any,
-                    detectors: vec![
-                        FrameworkDetectionItem::File {
-                            path: "pipfile.lock".to_string(),
-                            content: None,
-                        },
-                        FrameworkDetectionItem::File {
-                            path: "pipfile".to_string(),
-                            content: None,
-                        },
-                        FrameworkDetectionItem::File {
-                            path: "requirements.txt".to_string(),
-                            content: None,
-                        },
-                    ],
-                },
-            },
-            PackageManager::Pnpm => PackageManagerInfo {
-                name: "pnpm".to_string(),
-                install_command: "pnpm install".to_string(),
-                lock_file: "pnpm-lock.yaml".to_string(),
-                project_files: vec![],
-                configs: vec![],
-                detection: FrameworkDetector {
-                    matching_strategy: FrameworkMatchingStrategy::Any,
-                    detectors: vec![
-                        FrameworkDetectionItem::File {
-                            path: "pnpm-lock.yaml".to_string(),
-                            content: None,
-                        },
-                        FrameworkDetectionItem::File {
-                            path: "package.json".to_string(),
-                            content: Some(r#""packageManager":\\s*"pnpm@.*""#.to_string()),
-                        },
-                    ],
-                },
-            },
-            PackageManager::Bundler => PackageManagerInfo {
-                name: "bundler".to_string(),
-                install_command: "bundle install".to_string(),
-                lock_file: "Gemfile.lock".to_string(),
-                project_files: vec![],
-                configs: vec![],
-                detection: FrameworkDetector {
-                    matching_strategy: FrameworkMatchingStrategy::Any,
-                    detectors: vec![
-                        FrameworkDetectionItem::File {
-                            path: "Gemfile.lock".to_string(),
-                            content: None,
-                        },
-                        FrameworkDetectionItem::File {
-                            path: "Gemfile".to_string(),
-                            content: None,
-                        },
-                    ],
-                },
-            },
-            PackageManager::Yarn => PackageManagerInfo {
-                name: "yarn".to_string(),
-                install_command: "yarn install".to_string(),
-                lock_file: "yarn.lock".to_string(),
-                project_files: vec![],
-                configs: vec![],
-                detection: FrameworkDetector {
-                    matching_strategy: FrameworkMatchingStrategy::Any,
-                    detectors: vec![
-                        FrameworkDetectionItem::File {
-                            path: "yarn.lock".to_string(),
-                            content: None,
-                        },
-                        FrameworkDetectionItem::File {
-                            path: "package.json".to_string(),
-                            content: Some(r#""packageManager":\\s*"yarn@.*""#.to_string()),
-                        },
-                    ],
-                },
-            },
-        }
+impl PackageManagerInfo {
+    pub fn find_by_id(id: &str) -> Option<PackageManagerInfo> {
+        PACKAGE_MANAGER_MAP.get(id).cloned()
     }
 
-    // pub fn has_dependency(&self, dependency: &str) -> bool {
-    //     for p in self.info().project_files {
-    //         let found = p.has_dependency(dependency);
-    //         // TODO: do we want to log error that file could not be read? Do we want to separate
-    //         // file doesnt exist and file cannt be read?
-    //         if found.is_ok() {
-    //             return true
-    //         }
-    //     }
-    //     false
-    //     // match self {
-    //     //     PackageManager::NPM => {
-    //     //         for manifest in &self.info().manifests {
-    //     //             // TODO: read_config to Value
-    //     //             let root: Value = serde_json::from_str(manifest)?;
-    //     //
-    //     //             if root.get("dependencies").and_then(dependency).is_some() {
-    //     //                 return true
-    //     //             }
-    //     //         }
-    //     //         false
-    //     //     }
-    //     //     PackageManager::Poetry => {
-    //     //         for manifest in &self.info().manifests {
-    //     //             // TODO: read_config to Value
-    //     //             let root: Value = serde_json::from_str(manifest)?;
-    //     //             if root.get("tool.poetry.dependencies").and_then(dependency).is_some() {
-    //     //                 return true
-    //     //             }
-    //     //         }
-    //     //         false
-    //     //     }
-    //     //     PackageManager::PIP => {
-    //     //         // TODO: handle requirements.txt and Pipfile
-    //     //     }
-    //     //     PackageManager::PNPM => {
-    //     //         for manifest in &self.info().manifests {
-    //     //             // TODO: read_config to Value
-    //     //             let root: Value = serde_json::from_str(manifest)?;
-    //     //             // might be to do these individual lookup
-    //     //             if root.get("tool.poetry.dependencies").and_then(dependency).is_some() {
-    //     //                 return true
-    //     //             }
-    //     //         }
-    //     //         false
-    //     //     }
-    //     //     PackageManager::RubyGems => {
-    //     //         // will a contains be good enough?
-    //     //     }
-    //     //     PackageManager::Yarn => {
-    //     //         for manifest in &self.info().manifests {
-    //     //             // TODO: read_config to Value
-    //     //             let root: Value = serde_json::from_str(manifest)?;
-    //     //             if root.get("dependencies").and_then(dependency).is_some() {
-    //     //                 return true
-    //     //             }
-    //     //         }
-    //     //         false
-    //     //     }
-    //     // }
-    // }
+    pub fn find_by_ids(ids: Vec<&str>) -> Vec<PackageManagerInfo> {
+        ids.iter()
+            .filter_map(|id| PackageManagerInfo::find_by_id(id))
+            .collect()
+    }
 }
-
-// impl FromStr for PackageManager {
-//     type Err = String;
-//     fn from_str(s: &str) -> Result<Self, Self::Err> {
-//         match s {
-//             "cargo" => Ok(PackageManager::Cargo),
-//             "pnpm" => Ok(PackageManager::Pnpm),
-//             "yarn" => Ok(PackageManager::Yarn),
-//             "npm" => Ok(PackageManager::Npm),
-//             _ => Err("Invalid package manager".to_string()),
-//         }
-//     }
-// }
-
-// JavaScript
-// npm - package-lock.json, package.json
-// yarn - yarn.lock, package.json
-// pnpm - pnpm-lock.yaml
-// pub struct Npm {
-//     pub info: PackageManagerInfo
-// }
-//
-// impl Default for Npm {
-//     fn default() -> Self {
-//         Self {
-//             info: PackageManagerInfo {
-//                 name: "npm",
-//                 install_command: "npm install",
-//                 manifests: vec!["package.json"],
-//                 lock_file: "package-lock.json",
-//             },
-//         }
-//     }
-// }
-//
-// pub struct Yarn {
-//     pub info: PackageManagerInfo
-// }
-//
-// impl Default for Yarn {
-//     fn default() -> Self {
-//         Self {
-//             info: PackageManagerInfo {
-//                 name: "yarn",
-//                 install_command: "yarn install",
-//                 manifests: vec!["package.json"],
-//                 lock_file: "yarn.lock",
-//             },
-//         }
-//     }
-// }
-//
-// pub struct Pnpm {
-//     pub info: PackageManagerInfo
-// }
-//
-// impl Default for Pnpm {
-//     fn default() -> Self {
-//         Self {
-//             info: PackageManagerInfo {
-//                 name: "pnpm",
-//                 install_command: "pnpm install",
-//                 manifests: vec!["package.json"],
-//                 lock_file: "pnpm-lock.yaml",
-//             },
-//         }
-//     }
-// }
-//
-// pub struct Pip {
-//     pub info: PackageManagerInfo
-// }
-//
-// impl Default for Pip {
-//     fn default() -> Self {
-//         Self {
-//             info: PackageManagerInfo {
-//                 name: "pip",
-//                 install_command: "pip install",
-//                 manifests: vec!["pipfile", "requirements.txt"],
-//                 lock_file: "pipfile.lock",
-//             },
-//         }
-//     }
-// }
-//
-// pub struct Poetry {
-//     pub info: PackageManagerInfo
-// }
-//
-// impl Default for Poetry {
-//     fn default() -> Self {
-//         Self {
-//             info: PackageManagerInfo {
-//                 name: "poetry",
-//                 install_command: "poetry install",
-//                 manifests: vec!["pyproject.toml"],
-//                 lock_file: "poetry.lock",
-//             },
-//         }
-//     }
-// }
-//
-// pub struct RubyGems {
-//     pub info: PackageManagerInfo
-// }
-//
-// impl Default for RubyGems {
-//     fn default() -> Self {
-//         Self {
-//             info: PackageManagerInfo {
-//                 name: "rubygems",
-//                 install_command: "",
-//                 manifests: vec!["Gemfile"],
-//                 lock_file: "Gemfile.lock",
-//             },
-//         }
-//     }
-// }
-
-// JavaScript
-// npm - package-lock.json, package.json
-// yarn - yarn.lock, package.json
-// pnpm - pnpm-lock.yaml
-
-// Python
-// pip - requirements.txt, pipfile.lock, pipfile, setup.py
-// poetry - poetry.lock, pyproject.toml
-
-// Ruby
-// Gems - Gemfile.lock, Gemfile
