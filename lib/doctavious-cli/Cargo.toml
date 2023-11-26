@@ -1,0 +1,12 @@
+[package]
+name = "doctavious-cli"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[dependencies]
+cifrs = { path = "../../lib/cifrs" }
+
+remain = { workspace = true }
+thiserror = { workspace = true }
+tracing = { workspace = true }
