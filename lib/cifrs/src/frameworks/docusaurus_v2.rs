@@ -30,7 +30,7 @@ use crate::frameworks::{FrameworkConfigFile, FrameworkConfiguration};
 use crate::CifrsResult;
 
 #[derive(Deserialize)]
-pub struct DocusaurusConfig {}
+pub struct DocusaurusConfig;
 
 impl FrameworkConfiguration for DocusaurusConfig {
     type Config = Self;

@@ -1,5 +1,3 @@
-// implementation base on https://github.com/systeminit/si/blob/main/lib/object-tree/src/lib.rs
-
 use std::collections::HashMap;
 use std::error::Error;
 use std::fs;

@@ -12,7 +12,7 @@ use crate::frameworks::{FrameworkConfigFile, FrameworkConfiguration};
 use crate::CifrsResult;
 
 #[derive(Deserialize)]
-pub struct SphinxConfig {}
+pub struct SphinxConfig;
 
 impl FrameworkConfiguration for SphinxConfig {
     type Config = Self;
