@@ -5,8 +5,8 @@ use std::path::PathBuf;
 use lazy_static::lazy_static;
 use serde_derive::{Deserialize, Serialize};
 
-use crate::framework::{FrameworkDetectionItem, FrameworkDetector, FrameworkMatchingStrategy};
 use crate::framework_detection::Detectable;
+use crate::frameworks::{FrameworkDetectionItem, FrameworkDetector, FrameworkMatchingStrategy};
 use crate::projects::project_file::ProjectFile;
 
 pub const PACKAGE_MANAGER_STR: &str = include_str!("package_managers.yaml");

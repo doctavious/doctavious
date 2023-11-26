@@ -6,13 +6,12 @@ use glob::PatternError;
 use thiserror::Error;
 use tracing::error;
 
-use crate::framework::FrameworkInfo;
 use crate::framework_detection::Detectable;
+use crate::frameworks::{FrameworkBuildArgs, FrameworkInfo};
 use crate::package_manager::PackageManagerInfo;
 use crate::workspaces::Workspace;
 
 mod backends;
-mod framework;
 mod framework_detection;
 mod frameworks;
 mod js_module;
@@ -129,7 +128,8 @@ impl Cifrs {
             }
         }
 
-        let build_status = Cifrs::do_build(&framework)?;
+        let build_status =
+            Cifrs::do_build(&framework.build.command, &framework.build.command_args)?;
         if !build_status.success() {
             let build_status_code = build_status
                 .code()
@@ -171,30 +171,40 @@ impl Cifrs {
     }
 
     fn do_install(package_manager: &PackageManagerInfo) -> CifrsResult<ExitStatus> {
-        println!("install command {}", &package_manager.install_command);
-        let install_command = package_manager.install_command.as_str();
-        let mut install_process = if cfg!(target_os = "windows") {
-            Command::new("cmd").args(["/C", install_command]).spawn()
-        } else {
-            Command::new("sh").args(["-c", install_command]).spawn()
-        }?;
-
-        let status = install_process.wait()?;
-        return Ok(status);
+        Ok(Cifrs::get_command(package_manager.install_command.as_str())
+            .spawn()?
+            .wait()?)
     }
 
-    fn do_build(info: &FrameworkInfo) -> CifrsResult<ExitStatus> {
-        println!("build command {}", &info.build.command);
-        let mut build_process = if cfg!(target_os = "windows") {
-            Command::new("cmd")
-                .args(["/C", &info.build.command])
-                .spawn()
-        } else {
-            Command::new("sh").args(["-c", &info.build.command]).spawn()
-        }?;
+    fn do_build(cmd: &str, args: &Option<FrameworkBuildArgs>) -> CifrsResult<ExitStatus> {
+        let mut command = Cifrs::get_command(cmd);
 
-        let status = build_process.wait()?;
-        return Ok(status);
+        // TODO(Sean): pass appropriate values to command
+        if let Some(args) = args {
+            if let Some(config) = &args.config {}
+
+            if let Some(output) = &args.output {}
+
+            if let Some(source) = &args.source {}
+        }
+
+        Ok(command.spawn()?.wait()?)
+    }
+
+    fn get_command(cmd: &str) -> Command {
+        let mut command = if cfg!(target_os = "windows") {
+            Command::new("cmd")
+        } else {
+            Command::new("sh")
+        };
+
+        if cfg!(target_os = "windows") {
+            command.args(["/C", cmd])
+        } else {
+            command.args(["-c", cmd])
+        };
+
+        command
     }
 
     pub fn detect_workspace<'a, P: AsRef<Path>>(cwd: P) -> CifrsResult<Option<Workspace>> {

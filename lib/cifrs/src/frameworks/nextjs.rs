@@ -5,25 +5,21 @@
 // .next -> default directory
 // change be changed via distDir
 
-use std::path::PathBuf;
-
 use serde::Deserialize;
 use swc_ecma_ast::Program;
 
-// read_config_files, ConfigurationFileDeserialization,
-use crate::framework::{
-    deser_config, FrameworkConfiguration, FrameworkConfigurationFormat, FrameworkSupport,
-};
+use crate::frameworks::{FrameworkConfigFile, FrameworkConfiguration};
 use crate::js_module::PropertyAccessor;
 use crate::{CifrsError, CifrsResult};
 
 #[derive(Deserialize)]
-struct NextJSConfig {
+pub struct NextJSConfig {
     output: String,
 }
 
-
 impl FrameworkConfiguration for NextJSConfig {
+    type Config = Self;
+
     fn from_js_module(program: &Program) -> CifrsResult<Self> {
         if let Some(module) = program.as_module() {
             if let Some(output) = module.get_property_as_string("distDir") {
@@ -32,16 +28,18 @@ impl FrameworkConfiguration for NextJSConfig {
         }
         Err(CifrsError::InvalidConfig("nextjs".to_string()))
     }
-}
 
-pub fn get_output_dir(format: &FrameworkConfigurationFormat) -> CifrsResult<Option<String>> {
-    let config = deser_config::<NextJSConfig>(format)?;
-    Ok(Some(config.output))
+    fn convert_to_common_config(config: &Self::Config) -> FrameworkConfigFile {
+        FrameworkConfigFile {
+            output_dir: Some(config.output.to_owned()),
+        }
+    }
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::framework::{FrameworkConfigurationFormat, FrameworkSupport};
+    use crate::frameworks::nextjs::NextJSConfig;
+    use crate::frameworks::FrameworkConfiguration;
 
     #[test]
     fn test_nextjs() {
@@ -49,9 +47,8 @@ mod tests {
             "tests/fixtures/framework_configs/nextjs/next_js_v1.mjs",
             "tests/fixtures/framework_configs/nextjs/next_js_v2.mjs",
         ] {
-            let config = FrameworkConfigurationFormat::from_path(path).unwrap();
-            let output = super::get_output_dir(&config).unwrap();
-            assert_eq!(output, Some(String::from("build")))
+            let config = NextJSConfig::get_config(path).unwrap();
+            assert_eq!(config.output_dir, Some(String::from("build")))
         }
     }
 }

@@ -1,22 +1,18 @@
-use std::path::PathBuf;
-
 use serde::Deserialize;
 use swc_ecma_ast::Program;
 
-// read_config_files, ConfigurationFileDeserialization,
-use crate::framework::{
-    deser_config, FrameworkConfiguration, FrameworkConfigurationFormat, FrameworkSupport,
-};
+use crate::frameworks::{FrameworkConfigFile, FrameworkConfiguration};
 use crate::js_module::PropertyAccessor;
 use crate::{CifrsError, CifrsResult};
 
 #[derive(Deserialize)]
-struct Nuxt3JSConfig {
+pub struct Nuxt3JSConfig {
     output: Option<String>,
 }
 
-
 impl FrameworkConfiguration for Nuxt3JSConfig {
+    type Config = Self;
+
     fn from_js_module(program: &Program) -> CifrsResult<Self> {
         if let Some(module) = program.as_module() {
             let output = module.get_property_as_string("publicDir");
@@ -26,16 +22,18 @@ impl FrameworkConfiguration for Nuxt3JSConfig {
         }
         Err(CifrsError::InvalidConfig("nuxt".to_string()))
     }
-}
 
-pub fn get_output_dir(format: &FrameworkConfigurationFormat) -> CifrsResult<Option<String>> {
-    let config = deser_config::<Nuxt3JSConfig>(format)?;
-    Ok(config.output)
+    fn convert_to_common_config(config: &Self::Config) -> FrameworkConfigFile {
+        FrameworkConfigFile {
+            output_dir: config.output.to_owned(),
+        }
+    }
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::framework::{FrameworkConfigurationFormat, FrameworkSupport};
+    use crate::frameworks::nuxt_v3::Nuxt3JSConfig;
+    use crate::frameworks::FrameworkConfiguration;
 
     #[test]
     fn test_nuxtjs() {
@@ -43,9 +41,8 @@ mod tests {
             "tests/fixtures/framework_configs/nuxt3js/nuxt_nitro.config.ts",
             "tests/fixtures/framework_configs/nuxt3js/nuxt_vite.config.ts",
         ] {
-            let config = FrameworkConfigurationFormat::from_path(path).unwrap();
-            let output = super::get_output_dir(&config).unwrap();
-            assert_eq!(output, Some(String::from("build")))
+            let config = Nuxt3JSConfig::get_config(path).unwrap();
+            assert_eq!(config.output_dir, Some(String::from("build")))
         }
     }
 }

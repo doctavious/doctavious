@@ -3,15 +3,10 @@
 // change be changed via build.build-dir
 
 use std::collections::HashMap;
-use std::path::PathBuf;
 
 use serde::Deserialize;
 
-// read_config_files, ConfigurationFileDeserialization,
-use crate::framework::{
-    deser_config, FrameworkConfiguration, FrameworkConfigurationFormat, FrameworkSupport,
-};
-use crate::CifrsResult;
+use crate::frameworks::{FrameworkConfigFile, FrameworkConfiguration};
 
 #[derive(Deserialize)]
 #[serde(rename_all = "kebab-case")]
@@ -20,33 +15,30 @@ struct MDBookBuildOptions {
 }
 
 #[derive(Deserialize)]
-struct MDBookConfig {
+pub struct MDBookConfig {
     build: HashMap<String, String>,
 }
 
-impl FrameworkConfiguration for MDBookConfig {}
+impl FrameworkConfiguration for MDBookConfig {
+    type Config = Self;
 
-pub fn get_output_dir(format: &FrameworkConfigurationFormat) -> CifrsResult<Option<String>> {
-    let config = deser_config::<MDBookConfig>(format)?;
-    if let Some(build_dir) = config.build.get("build-dir") {
-        return Ok(Some(build_dir.to_string()));
+    fn convert_to_common_config(config: &Self::Config) -> FrameworkConfigFile {
+        FrameworkConfigFile {
+            output_dir: config.build.get("build-dir").cloned(),
+        }
     }
-
-    Ok(None)
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::framework::{FrameworkConfigurationFormat, FrameworkSupport};
+    use crate::frameworks::mdbook::MDBookConfig;
+    use crate::frameworks::FrameworkConfiguration;
 
     #[test]
     fn test_mdbook() {
-        let config = FrameworkConfigurationFormat::from_path(
-            "tests/fixtures/framework_configs/mdbook/book.toml",
-        )
-        .unwrap();
+        let config =
+            MDBookConfig::get_config("tests/fixtures/framework_configs/mdbook/book.toml").unwrap();
 
-        let output = super::get_output_dir(&config).unwrap();
-        assert_eq!(output, Some(String::from("build")))
+        assert_eq!(config.output_dir, Some(String::from("build")))
     }
 }

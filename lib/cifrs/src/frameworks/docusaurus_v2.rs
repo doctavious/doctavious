@@ -23,39 +23,44 @@
 
 // TODO: support monorepo
 
-use std::path::PathBuf;
-
 use serde::Deserialize;
-use serde_derive::Serialize;
+use swc_ecma_ast::Program;
 
-// ConfigurationFileDeserialization
-use crate::backends::LanguageBackends;
-use crate::framework::{
-    FrameworkBuildArg, FrameworkBuildArgs, FrameworkBuildSettings, FrameworkConfigurationFormat,
-    FrameworkDetectionItem, FrameworkDetector, FrameworkInfo, FrameworkMatchingStrategy,
-    FrameworkSupport,
-};
+use crate::frameworks::{FrameworkConfigFile, FrameworkConfiguration};
 use crate::CifrsResult;
 
-// TODO: verify this implementation
-// Vercel checks if there is a a single file (directory) under build and if so uses it
-// otherwise uses build
-pub fn get_output_dir(_format: &FrameworkConfigurationFormat) -> CifrsResult<Option<String>> {
-    Ok(None)
+#[derive(Deserialize)]
+pub struct DocusaurusConfig {}
+
+impl FrameworkConfiguration for DocusaurusConfig {
+    type Config = Self;
+
+    fn from_js_module(_program: &Program) -> CifrsResult<Self> {
+        Ok(Self {})
+    }
+
+    fn convert_to_common_config(_config: &Self::Config) -> FrameworkConfigFile {
+        // TODO: verify this implementation
+        // Vercel checks if there is a a single file (directory) under build and if so uses it
+        // otherwise uses build.
+        // Current implementation doesnt give us access to framework info
+        // would need to pass in framework info (to get default output dir) and cwd path
+        FrameworkConfigFile { output_dir: None }
+    }
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::framework::{FrameworkConfigurationFormat, FrameworkSupport};
+    use crate::frameworks::docusaurus_v2::DocusaurusConfig;
+    use crate::frameworks::FrameworkConfiguration;
 
     #[test]
     fn test_docusaurus() {
-        let config = FrameworkConfigurationFormat::from_path(
+        let config = DocusaurusConfig::get_config(
             "tests/fixtures/framework_configs/docusaurus_v2/docusaurus.config.js",
         )
         .unwrap();
 
-        let output = super::get_output_dir(&config).unwrap();
-        assert_eq!(output, None)
+        assert_eq!(config.output_dir, None)
     }
 }

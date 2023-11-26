@@ -6,16 +6,10 @@
 // antora generate <playbook> --to-dir <dir>
 
 use std::collections::HashMap;
-use std::path::PathBuf;
 
 use serde::Deserialize;
 
-use crate::framework::FrameworkMatchingStrategy::Any;
-// read_config_files, ConfigurationFileDeserialization,
-use crate::framework::{
-    deser_config, FrameworkConfiguration, FrameworkConfigurationFormat, FrameworkSupport,
-};
-use crate::CifrsResult;
+use crate::frameworks::{FrameworkConfigFile, FrameworkConfiguration};
 
 #[derive(Deserialize)]
 pub struct AntoraConfig {
@@ -27,36 +21,28 @@ struct AntoraConfigOutputKeys {
     dir: Option<String>,
 }
 
+impl FrameworkConfiguration for AntoraConfig {
+    type Config = Self;
 
-impl FrameworkConfiguration for AntoraConfig { }
-
-impl AntoraConfig {
-    // pub fn get_output(configs: Vec<PathBuf>) -> CifrsResult<String> {
-    //     let s = AntoraConfig::read_config_files::<Self>(&configs);
-    // }
-}
-
-pub fn get_output_dir(format: &FrameworkConfigurationFormat) -> CifrsResult<Option<String>> {
-    let config = deser_config::<AntoraConfig>(format)?;
-    if let Some(dir) = config.output.get("dir") {
-        return Ok(Some(dir.to_string()));
+    fn convert_to_common_config(config: &Self::Config) -> FrameworkConfigFile {
+        FrameworkConfigFile {
+            output_dir: config.output.get("dir").cloned(),
+        }
     }
-
-    Ok(None)
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::framework::{FrameworkConfigurationFormat, FrameworkSupport};
+    use crate::frameworks::antora::AntoraConfig;
+    use crate::frameworks::FrameworkConfiguration;
 
     #[test]
     fn test_antora() {
-        let config = FrameworkConfigurationFormat::from_path(
+        let config = AntoraConfig::get_config(
             "tests/fixtures/framework_configs/antora/antora-playbook.yaml",
         )
         .unwrap();
 
-        let output = super::get_output_dir(&config).unwrap();
-        assert_eq!(output, Some(String::from("./launch")))
+        assert_eq!(config.output_dir, Some(String::from("./launch")))
     }
 }

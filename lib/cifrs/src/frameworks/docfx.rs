@@ -4,18 +4,13 @@
 // docfx build [-o:<output_path>] [-t:<template folder>]
 
 use std::collections::HashMap;
-use std::path::PathBuf;
 
 use serde::Deserialize;
 
-// read_config_files, ConfigurationFileDeserialization,
-use crate::framework::{
-    deser_config, FrameworkConfiguration, FrameworkConfigurationFormat, FrameworkSupport,
-};
-use crate::CifrsResult;
+use crate::frameworks::{FrameworkConfigFile, FrameworkConfiguration};
 
 #[derive(Deserialize)]
-struct DocFxConfig {
+pub struct DocFxConfig {
     build: HashMap<String, String>,
 }
 
@@ -24,29 +19,26 @@ struct DocFxConfigBuild {
     dest: String,
 }
 
-impl FrameworkConfiguration for DocFxConfig {}
+impl FrameworkConfiguration for DocFxConfig {
+    type Config = Self;
 
-pub fn get_output_dir(format: &FrameworkConfigurationFormat) -> CifrsResult<Option<String>> {
-    let config = deser_config::<DocFxConfig>(format)?;
-    if let Some(dest) = config.build.get("dest") {
-        return Ok(Some(dest.to_string()));
+    fn convert_to_common_config(config: &Self::Config) -> FrameworkConfigFile {
+        FrameworkConfigFile {
+            output_dir: config.build.get("dest").cloned(),
+        }
     }
-
-    Ok(None)
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::framework::{FrameworkConfigurationFormat, FrameworkSupport};
+    use crate::frameworks::docfx::DocFxConfig;
+    use crate::frameworks::FrameworkConfiguration;
 
     #[test]
     fn test_docfx() {
-        let config = FrameworkConfigurationFormat::from_path(
-            "tests/fixtures/framework_configs/docfx/docfx.json",
-        )
-        .unwrap();
+        let config =
+            DocFxConfig::get_config("tests/fixtures/framework_configs/docfx/docfx.json").unwrap();
 
-        let output = super::get_output_dir(&config).unwrap();
-        assert_eq!(output, Some(String::from("dist")))
+        assert_eq!(config.output_dir, Some(String::from("dist")))
     }
 }

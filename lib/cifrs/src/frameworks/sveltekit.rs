@@ -3,15 +3,10 @@
 // outDir overrides
 // dependency - adapter-static
 
-use std::path::PathBuf;
-
 use serde::Deserialize;
 use swc_ecma_ast::Program;
 
-// read_config_files, ConfigurationFileDeserialization,
-use crate::framework::{
-    deser_config, FrameworkConfiguration, FrameworkConfigurationFormat, FrameworkSupport,
-};
+use crate::frameworks::{FrameworkConfigFile, FrameworkConfiguration};
 use crate::js_module::{
     get_string_property_value, get_variable_declaration, get_variable_properties,
 };
@@ -21,12 +16,13 @@ use crate::{CifrsError, CifrsResult};
 // and ConfigurationFileDeserialization?
 // I suppose we can determine if gatsby-plugin-output is in the plugins and grab it from there
 #[derive(Deserialize)]
-struct SvelteKitConfig {
+pub struct SvelteKitConfig {
     output: Option<String>,
 }
 
-
 impl FrameworkConfiguration for SvelteKitConfig {
+    type Config = Self;
+
     fn from_js_module(program: &Program) -> CifrsResult<Self> {
         // TODO: not sure we need to specifically get 'config' and perhaps rather look for
         // kit and/or outDir
@@ -43,27 +39,28 @@ impl FrameworkConfiguration for SvelteKitConfig {
 
         Err(CifrsError::InvalidConfig("sveltekit".to_string()))
     }
-}
 
-pub fn get_output_dir(format: &FrameworkConfigurationFormat) -> CifrsResult<Option<String>> {
-    let config = deser_config::<SvelteKitConfig>(format)?;
-    Ok(config.output)
+    fn convert_to_common_config(config: &Self::Config) -> FrameworkConfigFile {
+        FrameworkConfigFile {
+            output_dir: config.output.to_owned(),
+        }
+    }
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::framework::{FrameworkConfigurationFormat, FrameworkSupport};
+    use crate::frameworks::sveltekit::SvelteKitConfig;
+    use crate::frameworks::FrameworkConfiguration;
 
     #[test]
     fn test_sveltekit() {
         // tests/fixtures/framework_configs/sveltekit/svelte.config.js
         // tests/fixtures/framework_configs/sveltekit/svelte.config.js
-        let config = FrameworkConfigurationFormat::from_path(
+        let config = SvelteKitConfig::get_config(
             "tests/fixtures/framework_configs/sveltekit/svelte.config.js",
         )
         .unwrap();
 
-        let output = super::get_output_dir(&config).unwrap();
-        assert_eq!(output, Some(String::from("build")))
+        assert_eq!(config.output_dir, Some(String::from("build")))
     }
 }

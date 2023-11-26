@@ -14,25 +14,21 @@
 // .vuepress/config.toml
 // .vuepress/config.ts
 
-use std::path::PathBuf;
-
 use serde::Deserialize;
 use swc_ecma_ast::Program;
 
-// read_config_files, ConfigurationFileDeserialization,
-use crate::framework::{
-    deser_config, FrameworkConfiguration, FrameworkConfigurationFormat, FrameworkSupport,
-};
+use crate::frameworks::{FrameworkConfigFile, FrameworkConfiguration};
 use crate::js_module::PropertyAccessor;
 use crate::{CifrsError, CifrsResult};
 
 #[derive(Deserialize)]
-struct VuePressConfig {
+pub struct VuePressConfig {
     dest: Option<String>,
 }
 
-
 impl FrameworkConfiguration for VuePressConfig {
+    type Config = Self;
+
     fn from_js_module(program: &Program) -> CifrsResult<Self> {
         // TODO: try and simplify
         if let Some(module) = program.as_module() {
@@ -43,16 +39,18 @@ impl FrameworkConfiguration for VuePressConfig {
         }
         Err(CifrsError::InvalidConfig("vuepress".to_string()))
     }
-}
 
-pub fn get_output_dir(format: &FrameworkConfigurationFormat) -> CifrsResult<Option<String>> {
-    let config = deser_config::<VuePressConfig>(format)?;
-    Ok(config.dest)
+    fn convert_to_common_config(config: &Self::Config) -> FrameworkConfigFile {
+        FrameworkConfigFile {
+            output_dir: config.dest.to_owned(),
+        }
+    }
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::framework::{FrameworkConfigurationFormat, FrameworkSupport};
+    use crate::frameworks::vuepress::VuePressConfig;
+    use crate::frameworks::FrameworkConfiguration;
 
     #[test]
     fn test_vuepress() {
@@ -61,9 +59,8 @@ mod tests {
             "tests/fixtures/framework_configs/vuepress/config.toml",
             "tests/fixtures/framework_configs/vuepress/config.ts",
         ] {
-            let config = FrameworkConfigurationFormat::from_path(path).unwrap();
-            let output = super::get_output_dir(&config).unwrap();
-            assert_eq!(output, Some(String::from("build")))
+            let config = VuePressConfig::get_config(path).unwrap();
+            assert_eq!(config.output_dir, Some(String::from("build")))
         }
     }
 }

@@ -7,26 +7,23 @@
 // dir.output
 // defaults to _site
 
-use std::path::PathBuf;
-
 use serde::Deserialize;
 use swc_ecma_ast::Program;
 
-// read_config_files, ConfigurationFileDeserialization,
-use crate::framework::{
-    deser_config, FrameworkConfiguration, FrameworkConfigurationFormat, FrameworkSupport,
-};
+use crate::frameworks::{FrameworkConfigFile, FrameworkConfiguration};
 use crate::js_module::{
     get_assignment_function, get_function_return_obj, get_obj_property, get_string_property_value,
 };
 use crate::{CifrsError, CifrsResult};
 
 #[derive(Deserialize)]
-struct EleventyConfig {
+pub struct EleventyConfig {
     output: String,
 }
 
 impl FrameworkConfiguration for EleventyConfig {
+    type Config = Self;
+
     fn from_js_module(program: &Program) -> CifrsResult<Self> {
         if let Some(func) = get_assignment_function(program) {
             if let Some(return_obj) = get_function_return_obj(func) {
@@ -40,25 +37,25 @@ impl FrameworkConfiguration for EleventyConfig {
 
         Err(CifrsError::InvalidConfig("eleventy".to_string()))
     }
-}
 
-pub fn get_output_dir(format: &FrameworkConfigurationFormat) -> CifrsResult<Option<String>> {
-    let config = deser_config::<EleventyConfig>(format)?;
-    Ok(Some(config.output))
+    fn convert_to_common_config(config: &Self::Config) -> FrameworkConfigFile {
+        FrameworkConfigFile {
+            output_dir: Some(config.output.to_owned()),
+        }
+    }
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::framework::{FrameworkConfigurationFormat, FrameworkSupport};
+    use crate::frameworks::eleventy::EleventyConfig;
+    use crate::frameworks::FrameworkConfiguration;
 
     #[test]
     fn test_eleventy() {
-        let config = FrameworkConfigurationFormat::from_path(
-            "tests/fixtures/framework_configs/eleventy/.eleventy.js",
-        )
-        .unwrap();
+        let config =
+            EleventyConfig::get_config("tests/fixtures/framework_configs/eleventy/.eleventy.js")
+                .unwrap();
 
-        let output = super::get_output_dir(&config).unwrap();
-        assert_eq!(output, Some(String::from("dist")))
+        assert_eq!(config.output_dir, Some(String::from("dist")))
     }
 }

@@ -5,15 +5,10 @@
 
 // gatsby build
 
-use std::path::PathBuf;
-
 use serde::Deserialize;
 use swc_ecma_ast::Program;
 
-//read_config_files, ConfigurationFileDeserialization,
-use crate::framework::{
-    deser_config, FrameworkConfiguration, FrameworkConfigurationFormat, FrameworkSupport,
-};
+use crate::frameworks::{FrameworkConfigFile, FrameworkConfiguration};
 use crate::js_module::{
     find_array_element, get_array_property, get_assignment_obj, get_obj_property,
     get_string_property_value,
@@ -24,11 +19,13 @@ use crate::{CifrsError, CifrsResult};
 // and ConfigurationFileDeserialization?
 // I suppose we can determine if gatsby-plugin-output is in the plugins and grab it from there
 #[derive(Deserialize)]
-struct GatsbyConfig {
+pub struct GatsbyConfig {
     output: String,
 }
 
 impl FrameworkConfiguration for GatsbyConfig {
+    type Config = Self;
+
     fn from_js_module(program: &Program) -> CifrsResult<Self> {
         if let Some(obj) = get_assignment_obj(program) {
             if let Some(plugins) = get_array_property(obj, "plugins") {
@@ -48,25 +45,25 @@ impl FrameworkConfiguration for GatsbyConfig {
 
         Err(CifrsError::InvalidConfig("gatsby".to_string()))
     }
-}
 
-pub fn get_output_dir(format: &FrameworkConfigurationFormat) -> CifrsResult<Option<String>> {
-    let config = deser_config::<GatsbyConfig>(format)?;
-    Ok(Some(config.output))
+    fn convert_to_common_config(config: &Self::Config) -> FrameworkConfigFile {
+        FrameworkConfigFile {
+            output_dir: Some(config.output.to_owned()),
+        }
+    }
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::framework::{FrameworkConfigurationFormat, FrameworkSupport};
+    use crate::frameworks::gatsby::GatsbyConfig;
+    use crate::frameworks::FrameworkConfiguration;
 
     #[test]
     fn test_gatsby() {
-        let config = FrameworkConfigurationFormat::from_path(
-            "tests/fixtures/framework_configs/gatsby/gatsby-config.js",
-        )
-        .unwrap();
+        let config =
+            GatsbyConfig::get_config("tests/fixtures/framework_configs/gatsby/gatsby-config.js")
+                .unwrap();
 
-        let output = super::get_output_dir(&config).unwrap();
-        assert_eq!(output, Some(String::from("dist")))
+        assert_eq!(config.output_dir, Some(String::from("dist")))
     }
 }

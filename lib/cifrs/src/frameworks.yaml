@@ -270,15 +270,6 @@
     detectors:
       - type: dependency
         name: next
-#  - id: nextra
-#    name: Nextra
-#    website: https://nextra.site/
-#    configs:
-#      - next.config.js
-#    backend: javascript
-#    build:
-#      command: next build
-#      output_directory: .next
 - id: nuxt-v2
   name: Nuxt V2
   website: https://v2.nuxt.com/

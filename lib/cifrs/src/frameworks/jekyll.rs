@@ -5,40 +5,36 @@
 // destination: DIR
 // jekyll build -d, --destination DIR
 
-use std::path::PathBuf;
-
 use serde::Deserialize;
 
-//read_config_files, ConfigurationFileDeserialization,
-use crate::framework::{
-    deser_config, FrameworkConfiguration, FrameworkConfigurationFormat, FrameworkSupport,
-};
-use crate::CifrsResult;
+use crate::frameworks::{FrameworkConfigFile, FrameworkConfiguration};
 
 #[derive(Deserialize)]
-struct JekyllConfig {
+pub struct JekyllConfig {
     destination: Option<String>,
 }
 
-impl FrameworkConfiguration for JekyllConfig {}
+impl FrameworkConfiguration for JekyllConfig {
+    type Config = Self;
 
-pub fn get_output_dir(format: &FrameworkConfigurationFormat) -> CifrsResult<Option<String>> {
-    let config = deser_config::<JekyllConfig>(format)?;
-    Ok(config.destination)
+    fn convert_to_common_config(config: &Self::Config) -> FrameworkConfigFile {
+        FrameworkConfigFile {
+            output_dir: config.destination.to_owned(),
+        }
+    }
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::framework::{FrameworkConfigurationFormat, FrameworkSupport};
+    use crate::frameworks::jekyll::JekyllConfig;
+    use crate::frameworks::FrameworkConfiguration;
 
     #[test]
     fn test_jekyll() {
-        let config = FrameworkConfigurationFormat::from_path(
-            "tests/fixtures/framework_configs/jekyll/_config.yml",
-        )
-        .unwrap();
+        let config =
+            JekyllConfig::get_config("tests/fixtures/framework_configs/jekyll/_config.yml")
+                .unwrap();
 
-        let output = super::get_output_dir(&config).unwrap();
-        assert_eq!(output, Some(String::from("build")))
+        assert_eq!(config.output_dir, Some(String::from("build")))
     }
 }

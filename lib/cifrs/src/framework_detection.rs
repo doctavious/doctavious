@@ -6,7 +6,7 @@ use regex::RegexBuilder;
 use serde_derive::Serialize;
 use tracing::{debug, error};
 
-use crate::framework::{FrameworkDetectionItem, FrameworkInfo, FrameworkMatchingStrategy};
+use crate::frameworks::{FrameworkDetectionItem, FrameworkInfo, FrameworkMatchingStrategy};
 use crate::projects::project_file::ProjectFile;
 
 // Return matched Framework
