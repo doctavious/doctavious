@@ -1,4 +1,5 @@
-mod cmd;
+pub mod cmd;
+pub mod enums;
 
 use thiserror::Error;
 

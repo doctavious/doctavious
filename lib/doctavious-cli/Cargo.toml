@@ -8,5 +8,6 @@ publish = false
 cifrs = { path = "../../lib/cifrs" }
 
 remain = { workspace = true }
+serde = { workspace = true }
 thiserror = { workspace = true }
 tracing = { workspace = true }
