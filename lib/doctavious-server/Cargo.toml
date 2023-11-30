@@ -7,6 +7,7 @@ publish = false
 [dependencies]
 anyhow = { workspace = true }
 axum = { workspace = true, features = ["headers", "http2", "macros", "multipart", "ws"] }
+console-subscriber = { workspace = true }
 figment = { workspace = true, features = ["env", "json", "toml", "serde_json", "test", "serde_yaml"] }
 futures = { workspace = true, default-features = false, features = ["compat", "io-compat"], package = "futures" }
 mime = { workspace = true }
@@ -14,8 +15,13 @@ mime = { workspace = true }
 # given the free tier of Cloudflare's R2 storage I would like to add that
 opendal = { workspace = true, features = ["layers-otel-trace", "layers-metrics", "layers-tracing"] }
 serde = { workspace = true, features = ["derive"]}
-tokio = { workspace = true, features = ["fs", "macros", "rt", "rt-multi-thread", "tracing", "io-util", "signal"] }
+tokio = { workspace = true, features = ["full", "fs", "macros", "rt", "rt-multi-thread", "tracing", "io-util", "signal"] }
 thiserror = { workspace = true }
+tracing = { workspace = true }
 tracing-opentelemetry = { workspace = true }
+tracing-subscriber = { workspace = true }
 ulid = { workspace = true }
 uuid = { workspace = true, features = ["v4"] }
+
+[build-dependencies]
+built = "0.7"

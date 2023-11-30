@@ -1,5 +1,6 @@
 use anyhow::Result;
 use clap::Parser;
+use tracing::log::Level;
 
 use crate::args::BuildCommand;
 use crate::output::{Output, parse_output};
@@ -38,15 +39,22 @@ enum Command {
 
 
 fn main() -> Result<()> {
+    // TODO: get version and check for updates. print if cli is not latest
 
-    // TODO: telemetry?
+    let opt = Opt::parse();
+
+    let tracing_level = if opt.debug { tracing::Level::DEBUG } else { tracing::Level::INFO };
+    tracing_subscriber::fmt::fmt().with_max_level(tracing_level).init();
+
+    // TODO: should probably log diagnostics info/debug to stderr and result to stdout
+
+    // TODO: get configuration: file + env
 
 
-    // let opt = Opt::parse();
-    // if opt.debug {
-    //     env::set_var("RUST_LOG", "debug");
-    //     env_logger::init();
-    // }
+    match opt.cmd {
+        Command::Build(_) => {}
+    }
+
 
     Ok(())
 }

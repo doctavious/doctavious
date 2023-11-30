@@ -2,17 +2,13 @@ mod configuration;
 mod features;
 
 use anyhow::Result;
-use axum::{
-    http::{StatusCode, Uri},
-    routing::get,
-    Router,
-};
-
-
-use opendal::Operator;
+use axum::http::{StatusCode, Uri};
+use axum::routing::get;
+use axum::Router;
 use opendal::services::Fs;
-
+use opendal::Operator;
 use tokio::signal;
+
 use crate::configuration::get_configuration;
 use crate::features::deployment;
 
@@ -23,7 +19,6 @@ use crate::features::deployment;
 // Use Extension instead for such data.
 
 // TODO: read about into_make_service_with_connect_info and ConnectInfo
-
 
 // The application state
 // here we can add configuration, database connection pools, or whatever
@@ -37,10 +32,8 @@ use crate::features::deployment;
 #[derive(Clone)]
 struct AppState {}
 
-
 #[tokio::main]
 async fn main() {
-
     // TODO: setup configuration
     // TODO: setup logging
     // TODO: setup tracing
@@ -72,7 +65,6 @@ async fn main() {
         .unwrap();
 }
 
-
 // TODO: swap for configuration built storage that returns appropriate storage provider
 fn get_storage() -> Result<Operator> {
     let mut builder = Fs::default();
@@ -96,6 +88,7 @@ async fn not_found(uri: Uri) -> (StatusCode, String) {
     (StatusCode::NOT_FOUND, format!("No route for {}", uri))
 }
 
+
 async fn shutdown_signal() {
     let ctrl_c = async {
         signal::ctrl_c()
@@ -118,6 +111,4 @@ async fn shutdown_signal() {
         _ = ctrl_c => {},
         _ = terminate => {},
     }
-
-    println!("signal received, starting graceful shutdown");
 }

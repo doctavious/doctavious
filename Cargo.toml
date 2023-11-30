@@ -8,7 +8,8 @@
 [workspace]
 resolver = "2"
 members = [
-    "bin/doctavious",
+    "bin/cli",
+    "bin/server",
     "lib/cifrs",
     "lib/doctavious-cli",
     "lib/doctavious-server",
@@ -21,6 +22,7 @@ axum = { version = "0.6.18", features = ["headers", "http2", "macros", "multipar
 blake3 = "1.3.3"
 chrono = {version="0.4",features = ["serde"]}
 clap = { version = "4.0.32", features = ["derive"] }
+console-subscriber = "0.2.0"
 dotenv = "0.15"
 directories = "5.0.1"
 figment = "0.10.11"

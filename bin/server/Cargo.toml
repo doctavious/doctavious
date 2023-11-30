@@ -1,0 +1,17 @@
+[package]
+name = "server"
+version = "0.1.0"
+edition = "2021"
+
+[[bin]]
+name = "doctavious-server"
+path = "src/main.rs"
+
+[dependencies]
+axum = { workspace = true }
+doctavious-server = { path = "../../lib/doctavious-server" }
+tokio = { workspace = true }
+
+
+[build-dependencies]
+built = "0.7"
