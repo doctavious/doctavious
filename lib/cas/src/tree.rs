@@ -6,7 +6,6 @@ use std::io::{BufReader, Read};
 use std::path::Path;
 
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
-
 use crate::hash::{Hash, Hasher};
 
 // TODO: do we want to include hash algo
@@ -66,17 +65,14 @@ impl MerkleTree {
     ) -> Result<TreeNode, Box<dyn Error>> {
         let mut hasher = Hasher::new();
         let mut children = vec![];
-        // for entry in WalkDir::new(&path).contents_first(true) {
 
         let mut paths = fs::read_dir(&path)?
             .filter_map(Result::ok)
             .collect::<Vec<DirEntry>>();
-        paths.sort_by_key(|dir| dir.path());
+        paths.sort_by_key(|dir| dir.file_name());
 
-        for entry in fs::read_dir(&path)? {
-            let entry = entry?;
+        for entry in paths {
             let path = entry.path();
-
             if path.is_dir() {
                 // If the entry is a directory, recursively create a Merkle tree for it
                 let tree = MerkleTree::create_tree(&path, idx)?;
@@ -112,7 +108,7 @@ impl MerkleTree {
     // For each subtree that is different we would need to store it and all children for the tree
     // but we wouldnt necessarily need to upload the files.
     // Noting the though here for now...trees generally wont change very often and when they do I
-    // dont think latency is much of a factor, comparatively, as it will be part of a deploy which
+    // dont think latency is not much of a factor, comparatively, as it will be part of a deploy which
     // is generally slower so it might just make more sense to store the tree in some compressed form
     // could just be json compressed (pick a compression algo) and we download it as part of the
     // deployment to do the diff and then upload the new tree. The alternative is storing a tree
@@ -172,23 +168,112 @@ impl MerkleTree {
 mod tests {
     use std::error::Error;
     use std::fs;
+    use crate::hash::Hasher;
 
     use crate::tree::MerkleTree;
 
-    #[test]
-    fn verify_tree_two() -> Result<(), Box<dyn Error>> {
-        let tree = MerkleTree::from_path("tests/fixtures/content").unwrap();
+    // baz - f769a64df441b878665034911564c39c8d0ed26df8c1109f0bf4e19edcf51c3c
+    // one.txt - d33fb48ab5adff269ae172b29a6913ff04f6f266207a7a8e976f2ecd571d4492
+    //
+    // foo - 3f1a91c1d5f0fb6bcf218e9ed33b12332b27b019889fd879618079c08ee20490
+    // a.txt - 1edabea435e688e8227aa2497e1d1c8ff311d6bab560c9f28d70b8d4845c8a84
+    // b.txt - ac50b837cff10c7d69ab898da9c0cb5ca3220cca4bc6a9aab772d6bbf787969c
+    //
+    //
+    // two.txt - dc770fff53f50835f8cc957e01c0d5731d3c2ed544c375493a28c09be5e09763
+    // one_copy.txt - dc770fff53f50835f8cc957e01c0d5731d3c2ed544c375493a28c09be5e09763
 
+
+    #[test]
+    fn verify_baz() -> Result<(), Box<dyn Error>> {
         let two_hash =
             blake3::hash(fs::read_to_string("tests/fixtures/content/baz/two.txt")?.as_bytes());
-        let one_hash =
-            blake3::hash(fs::read_to_string("tests/fixtures/content/one.txt")?.as_bytes());
-        let a_hash =
-            blake3::hash(fs::read_to_string("tests/fixtures/content/foo/a.txt")?.as_bytes());
-        let b_hash =
-            blake3::hash(fs::read_to_string("tests/fixtures/content/foo/b.txt")?.as_bytes());
-        let ab_hash =
-            blake3::hash(format!("{}{}", a_hash.to_string(), b_hash.to_string()).as_bytes());
+
+        assert_eq!(
+            "dc770fff53f50835f8cc957e01c0d5731d3c2ed544c375493a28c09be5e09763",
+            two_hash.to_string()
+        );
+
+        let mut hasher = Hasher::new();
+        hasher.update("dc770fff53f50835f8cc957e01c0d5731d3c2ed544c375493a28c09be5e09763".as_bytes());
+        println!("{}", hasher.finalize().to_string());
+
+        println!("{}", blake3::hash("dc770fff53f50835f8cc957e01c0d5731d3c2ed544c375493a28c09be5e09763".as_bytes()).to_string());
+
+        two_hash.as_bytes();
+        println!("{}", blake3::hash(two_hash.to_string().as_bytes()).to_string());
+
+        let baz_directory_hash = MerkleTree::from_path("tests/fixtures/content/baz").unwrap().root.hash;
+        assert_eq!(
+            blake3::hash(two_hash.to_string().as_bytes()).to_string(),
+            baz_directory_hash.to_string()
+        );
+
+        Ok(())
+    }
+
+    #[test]
+    fn verify_tree_two() -> Result<(), Box<dyn Error>> {
+        // let two_hash =
+        //     blake3::hash(fs::read_to_string("tests/fixtures/content/baz/two.txt")?.as_bytes());
+        //
+        // assert_eq!(
+        //     "dc770fff53f50835f8cc957e01c0d5731d3c2ed544c375493a28c09be5e09763",
+        //     two_hash.to_string()
+        // );
+        //
+        // let baz_hash = MerkleTree::from_path("tests/fixtures/content/baz").unwrap().root.hash;
+        // assert_eq!(
+        //     "f769a64df441b878665034911564c39c8d0ed26df8c1109f0bf4e19edcf51c3c",
+        //     baz_hash.to_string()
+        // );
+        //
+        //
+        // let one_hash =
+        //     blake3::hash(fs::read_to_string("tests/fixtures/content/one.txt")?.as_bytes());
+        //
+        // assert_eq!(
+        //     "d33fb48ab5adff269ae172b29a6913ff04f6f266207a7a8e976f2ecd571d4492",
+        //     one_hash.to_string()
+        // );
+        //
+        // let a_hash =
+        //     blake3::hash(fs::read_to_string("tests/fixtures/content/foo/a.txt")?.as_bytes());
+        //
+        // assert_eq!(
+        //     "1edabea435e688e8227aa2497e1d1c8ff311d6bab560c9f28d70b8d4845c8a84",
+        //     a_hash.to_string()
+        // );
+        //
+        //
+        // let b_hash =
+        //     blake3::hash(fs::read_to_string("tests/fixtures/content/foo/b.txt")?.as_bytes());
+        //
+        // assert_eq!(
+        //     "ac50b837cff10c7d69ab898da9c0cb5ca3220cca4bc6a9aab772d6bbf787969c",
+        //     b_hash.to_string()
+        // );
+        //
+        // let ab_hash =
+        //     blake3::hash(format!("{}{}", a_hash.to_string(), b_hash.to_string()).as_bytes());
+        //
+        // assert_eq!(
+        //     "3f1a91c1d5f0fb6bcf218e9ed33b12332b27b019889fd879618079c08ee20490",
+        //     ab_hash.to_string()
+        // );
+        //
+        // let foo_hash = MerkleTree::from_path("tests/fixtures/content/foo").unwrap().root.hash;
+        //
+        // assert_eq!(
+        //     "3f1a91c1d5f0fb6bcf218e9ed33b12332b27b019889fd879618079c08ee20490",
+        //     foo_hash.to_string()
+        // );
+
+        let tree = MerkleTree::from_path("tests/fixtures/content").unwrap();
+        assert_eq!(
+            "83ca14630ffa9bf70a3b60420cb2f53326c867bc971d7b636089b11ca82e8a18",
+            tree.root.hash
+        );
 
         println!("{}", serde_json::to_string(&tree).unwrap());
 
