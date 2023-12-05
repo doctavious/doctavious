@@ -5,6 +5,7 @@ edition = "2021"
 
 [dependencies]
 blake3 = { workspace = true }
+remain = { workspace = true }
 serde = { workspace = true }
 thiserror = { workspace = true }
 walkdir = { workspace = true }

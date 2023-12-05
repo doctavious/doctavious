@@ -3,10 +3,13 @@ use std::error::Error;
 use std::fs;
 use std::fs::{DirEntry, File};
 use std::io::{BufReader, Read};
-use std::path::Path;
+use std::path::{Path, PathBuf};
+use std::str::FromStr;
 
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
+
 use crate::hash::{Hash, Hasher};
+use crate::{CasError, CasResult};
 
 // TODO: do we want to include hash algo
 #[derive(Deserialize, Serialize)]
@@ -16,7 +19,7 @@ pub(crate) struct MerkleTree {
     // Will see how large payload is with index and see what the runtime cost is to populate as part
     // of deserialization. We'll also be compressing payload so it might not be to bad
     // Will want test with trees around 50K - 60K
-    pub idx: HashMap<String, Vec<String>>,
+    pub idx: HashMap<String, Vec<PathBuf>>,
 }
 
 #[derive(Deserialize, Serialize)]
@@ -30,30 +33,24 @@ pub(crate) enum MerkleTreeNode {
 #[derive(Deserialize, Serialize)]
 pub(crate) struct TreeNode {
     hash: String,
-    path: String,
+    path: PathBuf,
     children: Vec<MerkleTreeNode>,
 }
 
 #[derive(Deserialize, Serialize)]
 pub(crate) struct LeafNode {
     hash: String,
-    // should this be path?
-    file_name: String,
+    path: PathBuf,
 }
 
 impl MerkleTree {
-    pub fn from_path<P: AsRef<Path>>(path: P) -> Result<MerkleTree, Box<dyn Error>> {
+    pub fn from_path<P: AsRef<Path>>(path: P) -> CasResult<MerkleTree> {
         let path = path.as_ref();
-        path.try_exists()?;
-        if path.is_file() {
-            // TODO: return error that path must be a directory
+        if !path.is_dir() {
+            return Err(CasError::InvalidMerkleTreeEntry(path.to_path_buf()));
         }
 
-        // map hash to file paths
-        // hash: [file, file, ...]
-        let mut idx: HashMap<String, Vec<String>> = HashMap::new();
-        // normalizedPath: hash
-        // let mut files: HashMap<String, String> = HashMap::new();
+        let mut idx: HashMap<String, Vec<PathBuf>> = HashMap::new();
         let root = MerkleTree::create_tree(path, &mut idx)?;
 
         Ok(MerkleTree { root, idx })
@@ -61,8 +58,8 @@ impl MerkleTree {
 
     fn create_tree<P: AsRef<Path>>(
         path: P,
-        idx: &mut HashMap<String, Vec<String>>,
-    ) -> Result<TreeNode, Box<dyn Error>> {
+        idx: &mut HashMap<String, Vec<PathBuf>>,
+    ) -> CasResult<TreeNode> {
         let mut hasher = Hasher::new();
         let mut children = vec![];
 
@@ -80,7 +77,6 @@ impl MerkleTree {
                 children.push(MerkleTreeNode::Tree(tree));
             } else {
                 // If the entry is a file, read its content and hash it
-                // let path = path.normalize()?.as_path().to_string_lossy().to_string();
                 let path = MerkleTree::normalize(&path);
                 let file_hash = MerkleTree::hash_file(&path)?;
                 idx.entry(file_hash.to_owned())
@@ -90,7 +86,7 @@ impl MerkleTree {
                 hasher.update(file_hash.as_bytes());
                 children.push(MerkleTreeNode::Blob(LeafNode {
                     hash: file_hash,
-                    file_name: path.to_owned(),
+                    path,
                 }));
             }
         }
@@ -117,7 +113,7 @@ impl MerkleTree {
     // deployments
     pub fn diff(original: MerkleTree, updated: MerkleTree) {}
 
-    fn hash_file<P: AsRef<Path>>(path: P) -> Result<String, Box<dyn Error>> {
+    fn hash_file<P: AsRef<Path>>(path: P) -> CasResult<String> {
         let input = File::open(path)?;
         let mut reader = BufReader::new(input);
 
@@ -151,132 +147,79 @@ impl MerkleTree {
     // fs::canonicalize results in an absolute path which we dont want so here is a very basic
     // implementation to make sure we adjust path for platform could move this out to a
     // doctavious common/core library
-    fn normalize<P: AsRef<Path>>(path: P) -> String {
-        std::env::split_paths(path.as_ref())
-            .map(|x| {
-                x.as_path()
-                    .to_string_lossy()
-                    .trim_start_matches("./")
-                    .to_string()
-            })
-            .collect::<Vec<_>>()
-            .join(std::path::MAIN_SEPARATOR_STR)
+    fn normalize<P: AsRef<Path>>(path: P) -> PathBuf {
+        PathBuf::from_str(path.as_ref().to_string_lossy().trim_start_matches("./"))
+            .expect("Should be able to normalize path")
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use std::error::Error;
     use std::fs;
-    use crate::hash::Hasher;
 
     use crate::tree::MerkleTree;
 
-    // baz - f769a64df441b878665034911564c39c8d0ed26df8c1109f0bf4e19edcf51c3c
-    // one.txt - d33fb48ab5adff269ae172b29a6913ff04f6f266207a7a8e976f2ecd571d4492
-    //
-    // foo - 3f1a91c1d5f0fb6bcf218e9ed33b12332b27b019889fd879618079c08ee20490
-    // a.txt - 1edabea435e688e8227aa2497e1d1c8ff311d6bab560c9f28d70b8d4845c8a84
-    // b.txt - ac50b837cff10c7d69ab898da9c0cb5ca3220cca4bc6a9aab772d6bbf787969c
-    //
-    //
-    // two.txt - dc770fff53f50835f8cc957e01c0d5731d3c2ed544c375493a28c09be5e09763
-    // one_copy.txt - dc770fff53f50835f8cc957e01c0d5731d3c2ed544c375493a28c09be5e09763
-
-
     #[test]
-    fn verify_baz() -> Result<(), Box<dyn Error>> {
-        let two_hash =
-            blake3::hash(fs::read_to_string("tests/fixtures/content/baz/two.txt")?.as_bytes());
-
+    fn verify_baz() {
+        let two_hash = blake3::hash(
+            fs::read_to_string("tests/fixtures/content/baz/two.txt")
+                .unwrap()
+                .as_bytes(),
+        );
         assert_eq!(
             "dc770fff53f50835f8cc957e01c0d5731d3c2ed544c375493a28c09be5e09763",
             two_hash.to_string()
         );
 
-        let mut hasher = Hasher::new();
-        hasher.update("dc770fff53f50835f8cc957e01c0d5731d3c2ed544c375493a28c09be5e09763".as_bytes());
-        println!("{}", hasher.finalize().to_string());
-
-        println!("{}", blake3::hash("dc770fff53f50835f8cc957e01c0d5731d3c2ed544c375493a28c09be5e09763".as_bytes()).to_string());
-
-        two_hash.as_bytes();
-        println!("{}", blake3::hash(two_hash.to_string().as_bytes()).to_string());
-
-        let baz_directory_hash = MerkleTree::from_path("tests/fixtures/content/baz").unwrap().root.hash;
+        let baz_directory_hash = MerkleTree::from_path("tests/fixtures/content/baz")
+            .unwrap()
+            .root
+            .hash;
         assert_eq!(
-            blake3::hash(two_hash.to_string().as_bytes()).to_string(),
-            baz_directory_hash.to_string()
+            baz_directory_hash.to_string(),
+            blake3::hash(two_hash.to_string().as_bytes()).to_string()
         );
-
-        Ok(())
     }
 
     #[test]
-    fn verify_tree_two() -> Result<(), Box<dyn Error>> {
-        // let two_hash =
-        //     blake3::hash(fs::read_to_string("tests/fixtures/content/baz/two.txt")?.as_bytes());
-        //
-        // assert_eq!(
-        //     "dc770fff53f50835f8cc957e01c0d5731d3c2ed544c375493a28c09be5e09763",
-        //     two_hash.to_string()
-        // );
-        //
-        // let baz_hash = MerkleTree::from_path("tests/fixtures/content/baz").unwrap().root.hash;
-        // assert_eq!(
-        //     "f769a64df441b878665034911564c39c8d0ed26df8c1109f0bf4e19edcf51c3c",
-        //     baz_hash.to_string()
-        // );
-        //
-        //
-        // let one_hash =
-        //     blake3::hash(fs::read_to_string("tests/fixtures/content/one.txt")?.as_bytes());
-        //
-        // assert_eq!(
-        //     "d33fb48ab5adff269ae172b29a6913ff04f6f266207a7a8e976f2ecd571d4492",
-        //     one_hash.to_string()
-        // );
-        //
-        // let a_hash =
-        //     blake3::hash(fs::read_to_string("tests/fixtures/content/foo/a.txt")?.as_bytes());
-        //
-        // assert_eq!(
-        //     "1edabea435e688e8227aa2497e1d1c8ff311d6bab560c9f28d70b8d4845c8a84",
-        //     a_hash.to_string()
-        // );
-        //
-        //
-        // let b_hash =
-        //     blake3::hash(fs::read_to_string("tests/fixtures/content/foo/b.txt")?.as_bytes());
-        //
-        // assert_eq!(
-        //     "ac50b837cff10c7d69ab898da9c0cb5ca3220cca4bc6a9aab772d6bbf787969c",
-        //     b_hash.to_string()
-        // );
-        //
-        // let ab_hash =
-        //     blake3::hash(format!("{}{}", a_hash.to_string(), b_hash.to_string()).as_bytes());
-        //
-        // assert_eq!(
-        //     "3f1a91c1d5f0fb6bcf218e9ed33b12332b27b019889fd879618079c08ee20490",
-        //     ab_hash.to_string()
-        // );
-        //
-        // let foo_hash = MerkleTree::from_path("tests/fixtures/content/foo").unwrap().root.hash;
-        //
-        // assert_eq!(
-        //     "3f1a91c1d5f0fb6bcf218e9ed33b12332b27b019889fd879618079c08ee20490",
-        //     foo_hash.to_string()
-        // );
-
-        let tree = MerkleTree::from_path("tests/fixtures/content").unwrap();
+    fn verify_tree() {
+        let baz_hash = MerkleTree::from_path("tests/fixtures/content/baz")
+            .unwrap()
+            .root
+            .hash;
         assert_eq!(
-            "83ca14630ffa9bf70a3b60420cb2f53326c867bc971d7b636089b11ca82e8a18",
-            tree.root.hash
+            "f769a64df441b878665034911564c39c8d0ed26df8c1109f0bf4e19edcf51c3c",
+            baz_hash.to_string()
         );
 
-        println!("{}", serde_json::to_string(&tree).unwrap());
+        let foo_hash = MerkleTree::from_path("tests/fixtures/content/foo")
+            .unwrap()
+            .root
+            .hash;
+        assert_eq!(
+            "3f1a91c1d5f0fb6bcf218e9ed33b12332b27b019889fd879618079c08ee20490",
+            foo_hash.to_string()
+        );
 
-        Ok(())
+        let one_hash = blake3::hash(
+            fs::read_to_string("tests/fixtures/content/one.txt")
+                .unwrap()
+                .as_bytes(),
+        );
+        assert_eq!(
+            "d33fb48ab5adff269ae172b29a6913ff04f6f266207a7a8e976f2ecd571d4492",
+            one_hash.to_string()
+        );
+
+        let mut hasher = blake3::Hasher::new();
+        hasher.update(baz_hash.to_string().as_bytes());
+        hasher.update(foo_hash.to_string().as_bytes());
+        hasher.update(one_hash.to_string().as_bytes());
+        hasher.update(one_hash.to_string().as_bytes());
+
+        let tree = MerkleTree::from_path("./tests/fixtures/content").unwrap();
+        assert_eq!(tree.root.hash, hasher.finalize().to_string());
+
+        println!("{}", serde_json::to_string(&tree).unwrap());
     }
 }

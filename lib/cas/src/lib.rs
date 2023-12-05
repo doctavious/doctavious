@@ -17,5 +17,23 @@
 
 // vercel implementation
 
+use std::path::PathBuf;
+
+use thiserror::Error;
+
 mod hash;
 mod tree;
+
+#[remain::sorted]
+#[derive(Debug, Error)]
+pub enum CasError {
+    /// Error that occurs when an invalid path is passed to when constructing Merkle Tree
+    #[error("Invalid Merkle Tree entry point. {0} must be a directory")]
+    InvalidMerkleTreeEntry(PathBuf),
+
+    /// Error that may occur while I/O operations.
+    #[error("IO error: {0}")]
+    IoError(#[from] std::io::Error),
+}
+
+pub type CasResult<T> = Result<T, CasError>;
