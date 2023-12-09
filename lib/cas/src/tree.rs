@@ -54,24 +54,6 @@ pub(crate) enum MerkleTreeNode {
     Blob(LeafNode),
 }
 
-impl MerkleTreeNode {
-
-    pub fn get_hash(&self) -> &str {
-        match self {
-            MerkleTreeNode::Tree(t) => t.hash.as_str(),
-            MerkleTreeNode::Blob(b) => b.hash.as_str()
-        }
-    }
-
-    pub fn get_path(&self) -> &Path {
-        match self {
-            MerkleTreeNode::Tree(t) => t.path.as_path(),
-            MerkleTreeNode::Blob(b) => b.path.as_path()
-        }
-    }
-
-}
-
 #[derive(Deserialize, Serialize)]
 pub(crate) struct TreeNode {
     hash: String,
@@ -138,6 +120,10 @@ impl MerkleTree {
             children,
         });
     }
+
+    // pub fn d<'a>(&self, other: &'a MerkleTree) -> Vec<&'a MerkleTreeNode> {
+    //     MerkleTree::diff(other, self)
+    // }
 
     // what should this return? Vec of subtrees that arent in the original?
     // what about list of updated files hashes? this is probably the second thing that needs to occur
