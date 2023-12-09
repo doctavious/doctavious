@@ -19,8 +19,32 @@ pub(crate) struct MerkleTree {
     // Will see how large payload is with index and see what the runtime cost is to populate as part
     // of deserialization. We'll also be compressing payload so it might not be to bad
     // Will want test with trees around 50K - 60K
-    pub idx: HashMap<String, Vec<PathBuf>>,
+    // this might also be reversed. if multiple paths lead to the same hash we really only need to
+    // store the file one. granted this index and how we collect and store are separate concerns
+    // like if we add the same file in a separate place we want to insert that record but dont need
+    // to store the file just need to store the path and reference.
+    pub idx: HashMap<PathBuf, String>,
 }
+
+impl MerkleTree {
+
+    // Given we are a CAS I think the following are true
+    // we'll store the file using its hash as the file name
+    // we dont care about the path for storage (at some point we do want to prune old files)
+    // we do care about the path for serving. To serve we need to map path to hash
+    // to determine if a file needs to be updated
+    // - if path is not present in the current (original) tree
+    // - if present in the current (original) but hash is different
+    pub fn has_path<P: AsRef<Path>>(&self, path: P) -> bool {
+        if let Some(hash) = self.idx.get(path.as_ref()) {
+            return Hash::new(path.as_ref().to_string_lossy().as_bytes()).to_string() == *hash;
+        }
+
+        false
+    }
+
+}
+
 
 #[derive(Deserialize, Serialize)]
 #[serde(rename_all = "lowercase")]
@@ -28,6 +52,24 @@ pub(crate) struct MerkleTree {
 pub(crate) enum MerkleTreeNode {
     Tree(TreeNode),
     Blob(LeafNode),
+}
+
+impl MerkleTreeNode {
+
+    pub fn get_hash(&self) -> &str {
+        match self {
+            MerkleTreeNode::Tree(t) => t.hash.as_str(),
+            MerkleTreeNode::Blob(b) => b.hash.as_str()
+        }
+    }
+
+    pub fn get_path(&self) -> &Path {
+        match self {
+            MerkleTreeNode::Tree(t) => t.path.as_path(),
+            MerkleTreeNode::Blob(b) => b.path.as_path()
+        }
+    }
+
 }
 
 #[derive(Deserialize, Serialize)]
@@ -50,7 +92,7 @@ impl MerkleTree {
             return Err(CasError::InvalidMerkleTreeEntry(path.to_path_buf()));
         }
 
-        let mut idx: HashMap<String, Vec<PathBuf>> = HashMap::new();
+        let mut idx: HashMap<PathBuf, String> = HashMap::new();
         let root = MerkleTree::create_tree(path, &mut idx)?;
 
         Ok(MerkleTree { root, idx })
@@ -58,7 +100,7 @@ impl MerkleTree {
 
     fn create_tree<P: AsRef<Path>>(
         path: P,
-        idx: &mut HashMap<String, Vec<PathBuf>>,
+        idx: &mut HashMap<PathBuf, String>,
     ) -> CasResult<TreeNode> {
         let mut hasher = Hasher::new();
         let mut children = vec![];
@@ -79,9 +121,7 @@ impl MerkleTree {
                 // If the entry is a file, read its content and hash it
                 let path = MerkleTree::normalize(&path);
                 let file_hash = MerkleTree::hash_file(&path)?;
-                idx.entry(file_hash.to_owned())
-                    .or_default()
-                    .push(path.to_owned());
+                idx.entry(path.to_owned()).or_insert(file_hash.to_owned());
 
                 hasher.update(file_hash.as_bytes());
                 children.push(MerkleTreeNode::Blob(LeafNode {
@@ -111,7 +151,36 @@ impl MerkleTree {
     // structure in postgres and having to do a recursive tree search to do the diff. The recursive
     // search might not be bad in general would assume most parts of the tree dont change between
     // deployments
-    pub fn diff(original: MerkleTree, updated: MerkleTree) {}
+    pub fn diff<'a>(current: &'a MerkleTree, new: &'a MerkleTree) -> Vec<&'a MerkleTreeNode> {
+        if new.root.hash == current.root.hash {
+            return vec![];
+        }
+
+        MerkleTree::diff_tree(current, &new.root)
+    }
+
+    fn diff_tree<'a>(current: &'a MerkleTree, new: &'a TreeNode) -> Vec<&'a MerkleTreeNode> {
+        let mut diff = vec![];
+        for child in &new.children {
+            match child {
+                MerkleTreeNode::Tree(t) => {
+                    if !current.has_path(t.path.as_path()) {
+                        let child_diff = MerkleTree::diff_tree(&current, &t);
+                        if !child_diff.is_empty() {
+                            diff.extend(child_diff);
+                        }
+                    }
+                }
+                MerkleTreeNode::Blob(ref b) => {
+                    if !current.has_path(b.path.as_path()) {
+                        diff.push(&child);
+                    }
+                }
+            }
+        }
+
+        diff
+    }
 
     fn hash_file<P: AsRef<Path>>(path: P) -> CasResult<String> {
         let input = File::open(path)?;
