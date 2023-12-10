@@ -21,8 +21,8 @@ use std::path::PathBuf;
 
 use thiserror::Error;
 
-mod hash;
-mod tree;
+pub mod hash;
+pub mod tree;
 
 #[remain::sorted]
 #[derive(Debug, Error)]

@@ -6,14 +6,14 @@ use std::io::{BufReader, Read};
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
 
-use serde::{Deserialize, Deserializer, Serialize, Serializer};
+use serde::{Deserialize, Serialize};
 
 use crate::hash::{Hash, Hasher};
 use crate::{CasError, CasResult};
 
 // TODO: do we want to include hash algo
 #[derive(Deserialize, Serialize)]
-pub(crate) struct MerkleTree {
+pub struct MerkleTree {
     pub root: TreeNode,
     // May change this to skip serialization and write a custom deserializer to populate index.
     // Will see how large payload is with index and see what the runtime cost is to populate as part
@@ -27,7 +27,6 @@ pub(crate) struct MerkleTree {
 }
 
 impl MerkleTree {
-
     // Given we are a CAS I think the following are true
     // we'll store the file using its hash as the file name
     // we dont care about the path for storage (at some point we do want to prune old files)
@@ -42,27 +41,25 @@ impl MerkleTree {
 
         false
     }
-
 }
-
 
 #[derive(Deserialize, Serialize)]
 #[serde(rename_all = "lowercase")]
 #[serde(tag = "type")]
-pub(crate) enum MerkleTreeNode {
+pub enum MerkleTreeNode {
     Tree(TreeNode),
     Blob(LeafNode),
 }
 
 #[derive(Deserialize, Serialize)]
-pub(crate) struct TreeNode {
+pub struct TreeNode {
     hash: String,
     path: PathBuf,
     children: Vec<MerkleTreeNode>,
 }
 
 #[derive(Deserialize, Serialize)]
-pub(crate) struct LeafNode {
+pub struct LeafNode {
     hash: String,
     path: PathBuf,
 }
