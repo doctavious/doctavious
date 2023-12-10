@@ -1,8 +1,9 @@
 use std::collections::HashMap;
+
 use anyhow::Result;
+use doctavious_cli::enums::{parse_enum, EnumError};
 use lazy_static::lazy_static;
 use serde::Serialize;
-use doctavious_cli::enums::{EnumError, parse_enum};
 
 lazy_static! {
     static ref OUTPUT_TYPES: HashMap<&'static str, Output> = {

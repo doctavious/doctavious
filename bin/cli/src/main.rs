@@ -1,9 +1,10 @@
 use anyhow::Result;
 use clap::Parser;
+use doctavious_cli::cmd::{build, deploy};
 use tracing::log::Level;
 
-use crate::args::BuildCommand;
-use crate::output::{Output, parse_output};
+use crate::args::{BuildCommand, DeployCommand};
+use crate::output::{parse_output, Output};
 
 mod args;
 mod config;
@@ -35,26 +36,32 @@ pub struct Opt {
 #[derive(Debug, Parser)]
 enum Command {
     Build(BuildCommand),
+    Deploy(DeployCommand),
 }
-
 
 fn main() -> Result<()> {
     // TODO: get version and check for updates. print if cli is not latest
 
     let opt = Opt::parse();
 
-    let tracing_level = if opt.debug { tracing::Level::DEBUG } else { tracing::Level::INFO };
-    tracing_subscriber::fmt::fmt().with_max_level(tracing_level).init();
+    let tracing_level = if opt.debug {
+        tracing::Level::DEBUG
+    } else {
+        tracing::Level::INFO
+    };
+
+    tracing_subscriber::fmt::fmt()
+        .with_max_level(tracing_level)
+        .init();
 
     // TODO: should probably log diagnostics info/debug to stderr and result to stdout
 
     // TODO: get configuration: file + env
 
-
-    match opt.cmd {
-        Command::Build(_) => {}
-    }
-
+    let o = match opt.cmd {
+        Command::Build(cmd) => build::invoke(cmd.cwd, cmd.dry, cmd.skip_install),
+        Command::Deploy(cmd) => deploy::invoke(cmd.cwd, cmd.build),
+    };
 
     Ok(())
 }

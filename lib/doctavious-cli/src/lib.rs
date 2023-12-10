@@ -7,6 +7,9 @@ use thiserror::Error;
 #[derive(Error, Debug)]
 pub enum DoctaviousCliError {
 
+    #[error("cas error: {0}")]
+    CasError(#[from] cas::CasError),
+
     #[error("cifrs error: {0}")]
     CifrsError(#[from] cifrs::CifrsError),
 

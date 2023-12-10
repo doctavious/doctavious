@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+
 use thiserror::Error;
 
 pub fn parse_enum<A: Copy>(
@@ -9,11 +10,11 @@ pub fn parse_enum<A: Copy>(
         Some(p) => Ok(*p),
         None => {
             let supported: Vec<&&str> = env.keys().collect();
-            Err(EnumError{
+            Err(EnumError {
                 message: format!(
                     "Unsupported value: \"{}\". Supported values: {:?}",
                     src, supported
-                )
+                ),
             })
         }
     }
