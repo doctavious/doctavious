@@ -270,7 +270,7 @@ impl ProjectFile {
                 }
             }
             Err(e) => {
-                error!("Error reading project file: {:?}", &project_file_path);
+                // error!("Error reading project file: {:?}", &project_file_path);
             }
         }
 
