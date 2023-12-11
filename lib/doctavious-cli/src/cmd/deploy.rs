@@ -16,9 +16,7 @@ pub fn invoke(dir: Option<PathBuf>, build: bool) -> CliResult<()> {
         let build_output = Cifrs::build(&cwd, false, true)?;
         match build_output {
             BuildOutput::DryRun => unreachable!(),
-            BuildOutput::Invoked(result) => {
-                result.dir
-            }
+            BuildOutput::Invoked(result) => result.dir,
         }
     } else {
         cwd
@@ -26,7 +24,7 @@ pub fn invoke(dir: Option<PathBuf>, build: bool) -> CliResult<()> {
 
     let tree = cas::tree::MerkleTree::from_path(build_dir)?;
     println!("{:?}", serde_json::to_string(&tree));
-    
+
     // TODO: see if project is linked and if not setup
     // example of how vercel does setup/linking as part of deploy
     // https://github.com/vercel/vercel/blob/cfc1c9e818ebb55d440479cf0edf18536b772b28/packages/cli/src/commands/deploy/index.ts#L274
@@ -39,4 +37,3 @@ pub fn invoke(dir: Option<PathBuf>, build: bool) -> CliResult<()> {
 
     Ok(())
 }
-

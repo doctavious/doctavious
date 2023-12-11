@@ -2,9 +2,12 @@ mod configuration;
 mod features;
 
 use std::time::Duration;
+
 use anyhow::Result;
-use axum::{extract::Request, routing::get, Router};
+use axum::extract::Request;
 use axum::http::{StatusCode, Uri};
+use axum::routing::get;
+use axum::Router;
 use hyper::body::Incoming;
 use hyper_util::rt::TokioIo;
 use opendal::services::Fs;
@@ -12,9 +15,9 @@ use opendal::Operator;
 use tokio::net::TcpListener;
 use tokio::signal;
 use tokio::sync::watch;
-use tower_service::Service;
 use tower_http::timeout::TimeoutLayer;
 use tower_http::trace::TraceLayer;
+use tower_service::Service;
 use tracing::debug;
 
 use crate::configuration::get_configuration;
@@ -69,7 +72,7 @@ async fn main() {
             // Graceful shutdown will wait for outstanding requests to complete. Add a timeout so
             // requests don't hang forever.
             TimeoutLayer::new(Duration::from_secs(60)),
-        ));;
+        ));
 
     // Supporting graceful shutdown requires a bit of boilerplate. In the future hyper-util will
     // provide convenience helpers but for now we have to use hyper directly.
@@ -170,7 +173,6 @@ async fn main() {
     // Wait for all tasks to complete.
     debug!("waiting for {} tasks to finish", close_tx.receiver_count());
     close_tx.closed().await;
-
 }
 
 // TODO: swap for configuration built storage that returns appropriate storage provider

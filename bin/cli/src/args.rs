@@ -42,7 +42,6 @@ impl Default for BuildCommand {
     }
 }
 
-
 #[derive(Parser, Debug)]
 #[command(about = "Create a new deploy from the contents of a folder")]
 pub(crate) struct DeployCommand {
@@ -53,7 +52,11 @@ pub(crate) struct DeployCommand {
     )]
     pub cwd: Option<PathBuf>,
 
-    #[arg(long, short, help = "Specifies the alias for deployment, the string at the beginning of the deploy subdomain. Useful for creating predictable deployment URLs.")]
+    #[arg(
+        long,
+        short,
+        help = "Specifies the alias for deployment, the string at the beginning of the deploy subdomain. Useful for creating predictable deployment URLs."
+    )]
     pub alias: Option<String>,
 
     #[arg(long, short, help = "Deploy to Production")]
@@ -63,7 +66,6 @@ pub(crate) struct DeployCommand {
     // TODO: include details that this will fail if build is false and output dir is not found/empty
     #[arg(long, short, help = "Whether to build prior to deploy.")]
     pub build: bool,
-
     // -a --auth <token>
     // --build_mod Run build_mod command before deploying
 
