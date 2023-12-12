@@ -83,3 +83,35 @@ pub(crate) struct DeployCommand {
 
     // allow for build-env
 }
+
+#[derive(Parser, Debug)]
+#[command(about = "")]
+pub(crate) struct FrameworksCommand {
+    #[command(subcommand)]
+    pub framework_command: FrameworkSubCommand,
+}
+
+#[derive(Parser, Debug)]
+pub(crate) enum FrameworkSubCommand {
+    Detect(DetectFrameworks),
+    Get(GetFramework),
+    List(ListFrameworks),
+}
+
+#[derive(Parser, Debug)]
+#[command(about = "Detect Frameworks")]
+pub(crate) struct DetectFrameworks {
+    #[arg(long, short, help = "Directory to detect framewoks in")]
+    pub cwd: Option<PathBuf>,
+}
+
+#[derive(Parser, Debug)]
+#[command(about = "List Frameworks")]
+pub(crate) struct ListFrameworks {}
+
+#[derive(Parser, Debug)]
+#[command(about = "Get Framework Details")]
+pub(crate) struct GetFramework {
+    #[arg(long, short, help = "Name of the framework")]
+    pub name: String,
+}
