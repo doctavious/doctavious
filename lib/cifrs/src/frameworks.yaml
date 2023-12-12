@@ -204,6 +204,10 @@
         type: option
         short: -d
         long: --destination
+      source:
+        type: option
+        short: -s
+        long: --source
     output_directory: _site
   detection:
     matching_strategy: any
