@@ -8,6 +8,7 @@ publish = false
 cas = { path = "../../lib/cas" }
 cifrs = { path = "../../lib/cifrs" }
 
+comfy-table = { workspace = true }
 remain = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
