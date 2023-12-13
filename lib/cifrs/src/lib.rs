@@ -1,19 +1,21 @@
 use std::collections::HashSet;
+use std::fmt::{Debug, Display};
 use std::path::{Path, PathBuf};
 use std::process::{Command, ExitStatus};
+use std::str::FromStr;
 
 use glob::PatternError;
 use thiserror::Error;
 use tracing::error;
 
 use crate::framework_detection::Detectable;
-use crate::frameworks::{FrameworkBuildArgs, FrameworkInfo};
+use crate::frameworks::{FrameworkBuildArg, FrameworkBuildArgs, FrameworkInfo};
 use crate::package_manager::PackageManagerInfo;
 use crate::workspaces::Workspace;
 
 mod backends;
 mod framework_detection;
-mod frameworks;
+pub mod frameworks;
 mod js_module;
 mod package_manager;
 mod projects;
@@ -69,6 +71,38 @@ pub type CifrsResult<T> = Result<T, CifrsError>;
 
 pub struct Cifrs;
 
+pub trait PrintCommand {
+    fn print_command(&self) -> String;
+}
+
+impl PrintCommand for Command {
+    fn print_command(&self) -> String {
+        let mut cmd_parts = vec![self.get_program().to_str()];
+        for arg in self.get_args() {
+            cmd_parts.push(arg.to_str())
+        }
+
+        cmd_parts
+            .iter()
+            .filter(|x| x.is_some())
+            .map(|x| x.unwrap())
+            .collect::<Vec<&str>>()
+            .join(" ")
+    }
+}
+
+// TODO: Not sure how i feel about this. We need to return output path when we actually run the
+// build command but dont ned it for dryrun. This could also allow us to return stages/steps
+// that are run so that we can generate appropriate logs/output for dryrun
+pub enum BuildOutput {
+    DryRun,
+    Invoked(BuildResult),
+}
+
+pub struct BuildResult {
+    pub dir: PathBuf,
+}
+
 impl Cifrs {
     // TODO: when looking for frameworks do we need to traverse more than one directory?
     // That might be only true if project is a monorepo? See how projects with included docs are built
@@ -84,6 +118,7 @@ impl Cifrs {
     // the problem is that just because you found a project doesnt mean its related to docs and
     // another project is used for the framework
 
+    // TODO: should we return more than one?
     /// Determine Frameworks
     /// returns vec of frameworks
     pub fn detect_frameworks<P: AsRef<Path>>(path: P) -> CifrsResult<FrameworkInfo> {
@@ -107,41 +142,97 @@ impl Cifrs {
         Err(CifrsError::MissingFrameworkConfig())
     }
 
-    pub fn build<P: AsRef<Path>>(path: &P, install: bool) -> CifrsResult<()> {
+    // TODO: add optional config
+    // TODO: add optional destination
+    // TODO: instead of install boolean include a install_override which is optional string.
+    // we would generally perform an install but it could be avoided by an empty string
+    // essentially this needs to support 2 scenarios
+    // 1. CLI - Build project locally.
+    //  - should we get project settings from project settings if project is linked?
+    // 2. Server (webhook from SCM) - This would be configured via website project settings
+    // Website project settings include
+    //  - build command
+    //  - output directory
+    //  - install command
+    //  - ignore-build-command - ex: "git diff --quiet HEAD^ HEAD ./". (not applicable to CLI)
+    // TODO: should we force output to `.doctavious/output`?
+    pub fn build<P: AsRef<Path>>(path: &P, dry: bool, install: bool) -> CifrsResult<BuildOutput> {
         let framework = Cifrs::detect_frameworks(path)?;
 
         if install {
             let package_manager_info = Cifrs::detect_framework_package_manager(&path, &framework);
             // TODO(Sean): if we can't get package_manager should this fail?
             if let Some(package_manager_info) = package_manager_info {
-                let install_status = Cifrs::do_install(&package_manager_info)?;
-                if !install_status.success() {
-                    let install_status_code = install_status
-                        .code()
-                        .map_or("unknown".to_string(), |s| s.to_string());
-                    println!("install failed with code: {:?}", install_status_code);
-                    return Err(CifrsError::IoError(std::io::Error::new(
-                        std::io::ErrorKind::Other,
-                        format!("install failed with code: {:?}", install_status_code),
-                    )));
+                let mut install_command =
+                    Cifrs::get_command(package_manager_info.install_command.as_str());
+
+                if dry {
+                    println!("{}", install_command.print_command());
+                } else {
+                    let install_status = install_command.spawn()?.wait()?;
+                    if !install_status.success() {
+                        let install_status_code = install_status
+                            .code()
+                            .map_or("unknown".to_string(), |s| s.to_string());
+                        println!("install failed with code: {:?}", install_status_code);
+                        return Err(CifrsError::IoError(std::io::Error::new(
+                            std::io::ErrorKind::Other,
+                            format!("install failed with code: {:?}", install_status_code),
+                        )));
+                    }
                 }
             }
         }
 
-        let build_status =
-            Cifrs::do_build(&framework.build.command, &framework.build.command_args)?;
-        if !build_status.success() {
-            let build_status_code = build_status
-                .code()
-                .map_or("unknown".to_string(), |s| s.to_string());
-            println!("build failed with code: {:?}", build_status_code);
-            return Err(CifrsError::IoError(std::io::Error::new(
-                std::io::ErrorKind::Other,
-                format!("build failed with code: {:?}", build_status_code),
-            )));
+        let mut build_command = Cifrs::get_command(&framework.build.command);
+        // TODO(Sean): pass appropriate values to command
+        println!("{:?}", serde_json::to_string(&framework));
+        if let Some(args) = framework.build.command_args {
+            if let Some(config) = &args.config {}
+
+            if let Some(output) = &args.output {}
+
+            if let Some(source) = &args.source {
+                match source {
+                    FrameworkBuildArg::Arg {
+                        index,
+                        default_value,
+                    } => {}
+                    FrameworkBuildArg::Option { short, long } => {
+                        build_command
+                            .arg(long)
+                            .arg(path.as_ref().to_string_lossy().to_string());
+                    }
+                }
+            }
         }
 
-        Ok(())
+        if dry {
+            println!("{}", build_command.print_command());
+        } else {
+            println!("{}", build_command.print_command());
+            let build_status = build_command.spawn()?.wait()?;
+            // let build_status = build_command.output()?;
+            println!("{:?}", &build_status);
+            if !build_status.success() {
+                let build_status_code = build_status
+                    .code()
+                    .map_or("unknown".to_string(), |s| s.to_string());
+                println!("build failed with code: {:?}", build_status_code);
+                return Err(CifrsError::IoError(std::io::Error::new(
+                    std::io::ErrorKind::Other,
+                    format!("build failed with code: {:?}", build_status_code),
+                )));
+            }
+        }
+
+        if dry {
+            Ok(BuildOutput::DryRun)
+        } else {
+            Ok(BuildOutput::Invoked(BuildResult {
+                dir: PathBuf::from(framework.build.output_directory),
+            }))
+        }
     }
 
     fn detect_package_manager<P: AsRef<Path>>(cwd: P) -> Option<PackageManagerInfo> {
@@ -170,40 +261,23 @@ impl Cifrs {
         None
     }
 
-    fn do_install(package_manager: &PackageManagerInfo) -> CifrsResult<ExitStatus> {
-        Ok(Cifrs::get_command(package_manager.install_command.as_str())
-            .spawn()?
-            .wait()?)
-    }
-
-    fn do_build(cmd: &str, args: &Option<FrameworkBuildArgs>) -> CifrsResult<ExitStatus> {
-        let mut command = Cifrs::get_command(cmd);
-
-        // TODO(Sean): pass appropriate values to command
-        if let Some(args) = args {
-            if let Some(config) = &args.config {}
-
-            if let Some(output) = &args.output {}
-
-            if let Some(source) = &args.source {}
-        }
-
-        Ok(command.spawn()?.wait()?)
-    }
-
     fn get_command(cmd: &str) -> Command {
-        let mut command = if cfg!(target_os = "windows") {
-            Command::new("cmd")
-        } else {
-            Command::new("sh")
-        };
-
-        if cfg!(target_os = "windows") {
-            command.args(["/C", cmd])
-        } else {
-            command.args(["-c", cmd])
-        };
-
+        // let mut command = if cfg!(target_os = "windows") {
+        //     Command::new("cmd")
+        // } else {
+        //     Command::new("sh")
+        // };
+        //
+        // if cfg!(target_os = "windows") {
+        //     command.args(["/C", cmd])
+        // } else {
+        //     command.args(["-c", cmd])
+        // };
+        let program_args = cmd.split(" ").collect::<Vec<&str>>();
+        let mut command = Command::new(program_args[0]);
+        if program_args.len() > 1 {
+            command.args(&program_args[1..]);
+        }
         command
     }
 
@@ -251,6 +325,7 @@ mod tests {
 
     use crate::Cifrs;
 
+    // TODO: replace with local repos
     #[test]
     fn check_frameworks() {
         let base_dir = BaseDirs::new().unwrap();
