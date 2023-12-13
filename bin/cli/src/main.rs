@@ -79,7 +79,7 @@ fn main() {
     match result {
         Ok(output) => {
             if let Some(output) = output {
-                info!(output);
+                println!("{output}");
                 std::process::exit(0);
             }
         }
