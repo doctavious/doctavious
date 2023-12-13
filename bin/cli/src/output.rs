@@ -25,14 +25,20 @@ lazy_static! {
 // The table format produces human-readable representations of complex CLI output in a tabular form.
 #[derive(Debug, Copy, Clone)]
 pub enum Output {
+    /// JSON is the default output format of the Doctavious CLI.
     Json,
+
+    /// Produces human-readable representations of complex Doctavious CLI output in a tabular form.
     Table,
+
+    /// The text format organizes the Doctavious CLI output into tab-delimited lines.
+    /// It works well with traditional Unix text tools such as grep, sed, and awk, and PowerShell.
     Text,
 }
 
 impl Default for Output {
     fn default() -> Self {
-        Output::Text
+        Output::Json
     }
 }
 
@@ -40,6 +46,8 @@ pub(crate) fn parse_output(src: &str) -> Result<Output, EnumError> {
     parse_enum(&OUTPUT_TYPES, src)
 }
 
+// TODO: I dont thin this will work for generating Tables as I dont see a way to make the implementation
+// generic over any struct. Could use `tabled` instead if we really wanted to go this direction
 pub(crate) fn print_output<A: std::fmt::Display + Serialize>(
     output: Output,
     value: A,

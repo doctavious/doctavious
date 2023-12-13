@@ -1,12 +1,8 @@
-use anyhow::Result;
 use clap::Parser;
 use doctavious_cli::cmd::{build, deploy, frameworks};
-use doctavious_cli::CliResult;
-use tracing::log::Level;
-use tracing::{error, info};
+use tracing::{error};
 
 use crate::args::{BuildCommand, DeployCommand, FrameworkSubCommand, FrameworksCommand};
-use crate::output::{parse_output, Output};
 
 mod args;
 mod config;
@@ -31,6 +27,7 @@ pub struct Opt {
     //     global = true
     // )]
     // pub(crate) output: Option<Output>,
+
     #[command(subcommand)]
     cmd: Command,
 }
@@ -64,11 +61,9 @@ fn main() {
 
     // TODO: get configuration: file + env
 
-    // TODO: handle different outputs
     let result = match opt.cmd {
         Command::Build(cmd) => build::invoke(cmd.cwd, cmd.dry, cmd.skip_install),
         Command::Deploy(cmd) => deploy::invoke(cmd.cwd, cmd.build),
-        // TODO: fix to not always return Ok
         Command::Frameworks(cmd) => match cmd.framework_command {
             FrameworkSubCommand::Detect(cmd) => frameworks::detect::invoke(cmd.cwd),
             FrameworkSubCommand::Get(cmd) => frameworks::get::invoke(cmd.name),
