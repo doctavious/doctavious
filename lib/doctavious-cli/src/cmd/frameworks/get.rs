@@ -1,8 +1,10 @@
 use cifrs::frameworks;
-use cifrs::frameworks::FrameworkInfo;
 
-use crate::CliResult;
+use crate::{CliResult, DoctaviousCliError};
 
-pub fn invoke(name: String) -> CliResult<Option<FrameworkInfo>> {
-    Ok(frameworks::get_all().into_iter().find(|f| f.name == name))
+pub fn invoke(name: String) -> CliResult<Option<String>> {
+    let framework = frameworks::get_all().into_iter().find(|f| f.name == name);
+    serde_json::to_string(&framework)
+        .map_err(DoctaviousCliError::SerdeJson)
+        .map(|f| Some(f))
 }

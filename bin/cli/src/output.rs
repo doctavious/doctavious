@@ -50,10 +50,11 @@ pub(crate) fn print_output<A: std::fmt::Display + Serialize>(
             Ok(())
         }
         Output::Text => {
-            println!("{}", value);
+            println!("{value}");
             Ok(())
         }
         Output::Table => {
+            // TODO: comfy-table could be used here
             todo!()
         }
     }

@@ -1,7 +1,9 @@
 use anyhow::Result;
 use clap::Parser;
 use doctavious_cli::cmd::{build, deploy, frameworks};
+use doctavious_cli::CliResult;
 use tracing::log::Level;
+use tracing::{error, info};
 
 use crate::args::{BuildCommand, DeployCommand, FrameworkSubCommand, FrameworksCommand};
 use crate::output::{parse_output, Output};
@@ -20,15 +22,15 @@ pub struct Opt {
     )]
     debug: bool,
 
-    #[arg(
-        long,
-        short,
-        value_parser = parse_output,
-        help = "How a command output should be rendered",
-        global = true
-    )]
-    pub(crate) output: Option<Output>,
-
+    // TODO: Implement
+    // #[arg(
+    //     long,
+    //     short,
+    //     value_parser = parse_output,
+    //     help = "How a command output should be rendered",
+    //     global = true
+    // )]
+    // pub(crate) output: Option<Output>,
     #[command(subcommand)]
     cmd: Command,
 }
@@ -40,7 +42,10 @@ enum Command {
     Frameworks(FrameworksCommand),
 }
 
-fn main() -> Result<()> {
+// TODO: do we need/want custom error codes?
+// TODO: this should probably have
+// #[tokio::main]
+fn main() {
     // TODO: get version and check for updates. print if cli is not latest
 
     let opt = Opt::parse();
@@ -60,33 +65,27 @@ fn main() -> Result<()> {
     // TODO: get configuration: file + env
 
     // TODO: handle different outputs
-    let o = match opt.cmd {
+    let result = match opt.cmd {
         Command::Build(cmd) => build::invoke(cmd.cwd, cmd.dry, cmd.skip_install),
         Command::Deploy(cmd) => deploy::invoke(cmd.cwd, cmd.build),
         // TODO: fix to not always return Ok
-        Command::Frameworks(cmd) => Ok(match cmd.framework_command {
-            FrameworkSubCommand::Detect(cmd) => {
-                frameworks::detect::invoke(cmd.cwd);
-                ()
-            }
-            FrameworkSubCommand::Get(cmd) => {
-                frameworks::get::invoke(cmd.name);
-                ()
-            },
-            FrameworkSubCommand::List(_) => {
-                frameworks::list::invoke();
-                ()
-            }
-        }),
+        Command::Frameworks(cmd) => match cmd.framework_command {
+            FrameworkSubCommand::Detect(cmd) => frameworks::detect::invoke(cmd.cwd),
+            FrameworkSubCommand::Get(cmd) => frameworks::get::invoke(cmd.name),
+            FrameworkSubCommand::List(_) => frameworks::list::invoke(),
+        },
     };
 
-    println!("{:?}", o);
-
-    // if let Err(o) = o {
-    //     // TODO: consider using exitcode crate?
-    //     std::process::exit(1);
-    // }
-
-    // TODO: use exit code 1 for errors?
-    Ok(())
+    match result {
+        Ok(output) => {
+            if let Some(output) = output {
+                info!(output);
+                std::process::exit(0);
+            }
+        }
+        Err(e) => {
+            error!("{e}");
+            std::process::exit(1);
+        }
+    };
 }

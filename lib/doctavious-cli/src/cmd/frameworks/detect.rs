@@ -1,12 +1,14 @@
 use std::env;
 use std::path::PathBuf;
 
-use cifrs::frameworks::FrameworkInfo;
 use cifrs::Cifrs;
 
-use crate::CliResult;
+use crate::{CliResult, DoctaviousCliError};
 
-pub fn invoke(dir: Option<PathBuf>) -> CliResult<FrameworkInfo> {
+pub fn invoke(dir: Option<PathBuf>) -> CliResult<Option<String>> {
     let cwd = dir.unwrap_or(env::current_dir()?);
-    Ok(Cifrs::detect_frameworks(cwd)?)
+    let framework = Cifrs::detect_frameworks(cwd)?;
+    serde_json::to_string(&framework)
+        .map_err(DoctaviousCliError::SerdeJson)
+        .map(|f| Some(f))
 }

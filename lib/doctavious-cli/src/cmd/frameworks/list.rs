@@ -1,8 +1,12 @@
+use std::fmt::Display;
+
 use cifrs::frameworks;
-use cifrs::frameworks::FrameworkInfo;
 
-use crate::CliResult;
+use crate::{CliResult, DoctaviousCliError};
 
-pub fn invoke() -> CliResult<Vec<FrameworkInfo>> {
-    Ok(frameworks::get_all())
+pub fn invoke() -> CliResult<Option<String>> {
+    let frameworks = frameworks::get_all();
+    serde_json::to_string(&frameworks)
+        .map_err(DoctaviousCliError::SerdeJson)
+        .map(|f| Some(f))
 }

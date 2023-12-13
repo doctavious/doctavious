@@ -8,7 +8,7 @@ use crate::CliResult;
 // TODO: do we want to offer preview deployments?
 // TODO: what setup / linking needs to occur? How to make initial onboarding as easy as possible?
 
-pub fn invoke(dir: Option<PathBuf>, build: bool) -> CliResult<()> {
+pub fn invoke(dir: Option<PathBuf>, build: bool) -> CliResult<Option<String>> {
     let cwd = dir.unwrap_or(env::current_dir()?);
 
     let build_dir = if build {
@@ -35,5 +35,7 @@ pub fn invoke(dir: Option<PathBuf>, build: bool) -> CliResult<()> {
     // still need to figure out how to store merkle tree.
     // netlify has a great blog post but no details on format of mongodb collections/data
 
-    Ok(())
+    // Ok(CommandOutput::default())
+
+    Ok(None)
 }
