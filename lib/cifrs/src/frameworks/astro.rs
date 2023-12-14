@@ -7,7 +7,7 @@
 use serde::Deserialize;
 use swc_ecma_ast::Program;
 
-use crate::frameworks::{FrameworkConfigFile, FrameworkConfiguration};
+use crate::frameworks::{FrameworkConfigFileSettings, FrameworkConfiguration};
 use crate::js_module::{get_call_expression, get_call_string_property};
 use crate::{CifrsError, CifrsResult};
 
@@ -31,8 +31,8 @@ impl FrameworkConfiguration for AstroConfig {
         Err(CifrsError::InvalidConfig("astro".to_ascii_lowercase()))
     }
 
-    fn convert_to_common_config(config: &Self::Config) -> FrameworkConfigFile {
-        FrameworkConfigFile {
+    fn get_config_file_settings(config: &Self::Config) -> FrameworkConfigFileSettings {
+        FrameworkConfigFileSettings {
             output_dir: Some(config.output.to_owned()),
         }
     }
@@ -49,6 +49,6 @@ mod tests {
             AstroConfig::get_config("tests/fixtures/framework_configs/astro/astro.config.mjs")
                 .unwrap();
 
-        assert_eq!(config.output_dir, Some(String::from("./build")))
+        assert_eq!(config.settings.output_dir, Some(String::from("./build")))
     }
 }

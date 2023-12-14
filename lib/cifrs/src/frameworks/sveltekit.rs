@@ -6,7 +6,7 @@
 use serde::Deserialize;
 use swc_ecma_ast::Program;
 
-use crate::frameworks::{FrameworkConfigFile, FrameworkConfiguration};
+use crate::frameworks::{FrameworkConfigFileSettings, FrameworkConfiguration};
 use crate::js_module::{
     get_string_property_value, get_variable_declaration, get_variable_properties,
 };
@@ -40,8 +40,8 @@ impl FrameworkConfiguration for SvelteKitConfig {
         Err(CifrsError::InvalidConfig("sveltekit".to_string()))
     }
 
-    fn convert_to_common_config(config: &Self::Config) -> FrameworkConfigFile {
-        FrameworkConfigFile {
+    fn get_config_file_settings(config: &Self::Config) -> FrameworkConfigFileSettings {
+        FrameworkConfigFileSettings {
             output_dir: config.output.to_owned(),
         }
     }
@@ -61,6 +61,6 @@ mod tests {
         )
         .unwrap();
 
-        assert_eq!(config.output_dir, Some(String::from("build")))
+        assert_eq!(config.settings.output_dir, Some(String::from("build")))
     }
 }

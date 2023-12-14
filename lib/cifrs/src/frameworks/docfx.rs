@@ -7,7 +7,7 @@ use std::collections::HashMap;
 
 use serde::Deserialize;
 
-use crate::frameworks::{FrameworkConfigFile, FrameworkConfiguration};
+use crate::frameworks::{FrameworkConfigFileSettings, FrameworkConfiguration};
 
 #[derive(Deserialize)]
 pub struct DocFxConfig {
@@ -22,8 +22,8 @@ struct DocFxConfigBuild {
 impl FrameworkConfiguration for DocFxConfig {
     type Config = Self;
 
-    fn convert_to_common_config(config: &Self::Config) -> FrameworkConfigFile {
-        FrameworkConfigFile {
+    fn get_config_file_settings(config: &Self::Config) -> FrameworkConfigFileSettings {
+        FrameworkConfigFileSettings {
             output_dir: config.build.get("dest").cloned(),
         }
     }
@@ -39,6 +39,6 @@ mod tests {
         let config =
             DocFxConfig::get_config("tests/fixtures/framework_configs/docfx/docfx.json").unwrap();
 
-        assert_eq!(config.output_dir, Some(String::from("dist")))
+        assert_eq!(config.settings.output_dir, Some(String::from("dist")))
     }
 }

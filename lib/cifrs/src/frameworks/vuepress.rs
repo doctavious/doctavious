@@ -17,7 +17,7 @@
 use serde::Deserialize;
 use swc_ecma_ast::Program;
 
-use crate::frameworks::{FrameworkConfigFile, FrameworkConfiguration};
+use crate::frameworks::{FrameworkConfigFileSettings, FrameworkConfiguration};
 use crate::js_module::PropertyAccessor;
 use crate::{CifrsError, CifrsResult};
 
@@ -40,8 +40,8 @@ impl FrameworkConfiguration for VuePressConfig {
         Err(CifrsError::InvalidConfig("vuepress".to_string()))
     }
 
-    fn convert_to_common_config(config: &Self::Config) -> FrameworkConfigFile {
-        FrameworkConfigFile {
+    fn get_config_file_settings(config: &Self::Config) -> FrameworkConfigFileSettings {
+        FrameworkConfigFileSettings {
             output_dir: config.dest.to_owned(),
         }
     }
@@ -60,7 +60,7 @@ mod tests {
             "tests/fixtures/framework_configs/vuepress/config.ts",
         ] {
             let config = VuePressConfig::get_config(path).unwrap();
-            assert_eq!(config.output_dir, Some(String::from("build")))
+            assert_eq!(config.settings.output_dir, Some(String::from("build")))
         }
     }
 }

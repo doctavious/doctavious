@@ -136,9 +136,9 @@ impl FrameworkInfo {
         None
     }
 
-    pub fn get_output_dir<P: AsRef<Path>>(&self, cwd: P) -> String {
+    pub fn get_output_dir<P: AsRef<Path>>(&self, _cwd: P) -> String {
         if let Some(config) = self.get_configuration() {
-            if let Some(output_dir) = config.output_dir {
+            if let Some(output_dir) = config.settings.output_dir {
                 return output_dir;
             }
         }
@@ -246,6 +246,11 @@ pub enum FrameworkBuildArg {
 }
 
 pub struct FrameworkConfigFile {
+    pub path: PathBuf,
+    pub settings: FrameworkConfigFileSettings,
+}
+
+pub struct FrameworkConfigFileSettings {
     pub output_dir: Option<String>,
 }
 
@@ -262,14 +267,16 @@ pub trait FrameworkConfiguration: for<'a> Deserialize<'a> {
     }
 
     fn get_config<P: AsRef<Path>>(path: P) -> CifrsResult<FrameworkConfigFile> {
+        let path = path.as_ref();
         let format = FrameworkConfigurationFormat::from_path(path)?;
         let config = <Self as FrameworkConfiguration>::read_config(&format)?;
-        Ok(<Self as FrameworkConfiguration>::convert_to_common_config(
-            &config,
-        ))
+        Ok(FrameworkConfigFile {
+            path: path.to_path_buf(),
+            settings: <Self as FrameworkConfiguration>::get_config_file_settings(&config)
+        })
     }
 
-    fn convert_to_common_config(config: &Self::Config) -> FrameworkConfigFile;
+    fn get_config_file_settings(config: &Self::Config) -> FrameworkConfigFileSettings;
 
     fn read_config(format: &FrameworkConfigurationFormat) -> CifrsResult<Self::Config> {
         match format {

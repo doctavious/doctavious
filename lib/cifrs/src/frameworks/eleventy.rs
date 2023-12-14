@@ -10,7 +10,7 @@
 use serde::Deserialize;
 use swc_ecma_ast::Program;
 
-use crate::frameworks::{FrameworkConfigFile, FrameworkConfiguration};
+use crate::frameworks::{FrameworkConfigFileSettings, FrameworkConfiguration};
 use crate::js_module::{
     get_assignment_function, get_function_return_obj, get_obj_property, get_string_property_value,
 };
@@ -38,8 +38,8 @@ impl FrameworkConfiguration for EleventyConfig {
         Err(CifrsError::InvalidConfig("eleventy".to_string()))
     }
 
-    fn convert_to_common_config(config: &Self::Config) -> FrameworkConfigFile {
-        FrameworkConfigFile {
+    fn get_config_file_settings(config: &Self::Config) -> FrameworkConfigFileSettings {
+        FrameworkConfigFileSettings {
             output_dir: Some(config.output.to_owned()),
         }
     }
@@ -56,6 +56,6 @@ mod tests {
             EleventyConfig::get_config("tests/fixtures/framework_configs/eleventy/.eleventy.js")
                 .unwrap();
 
-        assert_eq!(config.output_dir, Some(String::from("dist")))
+        assert_eq!(config.settings.output_dir, Some(String::from("dist")))
     }
 }

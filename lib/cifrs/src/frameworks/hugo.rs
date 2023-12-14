@@ -10,7 +10,7 @@
 
 use serde::Deserialize;
 
-use crate::frameworks::{FrameworkConfigFile, FrameworkConfiguration};
+use crate::frameworks::{FrameworkConfigFileSettings, FrameworkConfiguration};
 
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -21,8 +21,8 @@ pub struct HugoConfig {
 impl FrameworkConfiguration for HugoConfig {
     type Config = Self;
 
-    fn convert_to_common_config(config: &Self::Config) -> FrameworkConfigFile {
-        FrameworkConfigFile {
+    fn get_config_file_settings(config: &Self::Config) -> FrameworkConfigFileSettings {
+        FrameworkConfigFileSettings {
             output_dir: config.publish_dir.to_owned(),
         }
     }
@@ -38,6 +38,6 @@ mod tests {
         let config =
             HugoConfig::get_config("tests/fixtures/framework_configs/hugo/config.toml").unwrap();
 
-        assert_eq!(config.output_dir, Some(String::from("build")))
+        assert_eq!(config.settings.output_dir, Some(String::from("build")))
     }
 }

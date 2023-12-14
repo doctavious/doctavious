@@ -8,7 +8,7 @@
 use serde::Deserialize;
 use swc_ecma_ast::Program;
 
-use crate::frameworks::{FrameworkConfigFile, FrameworkConfiguration};
+use crate::frameworks::{FrameworkConfigFile, FrameworkConfigFileSettings, FrameworkConfiguration};
 use crate::js_module::{
     find_array_element, get_array_property, get_assignment_obj, get_obj_property,
     get_string_property_value,
@@ -46,8 +46,8 @@ impl FrameworkConfiguration for GatsbyConfig {
         Err(CifrsError::InvalidConfig("gatsby".to_string()))
     }
 
-    fn convert_to_common_config(config: &Self::Config) -> FrameworkConfigFile {
-        FrameworkConfigFile {
+    fn get_config_file_settings(config: &Self::Config) -> FrameworkConfigFileSettings {
+        FrameworkConfigFileSettings {
             output_dir: Some(config.output.to_owned()),
         }
     }
@@ -64,6 +64,6 @@ mod tests {
             GatsbyConfig::get_config("tests/fixtures/framework_configs/gatsby/gatsby-config.js")
                 .unwrap();
 
-        assert_eq!(config.output_dir, Some(String::from("dist")))
+        assert_eq!(config.settings.output_dir, Some(String::from("dist")))
     }
 }

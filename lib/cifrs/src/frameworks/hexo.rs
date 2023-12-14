@@ -7,7 +7,7 @@
 
 use serde::Deserialize;
 
-use crate::frameworks::{FrameworkConfigFile, FrameworkConfiguration};
+use crate::frameworks::{FrameworkConfigFileSettings, FrameworkConfiguration};
 
 #[derive(Deserialize)]
 pub struct HexoConfig {
@@ -17,8 +17,8 @@ pub struct HexoConfig {
 impl FrameworkConfiguration for HexoConfig {
     type Config = Self;
 
-    fn convert_to_common_config(config: &Self::Config) -> FrameworkConfigFile {
-        FrameworkConfigFile {
+    fn get_config_file_settings(config: &Self::Config) -> FrameworkConfigFileSettings {
+        FrameworkConfigFileSettings {
             output_dir: config.public_dir.to_owned(),
         }
     }
@@ -34,6 +34,6 @@ mod tests {
         let config =
             HexoConfig::get_config("tests/fixtures/framework_configs/hexo/_config.yml").unwrap();
 
-        assert_eq!(config.output_dir, Some(String::from("build")))
+        assert_eq!(config.settings.output_dir, Some(String::from("build")))
     }
 }

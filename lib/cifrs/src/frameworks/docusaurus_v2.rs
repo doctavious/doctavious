@@ -26,7 +26,7 @@
 use serde::Deserialize;
 use swc_ecma_ast::Program;
 
-use crate::frameworks::{FrameworkConfigFile, FrameworkConfiguration};
+use crate::frameworks::{FrameworkConfigFileSettings, FrameworkConfiguration};
 use crate::CifrsResult;
 
 #[derive(Deserialize)]
@@ -39,13 +39,13 @@ impl FrameworkConfiguration for DocusaurusConfig {
         Ok(Self {})
     }
 
-    fn convert_to_common_config(_config: &Self::Config) -> FrameworkConfigFile {
+    fn get_config_file_settings(_config: &Self::Config) -> FrameworkConfigFileSettings {
         // TODO: verify this implementation
         // Vercel checks if there is a a single file (directory) under build and if so uses it
         // otherwise uses build.
         // Current implementation doesnt give us access to framework info
         // would need to pass in framework info (to get default output dir) and cwd path
-        FrameworkConfigFile { output_dir: None }
+        FrameworkConfigFileSettings { output_dir: None }
     }
 }
 
@@ -61,6 +61,6 @@ mod tests {
         )
         .unwrap();
 
-        assert_eq!(config.output_dir, None)
+        assert_eq!(config.settings.output_dir, None)
     }
 }

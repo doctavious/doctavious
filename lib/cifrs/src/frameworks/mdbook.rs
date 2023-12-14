@@ -6,7 +6,7 @@ use std::collections::HashMap;
 
 use serde::Deserialize;
 
-use crate::frameworks::{FrameworkConfigFile, FrameworkConfiguration};
+use crate::frameworks::{FrameworkConfigFileSettings, FrameworkConfiguration};
 
 #[derive(Deserialize)]
 #[serde(rename_all = "kebab-case")]
@@ -22,8 +22,8 @@ pub struct MDBookConfig {
 impl FrameworkConfiguration for MDBookConfig {
     type Config = Self;
 
-    fn convert_to_common_config(config: &Self::Config) -> FrameworkConfigFile {
-        FrameworkConfigFile {
+    fn get_config_file_settings(config: &Self::Config) -> FrameworkConfigFileSettings {
+        FrameworkConfigFileSettings {
             output_dir: config.build.get("build-dir").cloned(),
         }
     }
@@ -39,6 +39,6 @@ mod tests {
         let config =
             MDBookConfig::get_config("tests/fixtures/framework_configs/mdbook/book.toml").unwrap();
 
-        assert_eq!(config.output_dir, Some(String::from("build")))
+        assert_eq!(config.settings.output_dir, Some(String::from("build")))
     }
 }

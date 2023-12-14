@@ -156,7 +156,13 @@ impl Cifrs {
     //  - install command
     //  - ignore-build-command - ex: "git diff --quiet HEAD^ HEAD ./". (not applicable to CLI)
     // TODO: should we force output to `.doctavious/output`?
-    pub fn build<P: AsRef<Path>>(path: &P, dry: bool, install: bool) -> CifrsResult<BuildOutput> {
+    pub fn build<P: AsRef<Path>>(
+        path: &P,
+        dry: bool,
+        install: bool,
+        // config_override: Option<PathBuf>,
+        // output_override: Option<PathBuf>,
+    ) -> CifrsResult<BuildOutput> {
         let framework = Cifrs::detect_frameworks(path)?;
 
         if install {
@@ -185,29 +191,53 @@ impl Cifrs {
         }
 
         let mut build_command = Cifrs::get_command(&framework.build.command);
-        // TODO(Sean): pass appropriate values to command
         println!("{:?}", serde_json::to_string(&framework));
-        if let Some(args) = framework.build.command_args {
+        if let Some(args) = &framework.build.command_args {
+            let mut build_args = vec![];
             if let Some(config) = &args.config {
-
+                if let Some(framework_config) = framework.get_configuration() {
+                    match config {
+                        FrameworkBuildArg::Arg { index, .. } => {
+                            build_args
+                                .push((index, framework_config.path.to_string_lossy().to_string()));
+                        }
+                        FrameworkBuildArg::Option { name, .. } => {
+                            build_command
+                                .arg(name)
+                                .arg(framework_config.path.to_string_lossy().to_string());
+                        }
+                    }
+                }
             }
 
             if let Some(output) = &args.output {
-
+                match output {
+                    FrameworkBuildArg::Arg { index, .. } => {
+                        build_args.push((index, framework.build.output_directory.to_string()));
+                    }
+                    FrameworkBuildArg::Option { name, .. } => {
+                        build_command
+                            .arg(name)
+                            .arg(framework.build.output_directory.to_string());
+                    }
+                }
             }
 
             if let Some(source) = &args.source {
+                let source_path = path.as_ref().to_string_lossy().to_string();
                 match source {
-                    FrameworkBuildArg::Arg {
-                        index,
-                        default_value,
-                    } => {}
-                    FrameworkBuildArg::Option { name, default_value } => {
-                        build_command
-                            .arg(name)
-                            .arg(path.as_ref().to_string_lossy().to_string());
+                    FrameworkBuildArg::Arg { index, .. } => {
+                        build_args.push((index, source_path));
+                    }
+                    FrameworkBuildArg::Option { name, .. } => {
+                        build_command.arg(name).arg(source_path);
                     }
                 }
+            }
+
+            build_args.sort_by_key(|a| a.0);
+            for (_, value) in build_args {
+                build_command.arg(value);
             }
         }
 

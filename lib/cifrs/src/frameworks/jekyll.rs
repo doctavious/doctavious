@@ -7,7 +7,7 @@
 
 use serde::Deserialize;
 
-use crate::frameworks::{FrameworkConfigFile, FrameworkConfiguration};
+use crate::frameworks::{FrameworkConfigFileSettings, FrameworkConfiguration};
 
 #[derive(Deserialize)]
 pub struct JekyllConfig {
@@ -17,8 +17,8 @@ pub struct JekyllConfig {
 impl FrameworkConfiguration for JekyllConfig {
     type Config = Self;
 
-    fn convert_to_common_config(config: &Self::Config) -> FrameworkConfigFile {
-        FrameworkConfigFile {
+    fn get_config_file_settings(config: &Self::Config) -> FrameworkConfigFileSettings {
+        FrameworkConfigFileSettings {
             output_dir: config.destination.to_owned(),
         }
     }
@@ -35,6 +35,6 @@ mod tests {
             JekyllConfig::get_config("tests/fixtures/framework_configs/jekyll/_config.yml")
                 .unwrap();
 
-        assert_eq!(config.output_dir, Some(String::from("build")))
+        assert_eq!(config.settings.output_dir, Some(String::from("build")))
     }
 }

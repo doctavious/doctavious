@@ -33,7 +33,7 @@
     command_args:
       config:
           type: arg
-          index: 1
+          index: 0
       output:
         type: option
         name: --to-dir
@@ -312,11 +312,14 @@
     command_args:
       source:
         type: arg
-        index: 1
+        index: 0
         default_value: docs
       output:
         type: arg
-        index: 2
+        index: 1
+      config:
+        type: option
+        name: -c
     output_directory: docs/_build
   detection:
     matching_strategy: all
@@ -373,7 +376,7 @@
     command_args:
       source:
         type: arg
-        index: 1
+        index: 0
         default_value: docs
       config:
         type: option

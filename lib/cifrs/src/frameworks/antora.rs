@@ -9,7 +9,7 @@ use std::collections::HashMap;
 
 use serde::Deserialize;
 
-use crate::frameworks::{FrameworkConfigFile, FrameworkConfiguration};
+use crate::frameworks::{FrameworkConfigFileSettings, FrameworkConfiguration};
 
 #[derive(Deserialize)]
 pub struct AntoraConfig {
@@ -24,8 +24,8 @@ struct AntoraConfigOutputKeys {
 impl FrameworkConfiguration for AntoraConfig {
     type Config = Self;
 
-    fn convert_to_common_config(config: &Self::Config) -> FrameworkConfigFile {
-        FrameworkConfigFile {
+    fn get_config_file_settings(config: &Self::Config) -> FrameworkConfigFileSettings {
+        FrameworkConfigFileSettings {
             output_dir: config.output.get("dir").cloned(),
         }
     }
@@ -43,6 +43,6 @@ mod tests {
         )
         .unwrap();
 
-        assert_eq!(config.output_dir, Some(String::from("./launch")))
+        assert_eq!(config.settings.output_dir, Some(String::from("./launch")))
     }
 }

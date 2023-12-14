@@ -8,7 +8,7 @@ use std::env;
 
 use serde_derive::Deserialize;
 
-use crate::frameworks::{FrameworkConfigFile, FrameworkConfiguration};
+use crate::frameworks::{FrameworkConfigFileSettings, FrameworkConfiguration};
 use crate::CifrsResult;
 
 #[derive(Deserialize)]
@@ -21,8 +21,8 @@ impl FrameworkConfiguration for SphinxConfig {
         Ok(Self {})
     }
 
-    fn convert_to_common_config(_config: &Self::Config) -> FrameworkConfigFile {
-        FrameworkConfigFile {
+    fn get_config_file_settings(_config: &Self::Config) -> FrameworkConfigFileSettings {
+        FrameworkConfigFileSettings {
             output_dir: env::var("BUILDDIR").ok(),
         }
     }
@@ -38,7 +38,7 @@ mod tests {
         let config =
             SphinxConfig::get_config("tests/fixtures/framework_configs/sphinx/conf.py").unwrap();
 
-        assert_eq!(config.output_dir, None)
+        assert_eq!(config.settings.output_dir, None)
     }
 
     #[test]
@@ -48,7 +48,7 @@ mod tests {
                 SphinxConfig::get_config("tests/fixtures/framework_configs/sphinx/conf.py")
                     .unwrap();
 
-            assert_eq!(config.output_dir, Some(String::from("build")))
+            assert_eq!(config.settings.output_dir, Some(String::from("build")))
         });
     }
 }
