@@ -239,9 +239,9 @@ pub enum FrameworkBuildArg {
     #[serde(rename = "option")]
     Option {
         #[serde(default)]
-        short: String,
-        #[serde(default)]
-        long: String,
+        name: String,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        default_value: Option<String>,
     },
 }
 

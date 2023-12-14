@@ -36,7 +36,7 @@
           index: 1
       output:
         type: option
-        long: --to-dir
+        name: --to-dir
     output_directory: build/site
   detection:
     matching_strategy: all
@@ -59,7 +59,7 @@
     command_args:
       config:
         type: option
-        long: --config
+        name: --config
     output_directory: ./dist
   detection:
     matching_strategy: all
@@ -77,7 +77,7 @@
     command_args:
       output:
         type: option
-        short: -o
+        name: -o
     output_directory: _site
   detection:
     matching_strategy: all
@@ -94,10 +94,10 @@
     command_args:
       config:
         type: option
-        long: --config
+        name: --config
       output:
         type: option
-        long: --out-dir
+        name: --out-dir
     output_directory: build
   detection:
     matching_strategy: all
@@ -117,7 +117,7 @@
     command_args:
       output:
         type: option
-        long: --output
+        name: --output
     output_directory: _site
   detection:
     matching_strategy: all
@@ -151,7 +151,7 @@
     command_args:
       config:
         type: option
-        long: --config
+        name: --config
     output_directory: public
   detection:
     matching_strategy: all
@@ -176,10 +176,10 @@
     command_args:
       config:
         type: option
-        long: --config
+        name: --config
       output:
         type: option
-        long: --destination
+        name: --destination
     output_directory: /public
   detection:
     matching_strategy: all
@@ -199,15 +199,13 @@
     command_args:
       config:
         type: option
-        long: --config
+        name: --config
       output:
         type: option
-        short: -d
-        long: --destination
+        name: --destination
       source:
         type: option
-        short: -s
-        long: --source
+        name: --source
     output_directory: _site
   detection:
     matching_strategy: any
@@ -228,8 +226,7 @@
     command_args:
       output:
         type: option
-        short: -d
-        long: --dest-dir
+        name: --dest-dir
     output_directory: ./book
   detection:
     matching_strategy: all
@@ -247,12 +244,10 @@
     command_args:
       config:
         type: option
-        short: -f
-        long: --config-file
+        name: --config-file
       output:
         type: option
-        short: -d
-        long: --site-dir
+        name: --site-dir
     output_directory: site
   detection:
     matching_strategy: all
@@ -338,7 +333,7 @@
     command_args:
       output:
         type: option
-        long: --outDir
+        name: --outDir
     output_directory: build
   detection:
     matching_strategy: all
@@ -382,12 +377,10 @@
         default_value: docs
       config:
         type: option
-        short: -c
-        long: --config
+        name: --config
       output:
         type: option
-        short: -d
-        long: --dest
+        name: --dest
     output_directory: .vuepress/dist
   detection:
     matching_strategy: all

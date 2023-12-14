@@ -188,9 +188,13 @@ impl Cifrs {
         // TODO(Sean): pass appropriate values to command
         println!("{:?}", serde_json::to_string(&framework));
         if let Some(args) = framework.build.command_args {
-            if let Some(config) = &args.config {}
+            if let Some(config) = &args.config {
 
-            if let Some(output) = &args.output {}
+            }
+
+            if let Some(output) = &args.output {
+
+            }
 
             if let Some(source) = &args.source {
                 match source {
@@ -198,9 +202,9 @@ impl Cifrs {
                         index,
                         default_value,
                     } => {}
-                    FrameworkBuildArg::Option { short, long } => {
+                    FrameworkBuildArg::Option { name, default_value } => {
                         build_command
-                            .arg(long)
+                            .arg(name)
                             .arg(path.as_ref().to_string_lossy().to_string());
                     }
                 }
