@@ -8,11 +8,28 @@ use crate::CliResult;
 // TODO: do we want to offer preview deployments?
 // TODO: what setup / linking needs to occur? How to make initial onboarding as easy as possible?
 
-pub fn invoke(dir: Option<PathBuf>, build: bool) -> CliResult<Option<String>> {
+pub fn invoke(dir: Option<PathBuf>, prebuilt: bool) -> CliResult<Option<String>> {
     let cwd = dir.unwrap_or(env::current_dir()?);
 
-    let build_dir = if build {
-        // TODO: this should probably return output directory
+    // TODO: can only deploy directory
+    if cwd.is_file() {}
+
+    // TODO: retrieve project / org from .doctavious
+    // get linked project
+    // if link status is error/fail return error
+    // if not linked see if auto confirm is enabled
+    // if not setup return error
+    // get org to determine scope to deploy to
+    // get project name
+    // link folder to project
+
+    // if linked org should be present. if its not error
+
+    // create deploy
+    // if deploy is missing project settings - edit project settings then create deploy with
+    // updating settings
+
+    let build_dir = if !prebuilt {
         let build_output = Cifrs::build(&cwd, false, true)?;
         match build_output {
             BuildOutput::DryRun => unreachable!(),
@@ -23,7 +40,7 @@ pub fn invoke(dir: Option<PathBuf>, build: bool) -> CliResult<Option<String>> {
     };
 
     let tree = cas::tree::MerkleTree::from_path(build_dir)?;
-    println!("{:?}", serde_json::to_string(&tree));
+    println!("{}", serde_json::to_string(&tree).unwrap());
 
     // TODO: see if project is linked and if not setup
     // example of how vercel does setup/linking as part of deploy

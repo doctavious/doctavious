@@ -224,6 +224,7 @@ pub struct FrameworkBuildArgs {
     pub output: Option<FrameworkBuildArg>,
 }
 
+// TODO: do we need default_value
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 #[serde(tag = "type")]
 pub enum FrameworkBuildArg {
@@ -234,8 +235,6 @@ pub enum FrameworkBuildArg {
         #[serde(skip_serializing_if = "Option::is_none")]
         default_value: Option<String>,
     },
-    // TODO: do we care short or long? how about use vec/array? I dont think it really matters
-    // I Think we should just have option with a name/value/arg
     #[serde(rename = "option")]
     Option {
         #[serde(default)]
@@ -272,7 +271,7 @@ pub trait FrameworkConfiguration: for<'a> Deserialize<'a> {
         let config = <Self as FrameworkConfiguration>::read_config(&format)?;
         Ok(FrameworkConfigFile {
             path: path.to_path_buf(),
-            settings: <Self as FrameworkConfiguration>::get_config_file_settings(&config)
+            settings: <Self as FrameworkConfiguration>::get_config_file_settings(&config),
         })
     }
 

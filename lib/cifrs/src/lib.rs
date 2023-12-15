@@ -160,6 +160,8 @@ impl Cifrs {
         path: &P,
         dry: bool,
         install: bool,
+        // install_command_override: Option<String>
+        // build_command_override: Option<String>
         // config_override: Option<PathBuf>,
         // output_override: Option<PathBuf>,
     ) -> CifrsResult<BuildOutput> {

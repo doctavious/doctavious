@@ -116,7 +116,6 @@ pub(crate) struct GetFramework {
     pub name: String,
 }
 
-
 #[derive(Parser, Debug)]
 #[command(about = "Show the username of the user currently logged into Doctavious CLI.")]
 pub(crate) struct WhoAmICommand;
@@ -131,8 +130,12 @@ pub(crate) struct InitCommand {
 #[derive(Parser, Debug)]
 #[command(about = "Links your local directory to a Doctavious Project.")]
 pub(crate) struct LinkCommand {
-    #[arg(long, short, help = "Directory of the local Doctavious project", index=0)]
+    #[arg(
+        long,
+        short,
+        help = "Directory of the local Doctavious project",
+        index = 0
+    )]
     pub cwd: Option<PathBuf>,
-
     // TODO: auto confirm
 }
