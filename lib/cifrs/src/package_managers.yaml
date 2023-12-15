@@ -29,7 +29,7 @@
     matching_strategy: any
     detectors:
       - type: file
-        path: Gemfile.lco
+        path: Gemfile.lock
       - type: file
         path: Gemfile
 - id: cargo
