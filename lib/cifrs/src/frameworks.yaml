@@ -313,7 +313,6 @@
       source:
         type: arg
         index: 0
-        default_value: docs
       output:
         type: arg
         index: 1
@@ -377,7 +376,6 @@
       source:
         type: arg
         index: 0
-        default_value: docs
       config:
         type: option
         name: --config

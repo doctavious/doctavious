@@ -224,23 +224,16 @@ pub struct FrameworkBuildArgs {
     pub output: Option<FrameworkBuildArg>,
 }
 
-// TODO: do we need default_value
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 #[serde(tag = "type")]
 pub enum FrameworkBuildArg {
     /// 0-based index of argument and default value
     #[serde(rename = "arg")]
-    Arg {
-        index: i8,
-        #[serde(skip_serializing_if = "Option::is_none")]
-        default_value: Option<String>,
-    },
+    Arg { index: i8 },
     #[serde(rename = "option")]
     Option {
         #[serde(default)]
         name: String,
-        #[serde(skip_serializing_if = "Option::is_none")]
-        default_value: Option<String>,
     },
 }
 
