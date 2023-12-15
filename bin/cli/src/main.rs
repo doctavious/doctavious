@@ -1,8 +1,8 @@
 use clap::Parser;
 use doctavious_cli::cmd::{build, deploy, frameworks};
-use tracing::{error};
+use tracing::error;
 
-use crate::args::{BuildCommand, DeployCommand, FrameworkSubCommand, FrameworksCommand};
+use crate::args::{BuildCommand, DeployCommand, FrameworkSubCommand, FrameworksCommand, WhoAmICommand, InitCommand, LinkCommand};
 
 mod args;
 mod config;
@@ -27,7 +27,6 @@ pub struct Opt {
     //     global = true
     // )]
     // pub(crate) output: Option<Output>,
-
     #[command(subcommand)]
     cmd: Command,
 }
@@ -37,6 +36,9 @@ enum Command {
     Build(BuildCommand),
     Deploy(DeployCommand),
     Frameworks(FrameworksCommand),
+    WhoAmI(WhoAmICommand),
+    Init(InitCommand),
+    Link(LinkCommand)
 }
 
 // TODO: do we need/want custom error codes?
@@ -69,6 +71,9 @@ fn main() {
             FrameworkSubCommand::Get(cmd) => frameworks::get::invoke(cmd.name),
             FrameworkSubCommand::List(_) => frameworks::list::invoke(),
         },
+        Command::WhoAmI(..) => unimplemented!(),
+        Command::Init(..) => unimplemented!(),
+        Command::Link(..) => unimplemented!(),
     };
 
     match result {
