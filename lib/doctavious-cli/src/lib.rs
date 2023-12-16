@@ -1,5 +1,8 @@
 pub mod cmd;
 pub mod enums;
+mod file_structure;
+mod markup_format;
+mod settings;
 
 use thiserror::Error;
 

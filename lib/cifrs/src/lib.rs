@@ -199,11 +199,11 @@ impl Cifrs {
             if let Some(config) = &args.config {
                 if let Some(framework_config) = framework.get_configuration() {
                     match config {
-                        FrameworkBuildArg::Arg { index, .. } => {
+                        FrameworkBuildArg::Arg { index } => {
                             build_args
                                 .push((index, framework_config.path.to_string_lossy().to_string()));
                         }
-                        FrameworkBuildArg::Option { name, .. } => {
+                        FrameworkBuildArg::Option { name } => {
                             build_command
                                 .arg(name)
                                 .arg(framework_config.path.to_string_lossy().to_string());
@@ -214,10 +214,10 @@ impl Cifrs {
 
             if let Some(output) = &args.output {
                 match output {
-                    FrameworkBuildArg::Arg { index, .. } => {
+                    FrameworkBuildArg::Arg { index } => {
                         build_args.push((index, framework.build.output_directory.to_string()));
                     }
-                    FrameworkBuildArg::Option { name, .. } => {
+                    FrameworkBuildArg::Option { name } => {
                         build_command
                             .arg(name)
                             .arg(framework.build.output_directory.to_string());
@@ -228,10 +228,10 @@ impl Cifrs {
             if let Some(source) = &args.source {
                 let source_path = path.as_ref().to_string_lossy().to_string();
                 match source {
-                    FrameworkBuildArg::Arg { index, .. } => {
+                    FrameworkBuildArg::Arg { index } => {
                         build_args.push((index, source_path));
                     }
-                    FrameworkBuildArg::Option { name, .. } => {
+                    FrameworkBuildArg::Option { name } => {
                         build_command.arg(name).arg(source_path);
                     }
                 }
