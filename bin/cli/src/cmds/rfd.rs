@@ -12,12 +12,13 @@ pub(crate) struct RFDCommand {
     pub rfd_command: RFDSubCommand,
 }
 
+#[remain::sorted]
 #[derive(Subcommand, Debug)]
 pub(crate) enum RFDSubCommand {
-    Init(InitRFD),
-    New(NewRFD),
-    List(ListRFDs),
     Generate(GenerateRFDs),
+    Init(InitRFD),
+    List(ListRFDs),
+    New(NewRFD),
     Reserve(ReserveRFD),
 }
 

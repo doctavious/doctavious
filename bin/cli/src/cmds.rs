@@ -1,10 +1,13 @@
 use clap::Parser;
+use crate::cmds::adr::ADRCommand;
 
 use crate::cmds::build::BuildCommand;
 use crate::cmds::deploy::DeployCommand;
 use crate::cmds::frameworks::FrameworksCommand;
 use crate::cmds::init::InitCommand;
 use crate::cmds::link::LinkCommand;
+use crate::cmds::rfd::RFDCommand;
+use crate::cmds::til::TilCommand;
 use crate::cmds::whoami::WhoAmICommand;
 
 pub mod adr;
@@ -14,6 +17,7 @@ pub mod frameworks;
 pub mod init;
 pub mod link;
 pub mod rfd;
+mod til;
 pub mod whoami;
 
 #[derive(Debug, Parser)]
@@ -41,10 +45,13 @@ pub struct Opt {
 
 #[derive(Debug, Parser)]
 pub enum Command {
+    Adr(ADRCommand),
     Build(BuildCommand),
     Deploy(DeployCommand),
     Frameworks(FrameworksCommand),
-    WhoAmI(WhoAmICommand),
     Init(InitCommand),
     Link(LinkCommand),
+    Rfd(RFDCommand),
+    Til(TilCommand),
+    WhoAmI(WhoAmICommand),
 }

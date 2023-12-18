@@ -9,6 +9,7 @@ pub struct FrameworksCommand {
     pub framework_command: FrameworkSubCommand,
 }
 
+#[remain::sorted]
 #[derive(Parser, Debug)]
 pub enum FrameworkSubCommand {
     Detect(DetectFrameworks),

@@ -1,5 +1,3 @@
-use std::fmt::Display;
-
 use cifrs::frameworks;
 
 use crate::{CliResult, DoctaviousCliError};

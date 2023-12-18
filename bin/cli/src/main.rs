@@ -4,6 +4,8 @@ use tracing::error;
 
 use crate::cmds::frameworks::FrameworkSubCommand;
 use crate::cmds::{Command, Opt};
+use crate::cmds::adr::ADRSubCommand;
+use crate::cmds::rfd::RFDSubCommand;
 
 mod cmds;
 mod config;
@@ -32,6 +34,14 @@ fn main() {
     // TODO: get configuration: file + env
 
     let result = match opt.cmd {
+        Command::Adr(cmd) => match cmd.adr_command {
+            ADRSubCommand::Init(_) => unimplemented!(),
+            ADRSubCommand::Generate(_) => unimplemented!(),
+            ADRSubCommand::List(_) => unimplemented!(),
+            ADRSubCommand::Link(_) => unimplemented!(),
+            ADRSubCommand::New(_) => unimplemented!(),
+            ADRSubCommand::Reserve(_) => unimplemented!(),
+        },
         Command::Build(cmd) => build::invoke(cmd.cwd, cmd.dry, cmd.skip_install),
         Command::Deploy(cmd) => deploy::invoke(cmd.cwd, cmd.build),
         Command::Frameworks(cmd) => match cmd.framework_command {
@@ -39,9 +49,17 @@ fn main() {
             FrameworkSubCommand::Get(cmd) => frameworks::get::invoke(cmd.name),
             FrameworkSubCommand::List(_) => frameworks::list::invoke(),
         },
-        Command::WhoAmI(..) => unimplemented!(),
         Command::Init(..) => unimplemented!(),
         Command::Link(..) => unimplemented!(),
+        Command::Rfd(cmd) => match cmd.rfd_command {
+            RFDSubCommand::Init(_) => unimplemented!(),
+            RFDSubCommand::New(_) => unimplemented!(),
+            RFDSubCommand::List(_) => unimplemented!(),
+            RFDSubCommand::Generate(_) => unimplemented!(),
+            RFDSubCommand::Reserve(_) => unimplemented!(),
+        },
+        Command::Til(..) => unimplemented!(),
+        Command::WhoAmI(..) => unimplemented!(),
     };
 
     match result {

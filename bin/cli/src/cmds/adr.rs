@@ -10,12 +10,13 @@ pub(crate) struct ADRCommand {
     pub adr_command: ADRSubCommand,
 }
 
+#[remain::sorted]
 #[derive(Parser, Debug)]
 pub(crate) enum ADRSubCommand {
-    Init(InitADR),
     Generate(GenerateADRs),
-    List(ListADRs),
+    Init(InitADR),
     Link(LinkADRs),
+    List(ListADRs),
     New(NewADR),
     Reserve(ReserveADR),
 }
