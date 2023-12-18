@@ -2,47 +2,12 @@ use clap::Parser;
 use doctavious_cli::cmd::{build, deploy, frameworks};
 use tracing::error;
 
-use crate::args::{
-    BuildCommand, DeployCommand, FrameworkSubCommand, FrameworksCommand, InitCommand, LinkCommand,
-    WhoAmICommand,
-};
+use crate::cmds::frameworks::FrameworkSubCommand;
+use crate::cmds::{Command, Opt};
 
-mod args;
+mod cmds;
 mod config;
 mod output;
-
-#[derive(Debug, Parser)]
-#[command(name = "Doctavious")]
-pub struct Opt {
-    #[arg(
-        long,
-        help = "Prints a verbose output during the program execution",
-        global = true
-    )]
-    debug: bool,
-
-    // TODO: Implement
-    // #[arg(
-    //     long,
-    //     short,
-    //     value_parser = parse_output,
-    //     help = "How a command output should be rendered",
-    //     global = true
-    // )]
-    // pub(crate) output: Option<Output>,
-    #[command(subcommand)]
-    cmd: Command,
-}
-
-#[derive(Debug, Parser)]
-enum Command {
-    Build(BuildCommand),
-    Deploy(DeployCommand),
-    Frameworks(FrameworksCommand),
-    WhoAmI(WhoAmICommand),
-    Init(InitCommand),
-    Link(LinkCommand),
-}
 
 // TODO: do we need/want custom error codes?
 // TODO: this should probably have

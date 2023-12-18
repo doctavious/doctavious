@@ -1,8 +1,8 @@
 use std::collections::HashMap;
 use std::fmt::Display;
 use std::str::FromStr;
-use lazy_static::lazy_static;
 
+use lazy_static::lazy_static;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use strum::{Display, EnumIter, EnumString, EnumVariantNames, IntoEnumIterator};
 
