@@ -1,21 +1,22 @@
-use std::fmt::{Display, Formatter};
-use std::slice::Iter;
+use std::collections::HashMap;
+use std::fmt::Display;
 use std::str::FromStr;
+use lazy_static::lazy_static;
 
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
-use strum::{Display, EnumString, EnumVariantNames};
+use strum::{Display, EnumIter, EnumString, EnumVariantNames, IntoEnumIterator};
 
-// lazy_static! {
-//     pub static ref FILE_STRUCTURES: HashMap<&'static str, FileStructure> = {
-//         let mut map = HashMap::new();
-//         for file_structure in FileStructure::iterator() {
-//             map.insert(file_structure.value(), file_structure.to_owned());
-//         }
-//         map
-//     };
-// }
+lazy_static! {
+    pub static ref FILE_STRUCTURES: HashMap<&'static str, FileStructure> = {
+        let mut map = HashMap::new();
+        for file_structure in FileStructure::iter() {
+            map.insert(file_structure.value(), file_structure.to_owned());
+        }
+        map
+    };
+}
 
-#[derive(Clone, Copy, Debug, Display, EnumString, EnumVariantNames, PartialEq)]
+#[derive(Clone, Copy, Debug, Display, EnumIter, EnumString, EnumVariantNames, PartialEq)]
 pub enum FileStructure {
     #[strum(serialize = "flat")]
     Flat,
@@ -33,6 +34,11 @@ impl FileStructure {
             Self::Flat => "flat",
             Self::Nested => "nested",
         };
+    }
+
+    #[must_use]
+    pub const fn variants() -> &'static [&'static str] {
+        <Self as strum::VariantNames>::VARIANTS
     }
 }
 

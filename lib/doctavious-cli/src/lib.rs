@@ -1,8 +1,8 @@
 pub mod cmd;
 pub mod enums;
-mod file_structure;
-mod markup_format;
-mod settings;
+pub mod file_structure;
+pub mod markup_format;
+pub mod settings;
 
 use thiserror::Error;
 
@@ -20,6 +20,14 @@ pub enum DoctaviousCliError {
 
     #[error("json serialize/deserialize error: {0}")]
     SerdeJson(#[from] serde_json::Error),
+
+    /// Errors that may occur when deserializing types from TOML format.
+    #[error("toml deserialize error: {0}")]
+    TomlDeserialize(#[from] toml::de::Error),
+
+    /// Errors that may occur when serializing types from TOML format.
+    #[error("toml serialization error: `{0}`")]
+    TomlSerializeError(#[from] toml::ser::Error),
 }
 
 pub type CliResult<T> = Result<T, DoctaviousCliError>;

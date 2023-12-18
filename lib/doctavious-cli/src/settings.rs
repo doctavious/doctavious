@@ -1,21 +1,49 @@
 use std::collections::HashMap;
+use std::fs;
+use std::path::{Path, PathBuf};
+use lazy_static::lazy_static;
 
 use serde::{Deserialize, Serialize};
 
 use crate::cmd::githooks::Hook;
 use crate::file_structure::FileStructure;
 use crate::markup_format::MarkupFormat;
+use crate::CliResult;
 
 // TODO: better way to do this? Do we want to keep a default settings file in doctavious dir?
-pub static DEFAULT_CONFIG_NAME: &str = "doctavious.toml";
-pub static DEFAULT_ADR_DIR: &str = "docs/adr";
-pub static DEFAULT_ADR_TEMPLATE_PATH: &str = "templates/adr/template";
-pub static INIT_ADR_TEMPLATE_PATH: &str = "templates/adr/init";
-pub static DEFAULT_RFD_DIR: &str = "docs/rfd";
-pub static DEFAULT_RFD_TEMPLATE_PATH: &str = "templates/rfd/template";
+pub const DEFAULT_CONFIG_NAME: &str = "doctavious.toml";
+pub const DEFAULT_ADR_DIR: &str = "docs/adr";
+pub const DEFAULT_ADR_TEMPLATE_PATH: &str = "templates/adr/template";
+pub const INIT_ADR_TEMPLATE_PATH: &str = "templates/adr/init";
+pub const DEFAULT_RFD_DIR: &str = "docs/rfd";
+pub const DEFAULT_RFD_TEMPLATE_PATH: &str = "templates/rfd/template";
 // TODO: do we want this to default to the current directory?
-pub static DEFAULT_TIL_DIR: &str = "til";
-pub static DEFAULT_TIL_TEMPLATE_PATH: &str = "templates/til/template";
+pub const DEFAULT_TIL_DIR: &str = "til";
+pub const DEFAULT_TIL_TEMPLATE_PATH: &str = "templates/til/template";
+
+// This is primary went to avoid having to re-parse settings but an alternative might be to have
+// a context object that gets passed around. We might do down that route anyway when we introduce
+// an HTTP client to talk to doctavious API
+lazy_static! {
+    // TODO: doctavious config will live in project directory
+    // do we also want a default settings file
+    pub static ref SETTINGS_FILE: PathBuf = PathBuf::from(DEFAULT_CONFIG_NAME);
+
+    // TODO: not sure this buys us anything.
+    // just have a parse method on Settings that takes in a string/pathbuf?
+    pub static ref SETTINGS: Settings = {
+        load_settings().unwrap_or_else(|e| {
+                if Path::new(SETTINGS_FILE.as_path()).exists() {
+                    eprintln!(
+                        "Error when parsing {}, fallback to default settings. Error: {:?}\n",
+                        SETTINGS_FILE.as_path().display(),
+                        e
+                    );
+                }
+                Default::default()
+            })
+    };
+}
 
 // TODO: should this include output?
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
@@ -192,4 +220,20 @@ impl Settings {
 
         return MarkupFormat::default();
     }
+}
+
+pub(crate) fn load_settings() -> CliResult<Settings> {
+    let contents = fs::read_to_string(SETTINGS_FILE.as_path())?;
+    let settings: Settings = toml::from_str(contents.as_str())?;
+    Ok(settings)
+}
+
+// outside of Settings because we dont want to initialize load given we are using lazy_static
+// TODO: should this take in a mut writer, i.e., a mutable thing we call “writer”.
+// Its type is impl std::io::Write
+// so that its a bit easier to test?
+pub(crate) fn persist_settings(settings: Settings) -> CliResult<()> {
+    let content = toml::to_string(&settings)?;
+    fs::write(SETTINGS_FILE.as_path(), content)?;
+    Ok(())
 }
