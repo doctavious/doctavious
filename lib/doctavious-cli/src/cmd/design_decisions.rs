@@ -1,16 +1,16 @@
 use std::fs;
 use std::io::ErrorKind;
 use std::path::{Path, PathBuf};
+
 use unidecode::unidecode;
 use walkdir::WalkDir;
-use crate::{CliResult, DoctaviousCliError};
+
 use crate::file_structure::FileStructure;
-use crate::markup_format::{MARKUP_FORMAT_EXTENSIONS, MarkupFormat};
+use crate::markup_format::{MarkupFormat, MARKUP_FORMAT_EXTENSIONS};
+use crate::{CliResult, DoctaviousCliError};
 
 mod adr;
 mod rfd;
-
-
 
 pub(crate) fn format_number(number: i32) -> String {
     return format!("{:0>4}", number);
@@ -28,7 +28,9 @@ pub(crate) fn build_path(
         FileStructure::Flat => {
             let slug = slugify(&title);
             let file_name = format!("{}-{}", reserved_number, slug);
-            Path::new(dir).join(file_name).with_extension(extension.to_string())
+            Path::new(dir)
+                .join(file_name)
+                .with_extension(extension.to_string())
         }
 
         FileStructure::Nested => Path::new(dir)
@@ -56,11 +58,7 @@ pub(crate) fn reserve_number(
     };
 }
 
-pub(crate) fn is_number_reserved(
-    dir: &str,
-    number: i32,
-    file_structure: FileStructure,
-) -> bool {
+pub(crate) fn is_number_reserved(dir: &str, number: i32, file_structure: FileStructure) -> bool {
     return get_allocated_numbers(dir, file_structure).contains(&number);
 
     // TODO: revisit iterator
@@ -69,10 +67,7 @@ pub(crate) fn is_number_reserved(
     //     .is_some();
 }
 
-pub(crate) fn get_allocated_numbers(
-    dir: &str,
-    file_structure: FileStructure,
-) -> Vec<i32> {
+pub(crate) fn get_allocated_numbers(dir: &str, file_structure: FileStructure) -> Vec<i32> {
     match file_structure {
         FileStructure::Flat => get_allocated_numbers_via_flat_files(dir),
         FileStructure::Nested => get_allocated_numbers_via_nested(dir),
@@ -90,14 +85,8 @@ pub(crate) fn get_allocated_numbers_via_nested(dir: &str) -> Vec<i32> {
                 .filter_map(Result::ok)
                 .filter_map(|e| {
                     // TODO: is there a better way to do this?
-                    if e.file_type().is_ok() && e.file_type().unwrap().is_dir()
-                    {
-                        return Some(
-                            e.file_name()
-                                .to_string_lossy()
-                                .parse::<i32>()
-                                .unwrap(),
-                        );
+                    if e.file_type().is_ok() && e.file_type().unwrap().is_dir() {
+                        return Some(e.file_name().to_string_lossy().parse::<i32>().unwrap());
                     } else {
                         None
                     }
@@ -141,9 +130,7 @@ pub(crate) fn get_allocated_numbers_via_flat_files(dir: &str) -> Vec<i32> {
 }
 
 pub(crate) fn get_next_number(dir: &str, file_structure: FileStructure) -> i32 {
-    return if let Some(max) =
-        get_allocated_numbers(dir, file_structure).iter().max()
-    {
+    return if let Some(max) = get_allocated_numbers(dir, file_structure).iter().max() {
         max + 1
     } else {
         1
@@ -193,6 +180,5 @@ pub(crate) fn slugify(string: &str) -> String {
 
 // TODO: where does this belong
 pub(crate) fn is_valid_file(path: &Path) -> bool {
-    return MARKUP_FORMAT_EXTENSIONS
-        .contains_key(&path.extension().unwrap().to_str().unwrap());
+    return MARKUP_FORMAT_EXTENSIONS.contains_key(&path.extension().unwrap().to_str().unwrap());
 }

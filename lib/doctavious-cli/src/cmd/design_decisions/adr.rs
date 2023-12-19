@@ -1,15 +1,20 @@
 use std::fs;
 use std::path::PathBuf;
+
 use chrono::Utc;
 use dotavious::{Dot, Edge, GraphBuilder, Node};
 use git2::Repository;
-use crate::{CliResult, edit, git};
+
 use crate::cmd::design_decisions::{build_path, format_number, reserve_number};
 use crate::file_structure::FileStructure;
 use crate::files::ensure_path;
 use crate::markup_format::MarkupFormat;
-use crate::settings::{AdrSettings, DEFAULT_ADR_DIR, DEFAULT_ADR_TEMPLATE_PATH, INIT_ADR_TEMPLATE_PATH, init_dir, load_settings, persist_settings, SETTINGS};
+use crate::settings::{
+    init_dir, load_settings, persist_settings, AdrSettings, DEFAULT_ADR_DIR,
+    DEFAULT_ADR_TEMPLATE_PATH, INIT_ADR_TEMPLATE_PATH, SETTINGS,
+};
 use crate::templates::{get_template, TemplateContext, Templates};
+use crate::{edit, git, CliResult};
 
 pub(crate) fn init_adr(
     directory: Option<String>,
@@ -53,8 +58,7 @@ pub(crate) fn new_adr(
 ) -> CliResult<PathBuf> {
     let dir = SETTINGS.get_adr_dir();
     let template = get_template(&dir, &extension.extension(), template_path);
-    let reserve_number =
-        reserve_number(&dir, number, SETTINGS.get_adr_structure())?;
+    let reserve_number = reserve_number(&dir, number, SETTINGS.get_adr_structure())?;
     let formatted_reserved_number = format_number(reserve_number);
     let adr_path = build_path(
         &dir,
@@ -97,8 +101,7 @@ pub(crate) fn new_adr(
     // TODO: allow date to be customized
     context.insert("date", &Utc::now().format("%Y-%m-%d").to_string());
 
-    let rendered =
-        Templates::one_off(starting_content.as_str(), &context, false)?;
+    let rendered = Templates::one_off(starting_content.as_str(), &context, false)?;
 
     let edited = edit::edit(&rendered)?;
     fs::write(&adr_path, edited)?;
@@ -129,34 +132,25 @@ pub(crate) fn reserve_adr(
     extension: MarkupFormat,
 ) -> CliResult<()> {
     let dir = SETTINGS.get_adr_dir();
-    let reserve_number =
-        reserve_number(&dir, number, SETTINGS.get_adr_structure())?;
+    let reserve_number = reserve_number(&dir, number, SETTINGS.get_adr_structure())?;
 
     // TODO: support more than current directory
     let repo = Repository::open(".")?;
     if git::branch_exists(&repo, reserve_number) {
-        return Err(git2::Error::from_str(
-            "branch already exists in remote. Please pull.",
-        )
-            .into());
+        return Err(git2::Error::from_str("branch already exists in remote. Please pull.").into());
     }
 
     git::checkout_branch(&repo, reserve_number.to_string().as_str());
 
     // TODO: revisit clones. Using it for now to resolve value borrowed here after move
-    let created_result =
-        new_adr(number, title.clone(), extension, DEFAULT_ADR_TEMPLATE_PATH);
+    let created_result = new_adr(number, title.clone(), extension, DEFAULT_ADR_TEMPLATE_PATH);
 
     let message = format!(
         "{}: Adding placeholder for ADR {}",
         reserve_number,
         title.clone()
     );
-    git::add_and_commit(
-        &repo,
-        created_result.unwrap().as_path(),
-        message.as_str(),
-    );
+    git::add_and_commit(&repo, created_result.unwrap().as_path(), message.as_str());
     git::push(&repo);
 
     return Ok(());
@@ -177,9 +171,9 @@ pub(crate) fn graph_adrs() {
 
 #[cfg(test)]
 mod tests {
-    use tempfile::{tempdir};
-    use crate::cmd::design_decisions::adr::init_adr;
+    use tempfile::tempdir;
 
+    use crate::cmd::design_decisions::adr::init_adr;
     use crate::file_structure::FileStructure;
     use crate::markup_format::MarkupFormat;
 
@@ -192,7 +186,8 @@ mod tests {
             Some(dir.path().display().to_string()),
             FileStructure::default(),
             Some(MarkupFormat::default()),
-        ).expect("should init adr");
+        )
+        .expect("should init adr");
 
         dir.close().unwrap();
     }
