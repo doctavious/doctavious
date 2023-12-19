@@ -8,7 +8,6 @@ use minijinja::{context, render, AutoEscape, Environment};
 use serde::Serialize;
 use serde_json::{to_value, Value};
 
-// use tera::{Context, Function, Tera};
 use crate::{CliResult, DoctaviousCliError};
 
 #[derive(Debug, Clone, PartialEq, Serialize)]
@@ -78,22 +77,18 @@ impl TemplateContext {
 
 #[derive(Debug)]
 pub struct Templates<'a> {
-    // tera: Tera,
     env: Environment<'a>,
 }
 
 impl<'a> Templates<'a> {
     /// Constructs a new instance.
     pub fn new() -> CliResult<Self> {
-        // let tera = Tera::default();
-
         return Ok(Self {
             env: Environment::new(),
         });
     }
 
     pub fn new_with_templates(templates: HashMap<&'a str, String>) -> CliResult<Self> {
-        // let mut tera = Tera::default();
         let mut env = Environment::new();
         for (k, v) in templates {
             if let Err(e) = env.add_template_owned(k, v) {
@@ -105,45 +100,21 @@ impl<'a> Templates<'a> {
                     Err(DoctaviousCliError::TemplateError(e))
                 };
             }
-
-            // if let Err(e) = tera.add_raw_template(k, v.as_str()) {
-            //     return if let Some(error_source) = e.source() {
-            //         Err(DoctaviousCliError::TemplateParseError(
-            //             error_source.to_string(),
-            //         ))
-            //     } else {
-            //         Err(DoctaviousCliError::TemplateError(e))
-            //     };
-            // }
         }
 
         return Ok(Self { env });
     }
 
-    // TODO: probably makes sense to make this Into<&str, String>?
     /// Renders the template.
     pub fn render(&self, template: &str, context: &TemplateContext) -> CliResult<String> {
-        // let tera_context = Context::from_serialize(&context.data)?;
         let tmpl = self.env.get_template(template).unwrap();
         Ok(tmpl.render(context!(context))?)
-        // return Ok(self.tera.render(template, &tera_context)?);
     }
-
-    // pub fn register_function<F: Function + 'static>(
-    //     &mut self,
-    //     name: &str,
-    //     function: F,
-    // ) {
-    //     self.tera.register_function(name, function)
-    // }
 
     pub fn one_off(template: &str, context: &TemplateContext, escape: bool) -> CliResult<String> {
         let mut env = Environment::new();
         env.set_auto_escape_callback(|_| AutoEscape::Html);
         Ok(render!(in env, template, context))
-        // let tera_context = Context::from_serialize(&context.data)?;
-        // println!("{:?}", tera_context);
-        // return Ok(Tera::one_off(template, &tera_context, escape)?);
     }
 }
 
