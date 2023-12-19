@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 use std::fs;
+use std::io::ErrorKind;
 use std::path::{Path, PathBuf};
 
 use lazy_static::lazy_static;
@@ -236,4 +237,23 @@ pub(crate) fn persist_settings(settings: Settings) -> CliResult<()> {
     let content = toml::to_string(&settings)?;
     fs::write(SETTINGS_FILE.as_path(), content)?;
     Ok(())
+}
+
+// TODO: where to put this?
+pub fn init_dir(dir: &str) -> CliResult<()> {
+    // TODO: create_dir_all doesnt appear to throw AlreadyExists. Confirm this
+    // I think this is fine just need to make sure that we dont overwrite initial file
+    println!("{}", format!("creating dir {}", dir));
+    let create_dir_result = fs::create_dir_all(dir);
+    match create_dir_result {
+        Ok(_) => Ok(()),
+        Err(e) if e.kind() == ErrorKind::AlreadyExists => {
+            eprintln!("the directory {} already exists", dir);
+            return Err(e.into());
+        }
+        Err(e) => {
+            eprintln!("Error occurred creating directory {}: {}", dir, e);
+            return Err(e.into());
+        }
+    }
 }

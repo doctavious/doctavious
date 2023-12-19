@@ -2,10 +2,10 @@ use clap::Parser;
 use doctavious_cli::cmd::{build, deploy, frameworks};
 use tracing::error;
 
-use crate::cmds::frameworks::FrameworkSubCommand;
-use crate::cmds::{Command, Opt};
 use crate::cmds::adr::ADRSubCommand;
+use crate::cmds::frameworks::FrameworkSubCommand;
 use crate::cmds::rfd::RFDSubCommand;
+use crate::cmds::{Command, Opt};
 
 mod cmds;
 mod config;

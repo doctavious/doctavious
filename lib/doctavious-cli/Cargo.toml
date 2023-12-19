@@ -8,14 +8,19 @@ publish = false
 cas = { path = "../../lib/cas" }
 cifrs = { path = "../../lib/cifrs" }
 
+chrono = { workspace = true }
 comfy-table = { workspace = true }
 lazy_static = { workspace = true }
+minijinja = { workspace = true, features = ["loader"] }
 regex = { workspace = true }
 remain = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 serde_regex = { workspace = true }
+tempfile = { workspace = true }
 thiserror = { workspace = true }
 toml = { workspace = true }
 tracing = { workspace = true }
 strum = { workspace = true }
+walkdir = { workspace = true }
+which = { workspace = true }

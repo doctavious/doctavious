@@ -1,6 +1,6 @@
 use clap::Parser;
-use crate::cmds::adr::ADRCommand;
 
+use crate::cmds::adr::ADRCommand;
 use crate::cmds::build::BuildCommand;
 use crate::cmds::deploy::DeployCommand;
 use crate::cmds::frameworks::FrameworksCommand;
