@@ -1,11 +1,13 @@
 // from https://github.com/kardeiz/sanitize-filename with some minor modifications
 // TODO: I think I might put this in `files` to house file related helper functions
 
-use std::{fs, io};
 use std::io::Write;
 use std::path::PathBuf;
+use std::{fs, io};
+
 use lazy_static::lazy_static;
 use regex::{Regex, RegexBuilder};
+
 use crate::{CliResult, DoctaviousCliError};
 
 lazy_static! {
@@ -83,7 +85,6 @@ pub(crate) fn friendly_filename<S: AsRef<str>>(name: S) -> String {
         .replace(" ", "-")
 }
 
-
 pub(crate) fn ensure_path(path: &PathBuf) -> CliResult<()> {
     if path.exists() {
         println!("File already exists at: {}", path.to_string_lossy());
@@ -95,11 +96,7 @@ pub(crate) fn ensure_path(path: &PathBuf) -> CliResult<()> {
             Ok(())
         } else {
             Err(DoctaviousCliError::NoConfirmation(
-                format!(
-                    "Unable to write config file to: {}",
-                    path.to_string_lossy()
-                )
-                    .into(),
+                format!("Unable to write config file to: {}", path.to_string_lossy()).into(),
             ))
         };
     } else {
@@ -110,7 +107,6 @@ pub(crate) fn ensure_path(path: &PathBuf) -> CliResult<()> {
         Ok(())
     }
 }
-
 
 // # Strip out the non-ascii character
 // name.gsub!(/[^0-9A-Za-z.\-]/, '_')

@@ -3,10 +3,10 @@ mod edit;
 pub mod enums;
 pub mod file_structure;
 mod files;
+mod git;
 pub mod markup_format;
 pub mod settings;
 mod templates;
-mod git;
 
 use thiserror::Error;
 

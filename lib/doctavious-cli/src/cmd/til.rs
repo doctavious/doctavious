@@ -1,6 +1,6 @@
 use std::collections::BTreeMap;
 use std::fs;
-use std::fs::{File};
+use std::fs::File;
 use std::io::{BufRead, BufReader};
 use std::path::Path;
 use std::str::FromStr;
@@ -9,6 +9,7 @@ use chrono::{DateTime, Utc};
 use serde::Serialize;
 use walkdir::{DirEntry, WalkDir};
 
+use crate::files::friendly_filename;
 use crate::markup_format::MarkupFormat;
 use crate::settings::{
     init_dir, load_settings, persist_settings, TilSettings, DEFAULT_TIL_DIR,
@@ -16,7 +17,6 @@ use crate::settings::{
 };
 use crate::templates::{get_template_content, TemplateContext, Templates};
 use crate::{edit, CliResult};
-use crate::files::friendly_filename;
 
 #[derive(Clone, Debug, Serialize)]
 struct TilEntry {
@@ -175,8 +175,8 @@ fn is_hidden(entry: &DirEntry) -> bool {
 }
 
 pub(crate) fn title_string<R>(rdr: R, markup_format: MarkupFormat) -> String
-    where
-        R: BufRead,
+where
+    R: BufRead,
 {
     // TODO: swap this implementation for AST when ready
     let leading_char = markup_format.leading_header_character();

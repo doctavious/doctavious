@@ -120,13 +120,8 @@ impl<'a> Templates<'a> {
 
 // TODO: This is wrong for ADRs init as it doesnt look for a custom init template
 // does it need to take in name?
-pub(crate) fn get_template(
-    dir: &str,
-    extension: &str,
-    default_template_path: &str,
-) -> PathBuf {
-    let custom_template =
-        Path::new(dir).join("template").with_extension(extension);
+pub(crate) fn get_template(dir: &str, extension: &str, default_template_path: &str) -> PathBuf {
+    let custom_template = Path::new(dir).join("template").with_extension(extension);
 
     let template = if custom_template.exists() {
         custom_template

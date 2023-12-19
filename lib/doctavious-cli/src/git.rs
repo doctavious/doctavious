@@ -1,16 +1,17 @@
 // from https://siciarz.net/24-days-rust-git2/
 
+use std::path::Path;
+
 use git2::{BranchType, Commit, Direction, Oid, Repository, Sort};
 use indexmap::IndexMap;
 use regex::Regex;
-use std::path::Path;
+
 use crate::CliResult;
 
 // https://github.com/simeg/eureka/blob/master/src/git.rs
 
 // Latest semver tag. Need to verify as this probably doesnt take into account pre-release or build_mod
 // git tag | sort -r --version-sort | head -n1
-
 
 // get default branch options
 // git remote show REMOTE_REPO_NAME | grep 'HEAD branch' | cut -d' ' -f5
@@ -47,11 +48,7 @@ pub(crate) fn checkout_branch(repo: &Repository, branch_name: &str) -> CliResult
     Ok(())
 }
 
-pub(crate) fn add_and_commit(
-    repo: &Repository,
-    path: &Path,
-    message: &str,
-) -> CliResult<Oid> {
+pub(crate) fn add_and_commit(repo: &Repository, path: &Path, message: &str) -> CliResult<Oid> {
     let mut index = repo.index()?;
     index.add_path(path)?;
 
@@ -88,10 +85,7 @@ fn find_last_commit(repo: &Repository) -> CliResult<Commit> {
 /// Parses and returns the commits.
 ///
 /// Sorts the commits by their time.
-pub fn commits(
-    repo: &Repository,
-    range: Option<String>,
-) -> CliResult<Vec<Commit>> {
+pub fn commits(repo: &Repository, range: Option<String>) -> CliResult<Vec<Commit>> {
     let mut revwalk = repo.revwalk()?;
     revwalk.set_sorting(Sort::TIME | Sort::TOPOLOGICAL)?;
     if let Some(range) = range {
@@ -108,16 +102,16 @@ pub fn commits(
 /// Parses and returns a commit-tag map.
 ///
 /// It collects lightweight and annotated tags.
-pub fn tags(
-    repo: &Repository,
-    pattern: &Option<String>,
-) -> CliResult<IndexMap<String, String>> {
+pub fn tags(repo: &Repository, pattern: &Option<String>) -> CliResult<IndexMap<String, String>> {
     let mut tags: Vec<(Commit, String)> = Vec::new();
 
     // from https://github.com/rust-lang/git2-rs/blob/master/examples/tag.rs
     // also check https://github.com/orhun/git-cliff/blob/main/git-cliff-core/src/repo.rs tags
-    for name in
-    repo.tag_names(pattern.as_deref())?.iter().flatten().map(String::from)
+    for name in repo
+        .tag_names(pattern.as_deref())?
+        .iter()
+        .flatten()
+        .map(String::from)
     {
         let obj = repo.revparse_single(name.as_str())?;
         if let Some(tag) = obj.as_tag() {
@@ -135,5 +129,8 @@ pub fn tags(
     }
 
     tags.sort_by(|a, b| a.0.time().seconds().cmp(&b.0.time().seconds()));
-    Ok(tags.into_iter().map(|(a, b)| (a.id().to_string(), b)).collect())
+    Ok(tags
+        .into_iter()
+        .map(|(a, b)| (a.id().to_string(), b))
+        .collect())
 }
