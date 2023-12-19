@@ -6,6 +6,7 @@ mod files;
 pub mod markup_format;
 pub mod settings;
 mod templates;
+mod git;
 
 use thiserror::Error;
 
@@ -18,8 +19,20 @@ pub enum DoctaviousCliError {
     #[error("cifrs error: {0}")]
     CifrsError(#[from] cifrs::CifrsError),
 
+    /// Error variant that represents errors coming out of libgit2.
+    #[error("Git error: `{0}`")]
+    GitError(#[from] git2::Error),
+
     #[error("io: {0}")]
     Io(#[from] std::io::Error),
+
+    // TODO: fix this
+    #[error("{0}")]
+    NoConfirmation(String),
+
+    /// Error that may occur while reserving ADR/RFD number.
+    #[error("{0} has already been reserved")]
+    ReservedNumberError(i32),
 
     #[error("json serialize/deserialize error: {0}")]
     SerdeJson(#[from] serde_json::Error),

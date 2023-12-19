@@ -1,8 +1,12 @@
 // from https://github.com/kardeiz/sanitize-filename with some minor modifications
 // TODO: I think I might put this in `files` to house file related helper functions
 
+use std::{fs, io};
+use std::io::Write;
+use std::path::PathBuf;
 use lazy_static::lazy_static;
 use regex::{Regex, RegexBuilder};
+use crate::{CliResult, DoctaviousCliError};
 
 lazy_static! {
     static ref ILLEGAL_RE: Regex = Regex::new(r#"[/\?<>\\:\*\|":]"#).unwrap();
@@ -78,6 +82,36 @@ pub(crate) fn friendly_filename<S: AsRef<str>>(name: S) -> String {
         .to_lowercase()
         .replace(" ", "-")
 }
+
+
+pub(crate) fn ensure_path(path: &PathBuf) -> CliResult<()> {
+    if path.exists() {
+        println!("File already exists at: {}", path.to_string_lossy());
+        print!("Overwrite? (y/N): ");
+        io::stdout().flush()?;
+        let mut decision = String::new();
+        io::stdin().read_line(&mut decision)?;
+        return if decision.trim().eq_ignore_ascii_case("Y") {
+            Ok(())
+        } else {
+            Err(DoctaviousCliError::NoConfirmation(
+                format!(
+                    "Unable to write config file to: {}",
+                    path.to_string_lossy()
+                )
+                    .into(),
+            ))
+        };
+    } else {
+        let parent_dir = path.parent();
+        if parent_dir.is_some() {
+            fs::create_dir_all(parent_dir.unwrap())?;
+        }
+        Ok(())
+    }
+}
+
+
 // # Strip out the non-ascii character
 // name.gsub!(/[^0-9A-Za-z.\-]/, '_')
 
