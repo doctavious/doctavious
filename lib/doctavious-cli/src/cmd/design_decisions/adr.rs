@@ -1,9 +1,12 @@
 use std::fs;
+use std::io::{BufRead, BufReader};
 use std::path::PathBuf;
 
 use chrono::Utc;
 use dotavious::{Dot, Edge, GraphBuilder, Node};
 use git2::Repository;
+use regex::RegexBuilder;
+use walkdir::WalkDir;
 
 use crate::cmd::design_decisions::{build_path, format_number, reserve_number};
 use crate::file_structure::FileStructure;
@@ -14,47 +17,45 @@ use crate::settings::{
     DEFAULT_ADR_TEMPLATE_PATH, INIT_ADR_TEMPLATE_PATH, SETTINGS,
 };
 use crate::templates::{get_template, TemplateContext, Templates};
-use crate::{edit, git, CliResult};
+use crate::{edit, git, CliResult, DoctaviousCliError};
 
-pub(crate) fn init_adr(
+pub(crate) fn init(
     directory: Option<String>,
     structure: FileStructure,
     extension: Option<MarkupFormat>,
 ) -> CliResult<PathBuf> {
     let mut settings = load_settings().unwrap_or_else(|_| Default::default());
-
     let dir = match directory {
         None => DEFAULT_ADR_DIR,
         Some(ref d) => d,
     };
 
-    let adr_settings = AdrSettings {
+    settings.adr_settings = Some(AdrSettings {
         dir: Some(dir.to_string()),
         structure: Some(structure),
         template_extension: extension,
-    };
-
-    settings.adr_settings = Some(adr_settings);
+    });
 
     persist_settings(settings)?;
     init_dir(dir)?;
 
-    // TODO: This seems a bit unnecessary for init which is pretty much static content outside of date
-    return new_adr(
+    return new(
         Some(1),
-        "Record Architecture Decisions".to_string(),
+        "Record Architecture Decisions",
         SETTINGS.get_adr_template_extension(extension),
         INIT_ADR_TEMPLATE_PATH,
+        None,
+        None,
     );
 }
 
-pub(crate) fn new_adr(
+pub(crate) fn new(
     number: Option<i32>,
-    title: String,
+    title: &str,
     extension: MarkupFormat,
     template_path: &str,
-    // supercedes: Option<Vec<String>>,
-    // links: Option<Vec<String>>
+    supercedes: Option<Vec<String>>,
+    links: Option<Vec<String>>,
 ) -> CliResult<PathBuf> {
     let dir = SETTINGS.get_adr_dir();
     let template = get_template(&dir, &extension.extension(), template_path);
@@ -62,33 +63,12 @@ pub(crate) fn new_adr(
     let formatted_reserved_number = format_number(reserve_number);
     let adr_path = build_path(
         &dir,
-        &title,
+        title,
         &formatted_reserved_number,
         extension,
         SETTINGS.get_adr_structure(),
     );
     ensure_path(&adr_path)?;
-
-    // TODO: supersceded
-    // if let Some(targets) = supercedes {
-    //     for target in targets {
-    //         // "$adr_bin_dir/_adr_add_link" "$target" "Superceded by" "$dstfile"
-    //         // "$adr_bin_dir/_adr_remove_status" "Accepted" "$target"
-    //         // "$adr_bin_dir/_adr_add_link" "$dstfile" "Supercedes" "$target"
-    //     }
-    // }
-
-    // TODO: reverse links
-    // if let Some(others) = links {
-    //     for other in others {
-    //         // target="$(echo $l | cut -d : -f 1)"
-    //         // forward_link="$(echo $l | cut -d : -f 2)"
-    //         // reverse_link="$(echo $l | cut -d : -f 3)"
-
-    //         // "$adr_bin_dir/_adr_add_link" "$dstfile" "$forward_link" "$target"
-    //         // "$adr_bin_dir/_adr_add_link" "$target" "$reverse_link" "$dstfile"
-    //     }
-    // }
 
     let starting_content = fs::read_to_string(&template).expect(&format!(
         "failed to read file {}.",
@@ -102,6 +82,29 @@ pub(crate) fn new_adr(
     context.insert("date", &Utc::now().format("%Y-%m-%d").to_string());
 
     let rendered = Templates::one_off(starting_content.as_str(), &context, false)?;
+
+    // TODO:
+    if let Some(targets) = supercedes {
+        for target in targets {
+            link(target.as_str(), "Superceded by", rendered.as_str());
+            // TODO: Do we care if its "Accepted"?
+            remove_status(target.as_str(), "Accepted");
+            link(rendered.as_str(), "Supercedes", target.as_str());
+        }
+    }
+
+    // TODO
+    if let Some(links) = links {
+        // links look like: "5:Amends:Amended by"
+        for l in links {
+            let parts = l.split(":").collect::<Vec<&str>>();
+            if parts.len() != 3 {
+                // error / warn / etc...
+            }
+            link(rendered.as_str(), parts[1], parts[0]);
+            link(parts[0], parts[2], rendered.as_str());
+        }
+    }
 
     let edited = edit::edit(&rendered)?;
     fs::write(&adr_path, edited)?;
@@ -126,7 +129,7 @@ pub(crate) fn new_adr(
 // this updates the table as well. The single source of truth for information about the RFD comes
 // from the RFD in the branch until it is merged.
 // I think this would be implemented as a    git hook
-pub(crate) fn reserve_adr(
+pub(crate) fn reserve(
     number: Option<i32>,
     title: String,
     extension: MarkupFormat,
@@ -136,24 +139,131 @@ pub(crate) fn reserve_adr(
 
     // TODO: support more than current directory
     let repo = Repository::open(".")?;
-    if git::branch_exists(&repo, reserve_number) {
+    if git::branch_exists(&repo, reserve_number).is_err() {
+        // TODO: use a different error than git2
         return Err(git2::Error::from_str("branch already exists in remote. Please pull.").into());
     }
 
-    git::checkout_branch(&repo, reserve_number.to_string().as_str());
+    git::checkout_branch(&repo, reserve_number.to_string().as_str())?;
 
-    // TODO: revisit clones. Using it for now to resolve value borrowed here after move
-    let created_result = new_adr(number, title.clone(), extension, DEFAULT_ADR_TEMPLATE_PATH);
+    let new_adr = new(
+        number,
+        title.as_str(),
+        extension,
+        DEFAULT_ADR_TEMPLATE_PATH,
+        None,
+        None,
+    )?;
 
-    let message = format!(
-        "{}: Adding placeholder for ADR {}",
-        reserve_number,
-        title.clone()
-    );
-    git::add_and_commit(&repo, created_result.unwrap().as_path(), message.as_str());
-    git::push(&repo);
+    let message = format!("{}: Adding placeholder for ADR {}", reserve_number, title);
+    git::add_and_commit(&repo, new_adr.as_path(), message.as_str())?;
+    git::push(&repo)?;
 
     return Ok(());
+}
+
+/// Creates a link between two ADRs, from SOURCE to TARGET new
+/// SOURCE and TARGET are both a reference (number or partial filename) to an ADR
+/// LINK is the description of the link created in the SOURCE.
+/// REVERSE-LINK is the description of the link created in the TARGET
+pub(crate) fn link(source: &str, link: &str, target: &str) -> CliResult<()> {
+    let target_file = get_file(target).ok_or(DoctaviousCliError::UnknownDesignDocument(
+        target.to_string(),
+    ))?;
+
+    let f = fs::File::open(&source)?;
+    let reader = BufReader::new(f);
+    let mut in_status_section = false;
+    let mut target_title = None;
+
+    let mut new_lines = vec![];
+
+    // TODO implement link
+    // find "## Status"
+    // then find next "##" header
+    // insert link
+    // EX: adr new -l "1:Amends:Amended by" -l "2:Clarifies:Clarified by" Third Record
+    // ## Status
+    //
+    // Accepted
+    //
+    // Amends [1. First Record](0001-first-record.md)
+    //
+    // Clarifies [2. Second Record](0002-second-record.md)
+    //
+    // ## Context
+
+    // TODO(Sean): while this logic is straight forward I might, some day, want to swap for
+    // modifying an AST to make changes.
+    for line in reader.lines() {
+        if let Ok(line) = line {
+            if line.starts_with("# ") {
+                target_title = Some(line[2..].to_string());
+            }
+
+            if line == "## Status" {
+                in_status_section = true;
+            } else if line.starts_with("##") {
+                if in_status_section {
+                    new_lines.push(format!(
+                        "{link} [{}]({})",
+                        target_title.clone().unwrap_or_default(), // TODO: not sure how to avoid the clone
+                        target_file.to_string_lossy()
+                    ));
+                    new_lines.push(String::new());
+                }
+                in_status_section = false;
+            }
+
+            new_lines.push(line);
+        }
+    }
+
+    Ok(())
+}
+
+pub(crate) fn remove_status(file: &str, current_status: &str) -> CliResult<()> {
+    let f = fs::File::open(file)?;
+    let reader = BufReader::new(f);
+    let mut in_status_section = false;
+    let mut after_blank = false;
+    let mut new_lines = vec![];
+
+    // TODO: compile this?
+    let regex = RegexBuilder::new(r"^\s*$").build()?;
+
+    // TODO(Sean): while this logic is straight forward I might, some day, want to swap for
+    // modifying an AST to make changes.
+    for line in reader.lines() {
+        if let Ok(line) = line {
+            if line == "## Status" {
+                in_status_section = true;
+            } else if line.starts_with("##") {
+                in_status_section = false;
+            }
+
+            // TODO: review logic. Originally from https://github.com/npryce/adr-tools/blob/master/src/_adr_remove_status
+            if in_status_section && regex.is_match(&line) {
+                if !after_blank {
+                    new_lines.push(line);
+                }
+                after_blank = true;
+                continue;
+            }
+
+            if in_status_section && line == current_status {
+                continue;
+            }
+
+            if in_status_section && !regex.is_match(&line) {
+                after_blank = false;
+            }
+
+            new_lines.push(line);
+        }
+    }
+
+    Ok(())
 }
 
 pub(crate) fn generate_csv() {}
@@ -169,11 +279,31 @@ pub(crate) fn graph_adrs() {
     let dot = Dot { graph };
 }
 
+fn get_file(target: &str) -> Option<PathBuf> {
+    let mut paths = Vec::new();
+    for entry in WalkDir::new(".")
+        .into_iter()
+        .filter_map(Result::ok)
+        .filter(|e| !e.file_type().is_dir())
+    {
+        if entry.file_name().to_string_lossy().contains(target) {
+            paths.push(entry.path().to_path_buf());
+        }
+    }
+
+    if paths.is_empty() {
+        None
+    } else {
+        paths.sort_by(|a, b| a.file_name().cmp(&b.file_name()));
+        Some(paths.remove(0))
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use tempfile::tempdir;
 
-    use crate::cmd::design_decisions::adr::init_adr;
+    use crate::cmd::design_decisions::adr::init;
     use crate::file_structure::FileStructure;
     use crate::markup_format::MarkupFormat;
 
@@ -182,7 +312,7 @@ mod tests {
     fn init() {
         let dir = tempdir().unwrap();
 
-        init_adr(
+        init(
             Some(dir.path().display().to_string()),
             FileStructure::default(),
             Some(MarkupFormat::default()),
