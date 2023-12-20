@@ -1,4 +1,4 @@
-use clap::Parser;
+use clap::{Parser, Subcommand};
 
 use crate::cmds::adr::ADRCommand;
 use crate::cmds::build::BuildCommand;
@@ -43,7 +43,7 @@ pub struct Opt {
     pub cmd: Command,
 }
 
-#[derive(Debug, Parser)]
+#[derive(Debug, Subcommand)]
 pub enum Command {
     Adr(ADRCommand),
     Build(BuildCommand),
@@ -53,5 +53,6 @@ pub enum Command {
     Link(LinkCommand),
     Rfd(RFDCommand),
     Til(TilCommand),
+    #[command(name = "whoami")]
     WhoAmI(WhoAmICommand),
 }

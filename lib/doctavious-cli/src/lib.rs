@@ -30,6 +30,9 @@ pub enum DoctaviousCliError {
     #[error("{0}")]
     NoConfirmation(String),
 
+    #[error("regex error: {0}")]
+    RegexError(#[from] regex::Error),
+
     /// Error that may occur while reserving ADR/RFD number.
     #[error("{0} has already been reserved")]
     ReservedNumberError(i32),
@@ -55,6 +58,9 @@ pub enum DoctaviousCliError {
     /// Errors that may occur when serializing types from TOML format.
     #[error("toml serialization error: `{0}`")]
     TomlSerializeError(#[from] toml::ser::Error),
+
+    #[error("Unknown design document: {0}")]
+    UnknownDesignDocument(String),
 
     #[error("walkdir error")]
     WalkdirError(#[from] walkdir::Error),

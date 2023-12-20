@@ -20,16 +20,23 @@ use crate::CliResult;
 // git rev-parse --abbrev-ref origin/HEAD
 // git branch --remotes --list '*/HEAD'
 
-// TODO: return a Result<bool, Error> instead?
-pub(crate) fn branch_exists(repo: &Repository, reserve_number: i32) -> bool {
-    let pattern = format!("*{}", reserve_number);
-    let re = Regex::new(pattern.as_str()).unwrap();
-    let c = repo
-        .branches(Some(BranchType::Remote))
-        .unwrap()
-        .find(|b| re.is_match(b.as_ref().unwrap().0.name().unwrap().unwrap()));
+pub(crate) fn branch_exists(repo: &Repository, reserve_number: i32) -> CliResult<bool> {
+    let re = Regex::new(format!("*{reserve_number}").as_str())
+        .expect("Should be able to create regex to find reservation number");
 
-    return c.is_some();
+    let branches = repo.branches(Some(BranchType::Remote))?;
+    // tried using iter but was getting "referencing data owned by the current function" errors
+    for branch in branches {
+        if let Ok((branch, _)) = branch {
+            if let Some(branch_name) = branch.name()? {
+                if re.is_match(branch_name) {
+                    return Ok(true);
+                }
+            }
+        }
+    }
+
+    Ok(false)
 }
 
 pub(crate) fn checkout_branch(repo: &Repository, branch_name: &str) -> CliResult<()> {
@@ -39,9 +46,7 @@ pub(crate) fn checkout_branch(repo: &Repository, branch_name: &str) -> CliResult
 
     let branch = repo.branch(branch_name, &commit, false)?;
 
-    let obj = repo
-        .revparse_single(&("refs/heads/".to_owned() + branch_name))
-        .unwrap();
+    let obj = repo.revparse_single(&("refs/heads/".to_owned() + branch_name))?;
 
     repo.checkout_tree(&obj, None)?;
 
@@ -67,7 +72,7 @@ pub(crate) fn add_and_commit(repo: &Repository, path: &Path, message: &str) -> C
         message,      // commit message
         &tree,        // tree
         &[&parent_commit],
-    )?) // parents
+    )?)
 }
 
 pub(crate) fn push(repo: &Repository) -> CliResult<()> {
@@ -77,9 +82,7 @@ pub(crate) fn push(repo: &Repository) -> CliResult<()> {
 }
 
 fn find_last_commit(repo: &Repository) -> CliResult<Commit> {
-    // let obj = repo.head()?.resolve()?.peel(ObjectType::Commit)?;
-    let obj = repo.head()?.resolve()?.peel_to_commit();
-    Ok(obj.map_err(|_| git2::Error::from_str("Couldn't find commit"))?)
+    Ok(repo.head()?.resolve()?.peel_to_commit()?)
 }
 
 /// Parses and returns the commits.

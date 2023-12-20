@@ -91,11 +91,11 @@ pub(crate) fn reserve_rfd(
 
     // TODO: support more than current directory
     let repo = Repository::open(".")?;
-    if git::branch_exists(&repo, reserve_number) {
+    if git::branch_exists(&repo, reserve_number).is_err() {
         return Err(git2::Error::from_str("branch already exists in remote. Please pull.").into());
     }
 
-    git::checkout_branch(&repo, reserve_number.to_string().as_str());
+    git::checkout_branch(&repo, reserve_number.to_string().as_str())?;
 
     // TODO: revisit clones. Using it for now to resolve value borrowed here after move
     let created_result = new_rfd(number, title.clone(), extension);
@@ -105,8 +105,8 @@ pub(crate) fn reserve_rfd(
         reserve_number,
         title.clone()
     );
-    git::add_and_commit(&repo, created_result.unwrap().as_path(), message.as_str());
-    git::push(&repo);
+    git::add_and_commit(&repo, created_result.unwrap().as_path(), message.as_str())?;
+    git::push(&repo)?;
 
     return Ok(());
 }

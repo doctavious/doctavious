@@ -3,8 +3,9 @@ use clap::Parser;
 use doctavious_cli::file_structure::FileStructure;
 use doctavious_cli::markup_format::MarkupFormat;
 
+/// Gathers ADR management commands
 #[derive(Parser, Debug)]
-#[command(about = "Gathers ADR management commands")]
+#[command()]
 pub(crate) struct ADRCommand {
     #[command(subcommand)]
     pub adr_command: ADRSubCommand,
@@ -21,8 +22,9 @@ pub(crate) enum ADRSubCommand {
     Reserve(ReserveADR),
 }
 
+/// Init ADR
 #[derive(Parser, Debug)]
-#[command(name = "init", about = "Init ADR")]
+#[command(name = "init")]
 pub(crate) struct InitADR {
     /// Directory to store ADRs
     #[arg(long, short)]
