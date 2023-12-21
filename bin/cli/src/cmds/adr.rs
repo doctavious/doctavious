@@ -22,7 +22,9 @@ pub(crate) enum ADRSubCommand {
     Reserve(ReserveADR),
 }
 
-/// Init ADR
+/// Initialises the directory of architecture decision records:
+/// * creates a subdirectory of the current working directory
+/// * creates the first ADR in that subdirectory, recording the decision to record architectural decisions with ADRs.
 #[derive(Parser, Debug)]
 #[command(name = "init")]
 pub(crate) struct InitADR {
