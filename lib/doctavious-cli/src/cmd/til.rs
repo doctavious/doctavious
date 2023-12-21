@@ -2,7 +2,7 @@ use std::collections::BTreeMap;
 use std::fs;
 use std::fs::File;
 use std::io::{BufRead, BufReader};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::str::FromStr;
 
 use chrono::{DateTime, Utc};
@@ -11,12 +11,9 @@ use walkdir::{DirEntry, WalkDir};
 
 use crate::files::friendly_filename;
 use crate::markup_format::MarkupFormat;
-use crate::settings::{
-    init_dir, load_settings, persist_settings, TilSettings, DEFAULT_TIL_DIR,
-    DEFAULT_TIL_TEMPLATE_PATH,
-};
-use crate::templates::{get_template_content, TemplateContext, Templates};
-use crate::{edit, CliResult};
+use crate::settings::{init_dir, load_settings, persist_settings, TilSettings, DEFAULT_TIL_DIR};
+use crate::templates::{TemplateContext, Templates};
+use crate::{edit, get_template_content, CliResult};
 
 #[derive(Clone, Debug, Serialize)]
 struct TilEntry {
@@ -26,21 +23,18 @@ struct TilEntry {
     date: DateTime<Utc>,
 }
 
-pub(crate) fn init_til(directory: Option<String>, extension: MarkupFormat) -> CliResult<()> {
+pub(crate) fn init_til(directory: Option<PathBuf>, extension: MarkupFormat) -> CliResult<()> {
     let mut settings = load_settings().unwrap_or_else(|_| Default::default());
-
-    let dir = match directory {
-        None => DEFAULT_TIL_DIR,
-        Some(ref d) => d,
-    };
+    let dir = directory.unwrap_or_else(|| PathBuf::from(DEFAULT_TIL_DIR));
+    let directory_string = dir.to_string_lossy().to_string();
 
     let til_settings = TilSettings {
-        dir: Some(dir.to_string()),
+        dir: Some(directory_string),
         template_extension: Some(extension),
     };
     settings.til_settings = Some(til_settings);
 
-    persist_settings(settings)?;
+    persist_settings(&settings)?;
     init_dir(dir)?;
 
     return Ok(());
@@ -89,7 +83,7 @@ pub(crate) fn new_til(
         fs::write(&path, edited)?;
 
         if readme {
-            build_til_readme(&dir, markup_format.extension())?;
+            build_til_readme(&dir, path, markup_format.extension())?;
         }
     }
 
@@ -97,7 +91,11 @@ pub(crate) fn new_til(
 }
 
 // TODO: this should just build_mod the content and return and not write
-pub(crate) fn build_til_readme(dir: &str, readme_extension: &str) -> CliResult<String> {
+pub(crate) fn build_til_readme(
+    dir: &str,
+    template_path: PathBuf,
+    readme_extension: &str,
+) -> CliResult<String> {
     let mut all_tils: BTreeMap<String, Vec<TilEntry>> = BTreeMap::new();
     for entry in WalkDir::new(&dir)
         .into_iter()
@@ -156,7 +154,9 @@ pub(crate) fn build_til_readme(dir: &str, readme_extension: &str) -> CliResult<S
         til_count += topic_tils.len();
     }
 
-    let template = get_template_content(&dir, readme_extension, DEFAULT_TIL_TEMPLATE_PATH);
+    let settings = load_settings()?;
+    let default_template = settings.get_til_default_template();
+    let template = get_template_content(template_path, &dir, readme_extension, default_template);
     let mut context = TemplateContext::new();
     context.insert("categories_count", &all_tils.keys().len());
     context.insert("til_count", &til_count);

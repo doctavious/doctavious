@@ -11,52 +11,67 @@ use crate::files::ensure_path;
 use crate::markup_format::MarkupFormat;
 use crate::settings::{
     init_dir, load_settings, persist_settings, RFDSettings, DEFAULT_RFD_DIR,
-    DEFAULT_RFD_TEMPLATE_PATH, SETTINGS,
+    DEFAULT_RFD_TEMPLATE_PATH,
 };
-use crate::templates::{get_template, TemplateContext, Templates};
-use crate::{edit, git, CliResult};
+use crate::templates::{TemplateContext, Templates};
+use crate::{edit, get_template, git, CliResult};
 
 pub(crate) fn init_rfd(
-    directory: Option<String>,
+    directory: Option<PathBuf>,
     structure: FileStructure,
-    extension: MarkupFormat,
+    extension: Option<MarkupFormat>,
 ) -> CliResult<PathBuf> {
     let mut settings = load_settings().unwrap_or_else(|_| Default::default());
-
-    let dir = match directory {
-        None => DEFAULT_RFD_DIR,
-        Some(ref d) => d,
-    };
+    let dir = directory.unwrap_or_else(|| PathBuf::from(DEFAULT_RFD_DIR));
+    let directory_string = dir.to_string_lossy().to_string();
 
     let rfd_settings = RFDSettings {
-        dir: Some(dir.to_string()),
+        dir: Some(directory_string),
         structure: Some(structure),
-        template_extension: Some(extension),
+        template_extension: extension,
     };
     settings.rfd_settings = Some(rfd_settings);
 
-    persist_settings(settings)?;
+    persist_settings(&settings)?;
     init_dir(dir)?;
 
+    let rfd_extension = settings.get_rfd_template_extension(extension);
+
     // TODO: fix
-    return new_rfd(Some(1), "Use RFDs ...".to_string(), extension);
+    return new_rfd(
+        Some(1),
+        "Use RFDs ...".to_string(),
+        rfd_extension,
+        PathBuf::from(format!(
+            "{DEFAULT_RFD_TEMPLATE_PATH}.{}",
+            rfd_extension.extension()
+        )),
+    );
 }
 
 pub(crate) fn new_rfd(
     number: Option<i32>,
     title: String,
     extension: MarkupFormat,
+    template_path: PathBuf,
 ) -> CliResult<PathBuf> {
-    let dir = SETTINGS.get_rfd_dir();
-    let template = get_template(&dir, &extension.extension(), DEFAULT_RFD_TEMPLATE_PATH);
-    let reserve_number = reserve_number(&dir, number, SETTINGS.get_rfd_structure())?;
+    let settings = load_settings()?;
+    let dir = settings.get_rfd_dir();
+    let default_template = settings.get_adr_default_template();
+    let template = get_template(
+        Some(template_path),
+        &dir,
+        &extension.extension(),
+        default_template,
+    );
+    let reserve_number = reserve_number(&dir, number, settings.get_rfd_structure())?;
     let formatted_reserved_number = format_number(reserve_number);
     let rfd_path = build_path(
         &dir,
         &title,
         &formatted_reserved_number,
         extension,
-        SETTINGS.get_rfd_structure(),
+        settings.get_rfd_structure(),
     );
     ensure_path(&rfd_path)?;
 
@@ -78,7 +93,7 @@ pub(crate) fn new_rfd(
     let edited = edit::edit(&rendered)?;
     fs::write(&rfd_path, edited)?;
 
-    return Ok(rfd_path);
+    Ok(rfd_path)
 }
 
 pub(crate) fn reserve_rfd(
@@ -86,8 +101,9 @@ pub(crate) fn reserve_rfd(
     title: String,
     extension: MarkupFormat,
 ) -> CliResult<()> {
-    let dir = SETTINGS.get_rfd_dir();
-    let reserve_number = reserve_number(&dir, number, SETTINGS.get_rfd_structure())?;
+    let settings = load_settings()?;
+    let dir = settings.get_rfd_dir();
+    let reserve_number = reserve_number(&dir, number, settings.get_rfd_structure())?;
 
     // TODO: support more than current directory
     let repo = Repository::open(".")?;
@@ -97,8 +113,15 @@ pub(crate) fn reserve_rfd(
 
     git::checkout_branch(&repo, reserve_number.to_string().as_str())?;
 
+    let default_template = settings.get_adr_default_template();
+
     // TODO: revisit clones. Using it for now to resolve value borrowed here after move
-    let created_result = new_rfd(number, title.clone(), extension);
+    let created_result = new_rfd(
+        number,
+        title.clone(),
+        extension,
+        settings.get_rfd_default_template(),
+    );
 
     let message = format!(
         "{}: Adding placeholder for RFD {}",
@@ -108,7 +131,7 @@ pub(crate) fn reserve_rfd(
     git::add_and_commit(&repo, created_result.unwrap().as_path(), message.as_str())?;
     git::push(&repo)?;
 
-    return Ok(());
+    Ok(())
 }
 
 pub(crate) fn generate_csv() {}

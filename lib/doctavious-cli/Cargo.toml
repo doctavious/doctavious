@@ -12,6 +12,7 @@ chrono = { workspace = true }
 comfy-table = { workspace = true }
 dotavious = { workspace = true }
 git2 = { workspace = true }
+glob = { workspace = true }
 indexmap = { workspace = true, features = ["serde"] }
 lazy_static = { workspace = true }
 minijinja = { workspace = true, features = ["loader"] }
@@ -28,3 +29,7 @@ tracing = { workspace = true }
 unidecode = { workspace = true }
 walkdir = { workspace = true }
 which = { workspace = true }
+
+
+[dev-dependencies]
+temp-env = { workspace = true }

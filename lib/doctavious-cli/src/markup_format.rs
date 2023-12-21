@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 use std::fmt::Display;
+use std::path::PathBuf;
 use std::str::FromStr;
 
 use lazy_static::lazy_static;
@@ -7,6 +8,7 @@ use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use strum::{Display, EnumIter, EnumString, EnumVariantNames, IntoEnumIterator};
 
 use crate::markup_format::MarkupFormat::{Asciidoc, Markdown};
+use crate::{CliResult, DoctaviousCliError};
 
 lazy_static! {
     pub static ref MARKUP_FORMAT_EXTENSIONS: HashMap<&'static str, MarkupFormat> = {
@@ -50,6 +52,21 @@ impl MarkupFormat {
     #[must_use]
     pub const fn variants() -> &'static [&'static str] {
         <Self as strum::VariantNames>::VARIANTS
+    }
+
+    pub fn from_path<P: AsRef<PathBuf>>(path: P) -> CliResult<Self> {
+        let path = path.as_ref();
+        // has to be a better way to do this
+        let extension = path
+            .extension()
+            .ok_or(DoctaviousCliError::UnknownMarkupExtension(
+                path.to_string_lossy().to_string(),
+            ))?
+            .to_str()
+            .ok_or(DoctaviousCliError::UnknownMarkupExtension(
+                path.to_string_lossy().to_string(),
+            ))?;
+        Ok(Self::from_str(extension)?)
     }
 }
 

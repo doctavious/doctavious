@@ -1,10 +1,11 @@
 use std::fs;
 use std::io::{BufRead, BufReader};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use chrono::Utc;
 use dotavious::{Dot, Edge, GraphBuilder, Node};
 use git2::Repository;
+use glob::glob;
 use regex::RegexBuilder;
 use walkdir::WalkDir;
 
@@ -12,38 +13,46 @@ use crate::cmd::design_decisions::{build_path, format_number, reserve_number};
 use crate::file_structure::FileStructure;
 use crate::files::ensure_path;
 use crate::markup_format::MarkupFormat;
-use crate::settings::{
-    init_dir, load_settings, persist_settings, AdrSettings, DEFAULT_ADR_DIR,
-    DEFAULT_ADR_TEMPLATE_PATH, INIT_ADR_TEMPLATE_PATH, SETTINGS,
-};
-use crate::templates::{get_template, TemplateContext, Templates};
-use crate::{edit, git, CliResult, DoctaviousCliError};
+use crate::settings::{init_dir, load_settings, persist_settings, AdrSettings, DEFAULT_ADR_DIR};
+use crate::templates::{TemplateContext, Templates};
+use crate::{edit, get_template, git, CliResult, DoctaviousCliError};
 
+// TODO(Sean): might not be a great idea to include setting related stuff here in the lib
+// as it might make it more difficult to use in various other scenarios. Fine for now but
+// worth considering how we might want to structure to remove doctavious settings
+
+/// Initialises the directory of architecture decision records:
+/// * creates a subdirectory of the current working directory
+/// * creates the first ADR in that subdirectory, recording the decision to record architectural decisions with ADRs.
 pub(crate) fn init(
-    directory: Option<String>,
+    cwd: &Path,
+    path: Option<PathBuf>,
     structure: FileStructure,
     extension: Option<MarkupFormat>,
 ) -> CliResult<PathBuf> {
     let mut settings = load_settings().unwrap_or_else(|_| Default::default());
-    let dir = match directory {
-        None => DEFAULT_ADR_DIR,
-        Some(ref d) => d,
-    };
+    let path = path.unwrap_or_else(|| PathBuf::from(DEFAULT_ADR_DIR));
+    let adr_dir = cwd.join(path);
+    if adr_dir.exists() {
+        return Err(DoctaviousCliError::DesignDocDirectoryAlreadyExists);
+    }
 
+    let directory_string = adr_dir.to_string_lossy().to_string();
     settings.adr_settings = Some(AdrSettings {
-        dir: Some(dir.to_string()),
+        dir: Some(directory_string),
         structure: Some(structure),
         template_extension: extension,
     });
 
-    persist_settings(settings)?;
-    init_dir(dir)?;
+    persist_settings(&settings)?;
+    init_dir(adr_dir)?;
 
+    let adr_extension = settings.get_adr_template_extension(extension);
     return new(
         Some(1),
         "Record Architecture Decisions",
-        SETTINGS.get_adr_template_extension(extension),
-        INIT_ADR_TEMPLATE_PATH,
+        adr_extension,
+        settings.get_adr_default_init_template(),
         None,
         None,
     );
@@ -53,21 +62,29 @@ pub(crate) fn new(
     number: Option<i32>,
     title: &str,
     extension: MarkupFormat,
-    template_path: &str,
-    supercedes: Option<Vec<String>>,
+    template_path: PathBuf,
+    supersedes: Option<Vec<String>>,
     links: Option<Vec<String>>,
 ) -> CliResult<PathBuf> {
-    let dir = SETTINGS.get_adr_dir();
-    let template = get_template(&dir, &extension.extension(), template_path);
-    let reserve_number = reserve_number(&dir, number, SETTINGS.get_adr_structure())?;
+    let settings = load_settings()?;
+    let dir = settings.get_adr_dir();
+    let default_template = settings.get_adr_default_template();
+    let template = get_template(
+        Some(template_path),
+        &dir,
+        &extension.extension(),
+        default_template,
+    );
+    let reserve_number = reserve_number(&dir, number, settings.get_adr_structure())?;
     let formatted_reserved_number = format_number(reserve_number);
     let adr_path = build_path(
         &dir,
         title,
         &formatted_reserved_number,
         extension,
-        SETTINGS.get_adr_structure(),
+        settings.get_adr_structure(),
     );
+
     ensure_path(&adr_path)?;
 
     let starting_content = fs::read_to_string(&template).expect(&format!(
@@ -84,12 +101,12 @@ pub(crate) fn new(
     let rendered = Templates::one_off(starting_content.as_str(), &context, false)?;
 
     // TODO:
-    if let Some(targets) = supercedes {
+    if let Some(targets) = supersedes {
         for target in targets {
-            link(target.as_str(), "Superceded by", rendered.as_str());
+            link(target.as_str(), "superseded by", rendered.as_str())?;
             // TODO: Do we care if its "Accepted"?
-            remove_status(target.as_str(), "Accepted");
-            link(rendered.as_str(), "Supercedes", target.as_str());
+            remove_status(target.as_str(), "Accepted")?;
+            link(rendered.as_str(), "supersedes", target.as_str())?;
         }
     }
 
@@ -101,14 +118,27 @@ pub(crate) fn new(
             if parts.len() != 3 {
                 // error / warn / etc...
             }
-            link(rendered.as_str(), parts[1], parts[0]);
-            link(parts[0], parts[2], rendered.as_str());
+            link(rendered.as_str(), parts[1], parts[0])?;
+            link(parts[0], parts[2], rendered.as_str())?;
         }
     }
 
     let edited = edit::edit(&rendered)?;
     fs::write(&adr_path, edited)?;
-    return Ok(adr_path);
+    Ok(adr_path)
+}
+
+pub fn list(cwd: PathBuf, format: MarkupFormat) -> CliResult<Vec<PathBuf>> {
+    // this does a recursive search rather than a read_dir because we supported nested directory structures
+    let mut paths = Vec::new();
+    for entry in glob(format!("{}/**/*.{}", cwd.to_string_lossy(), format.extension()).as_str())? {
+        if let Ok(entry) = entry {
+            paths.push(entry);
+        }
+    }
+
+    paths.sort_by(|a, b| a.file_name().cmp(&b.file_name()));
+    Ok(paths)
 }
 
 // implement ADR / RFD reserve command
@@ -134,8 +164,9 @@ pub(crate) fn reserve(
     title: String,
     extension: MarkupFormat,
 ) -> CliResult<()> {
-    let dir = SETTINGS.get_adr_dir();
-    let reserve_number = reserve_number(&dir, number, SETTINGS.get_adr_structure())?;
+    let settings = load_settings()?;
+    let dir = settings.get_adr_dir();
+    let reserve_number = reserve_number(&dir, number, settings.get_adr_structure())?;
 
     // TODO: support more than current directory
     let repo = Repository::open(".")?;
@@ -150,7 +181,7 @@ pub(crate) fn reserve(
         number,
         title.as_str(),
         extension,
-        DEFAULT_ADR_TEMPLATE_PATH,
+        settings.get_adr_default_template(),
         None,
         None,
     )?;
@@ -159,7 +190,7 @@ pub(crate) fn reserve(
     git::add_and_commit(&repo, new_adr.as_path(), message.as_str())?;
     git::push(&repo)?;
 
-    return Ok(());
+    Ok(())
 }
 
 /// Creates a link between two ADRs, from SOURCE to TARGET new
@@ -281,7 +312,7 @@ pub(crate) fn graph_adrs() {
 
 fn get_file(target: &str) -> Option<PathBuf> {
     let mut paths = Vec::new();
-    for entry in WalkDir::new(".")
+    for entry in WalkDir::new(target)
         .into_iter()
         .filter_map(Result::ok)
         .filter(|e| !e.file_type().is_dir())
@@ -301,24 +332,116 @@ fn get_file(target: &str) -> Option<PathBuf> {
 
 #[cfg(test)]
 mod tests {
-    use tempfile::tempdir;
+    use std::path::PathBuf;
+    use tempfile::{Builder, TempDir};
 
     use crate::cmd::design_decisions::adr::init;
     use crate::file_structure::FileStructure;
     use crate::markup_format::MarkupFormat;
+    use crate::settings::DOCTAVIOUS_ENV_SETTINGS_PATH;
 
-    // init default
+    // avoid-octal-numbers.expected
+
+    // create first record
+
+    // create multiple records
+
+    // edit ADR on creation
+
+    // generate content with header and footer
+
+    // generate contents with prefix
+
+    // generate contents
+
+    // generate graph
+
+    // init ADR repository
+
+    // init alternative ADR directory
+
+    // linking new records
+
+    // linking
+
+    // list
+
+    // must provide a title when creating new ADR
+
+    // project specific template
+
+    // search for ADR directory
+
+    // search for custom ADR directory
+
+    // supersede existing ADR
+
+    // supersede multiple ADRs
+
     #[test]
-    fn init() {
-        let dir = tempdir().unwrap();
+    fn init_should_create_adr_directory_and_add_first_adr() {
+        let dir =
+            get_temp_dir(".tmp_doctavious_init_should_create_adr_directory_and_add_first_adr");
 
-        init(
-            Some(dir.path().display().to_string()),
-            FileStructure::default(),
-            Some(MarkupFormat::default()),
-        )
-        .expect("should init adr");
+        temp_env::with_var(DOCTAVIOUS_ENV_SETTINGS_PATH, Some(dir.path()), || {
+            init(
+                dir.path(),
+                None,
+                FileStructure::default(),
+                Some(MarkupFormat::default()),
+            )
+            .expect("should init adr");
+        });
 
+        dir.close().unwrap();
+    }
+
+    #[test]
+    fn init_with_custom_directory() {
+        let dir = get_temp_dir(".tmp_doctavious_init_with_custom_directory");
+
+        temp_env::with_var(DOCTAVIOUS_ENV_SETTINGS_PATH, Some(dir.path()), || {
+            let adr_path = init(
+                dir.path(),
+                Some(PathBuf::from("test/adrs")),
+                FileStructure::default(),
+                Some(MarkupFormat::default()),
+            )
+            .expect("should init adr");
+
+            let trimmed_adr_path =
+                &adr_path.to_string_lossy()[dir.path().to_string_lossy().len()..];
+            println!("{trimmed_adr_path}");
+
+            assert!(trimmed_adr_path.starts_with("/test/adrs"));
+        });
+
+        dir.close().unwrap();
+    }
+
+    #[test]
+    fn init_should_fail_on_non_empty_directory() {
+        let dir = get_temp_dir(".tmp_doctavious_init_should_fail_on_non_empty_directory");
+        temp_env::with_var(DOCTAVIOUS_ENV_SETTINGS_PATH, Some(dir.path()), || {
+            init(
+                dir.path(),
+                None,
+                FileStructure::default(),
+                Some(MarkupFormat::default()),
+            )
+            .expect("should init adr");
+
+            let adr_dir = init(
+                dir.path(),
+                None,
+                FileStructure::default(),
+                Some(MarkupFormat::default()),
+            );
+
+            println!("{:?}", adr_dir);
+            assert!(adr_dir.is_err());
+        });
+        println!("close dir");
         dir.close().unwrap();
     }
 
@@ -329,4 +452,12 @@ mod tests {
     // new w/o init
 
     // new with init
+
+    fn get_temp_dir(prefix: &str) -> TempDir {
+        Builder::new()
+            .prefix(prefix)
+            .rand_bytes(12)
+            .tempdir()
+            .unwrap()
+    }
 }

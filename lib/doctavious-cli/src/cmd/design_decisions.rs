@@ -48,8 +48,7 @@ pub(crate) fn reserve_number(
     return if let Some(i) = number {
         if is_number_reserved(dir, i, file_structure) {
             // TODO: the prompt to overwrite be here?
-            // TODO: return custom error NumberAlreadyReservedErr(number has already been reserved);
-            eprintln!("{} has already been reserved", i);
+            eprintln!("{} has already been reserved in directory {dir}", i);
             return Err(DoctaviousCliError::ReservedNumberError(i));
         }
         Ok(i)
@@ -59,12 +58,12 @@ pub(crate) fn reserve_number(
 }
 
 pub(crate) fn is_number_reserved(dir: &str, number: i32, file_structure: FileStructure) -> bool {
-    return get_allocated_numbers(dir, file_structure).contains(&number);
-
     // TODO: revisit iterator
     // return get_allocated_numbers(dir)
     //     .find(|n| n == &number)
     //     .is_some();
+
+    get_allocated_numbers(dir, file_structure).contains(&number)
 }
 
 pub(crate) fn get_allocated_numbers(dir: &str, file_structure: FileStructure) -> Vec<i32> {
@@ -126,20 +125,20 @@ pub(crate) fn get_allocated_numbers_via_flat_files(dir: &str) -> Vec<i32> {
         allocated_numbers.push(num.parse::<i32>().unwrap());
     }
 
-    return allocated_numbers;
+    allocated_numbers
 }
 
 pub(crate) fn get_next_number(dir: &str, file_structure: FileStructure) -> i32 {
-    return if let Some(max) = get_allocated_numbers(dir, file_structure).iter().max() {
-        max + 1
-    } else {
-        1
-    };
-
     // TODO: revisit iterator
     // return get_allocated_numbers(dir)
     //     .max()
     //     .unwrap() + 1;
+
+    if let Some(max) = get_allocated_numbers(dir, file_structure).iter().max() {
+        max + 1
+    } else {
+        1
+    }
 }
 
 pub(crate) fn slugify(string: &str) -> String {
@@ -180,5 +179,8 @@ pub(crate) fn slugify(string: &str) -> String {
 
 // TODO: where does this belong
 pub(crate) fn is_valid_file(path: &Path) -> bool {
-    return MARKUP_FORMAT_EXTENSIONS.contains_key(&path.extension().unwrap().to_str().unwrap());
+    MARKUP_FORMAT_EXTENSIONS.contains_key(&path.extension().unwrap().to_str().unwrap())
 }
+
+#[cfg(test)]
+mod tests {}
