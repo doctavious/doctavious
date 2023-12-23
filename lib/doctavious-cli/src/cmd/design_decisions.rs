@@ -1,6 +1,7 @@
-use std::fs;
+use std::fmt::Display;
 use std::io::ErrorKind;
 use std::path::{Path, PathBuf};
+use std::{fmt, fs};
 
 use unidecode::unidecode;
 use walkdir::WalkDir;
@@ -12,13 +13,30 @@ use crate::{CliResult, DoctaviousCliError};
 mod adr;
 mod rfd;
 
+#[derive(Default)]
+pub enum TemplateType {
+    Init,
+    #[default]
+    Template,
+}
+
+impl Display for TemplateType {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let s = match self {
+            TemplateType::Init => "init",
+            TemplateType::Template => "template",
+        };
+        write!(f, "{s}")
+    }
+}
+
 pub(crate) fn format_number(number: i32) -> String {
     return format!("{:0>4}", number);
 }
 
 // TODO: is there a more concise way to do this?
 pub(crate) fn build_path(
-    dir: &str,
+    dir: &Path,
     title: &str,
     reserved_number: &str,
     extension: MarkupFormat,
@@ -41,14 +59,14 @@ pub(crate) fn build_path(
 }
 
 pub(crate) fn reserve_number(
-    dir: &str,
+    dir: &Path,
     number: Option<i32>,
     file_structure: FileStructure,
 ) -> CliResult<i32> {
     return if let Some(i) = number {
         if is_number_reserved(dir, i, file_structure) {
             // TODO: the prompt to overwrite be here?
-            eprintln!("{} has already been reserved in directory {dir}", i);
+            eprintln!("{} has already been reserved in directory {:?}", i, dir);
             return Err(DoctaviousCliError::ReservedNumberError(i));
         }
         Ok(i)
@@ -57,7 +75,7 @@ pub(crate) fn reserve_number(
     };
 }
 
-pub(crate) fn is_number_reserved(dir: &str, number: i32, file_structure: FileStructure) -> bool {
+pub(crate) fn is_number_reserved(dir: &Path, number: i32, file_structure: FileStructure) -> bool {
     // TODO: revisit iterator
     // return get_allocated_numbers(dir)
     //     .find(|n| n == &number)
@@ -66,7 +84,7 @@ pub(crate) fn is_number_reserved(dir: &str, number: i32, file_structure: FileStr
     get_allocated_numbers(dir, file_structure).contains(&number)
 }
 
-pub(crate) fn get_allocated_numbers(dir: &str, file_structure: FileStructure) -> Vec<i32> {
+pub(crate) fn get_allocated_numbers(dir: &Path, file_structure: FileStructure) -> Vec<i32> {
     match file_structure {
         FileStructure::Flat => get_allocated_numbers_via_flat_files(dir),
         FileStructure::Nested => get_allocated_numbers_via_nested(dir),
@@ -77,7 +95,7 @@ pub(crate) fn get_allocated_numbers(dir: &str, file_structure: FileStructure) ->
 // TODO: would be nice to do this via an Iterator but having trouble with empty
 // expected struct `std::iter::Map`, found struct `std::iter::Empty`
 // using vec for now
-pub(crate) fn get_allocated_numbers_via_nested(dir: &str) -> Vec<i32> {
+pub(crate) fn get_allocated_numbers_via_nested(dir: &Path) -> Vec<i32> {
     match fs::read_dir(dir) {
         Ok(files) => {
             return files
@@ -97,7 +115,7 @@ pub(crate) fn get_allocated_numbers_via_nested(dir: &str) -> Vec<i32> {
             return Vec::new();
         }
         Err(e) => {
-            panic!("Error reading directory {}. Error: {}", dir, e);
+            panic!("Error reading directory {:?}. Error: {}", dir, e);
         }
     }
 }
@@ -105,7 +123,7 @@ pub(crate) fn get_allocated_numbers_via_nested(dir: &str) -> Vec<i32> {
 // TODO: would be nice to do this via an Iterator but having trouble with empty
 // expected struct `std::iter::Map`, found struct `std::iter::Empty`
 // using vec for now
-pub(crate) fn get_allocated_numbers_via_flat_files(dir: &str) -> Vec<i32> {
+pub(crate) fn get_allocated_numbers_via_flat_files(dir: &Path) -> Vec<i32> {
     //impl Iterator<Item = i32> {
 
     let mut allocated_numbers = Vec::new();
@@ -128,7 +146,7 @@ pub(crate) fn get_allocated_numbers_via_flat_files(dir: &str) -> Vec<i32> {
     allocated_numbers
 }
 
-pub(crate) fn get_next_number(dir: &str, file_structure: FileStructure) -> i32 {
+pub(crate) fn get_next_number(dir: &Path, file_structure: FileStructure) -> i32 {
     // TODO: revisit iterator
     // return get_allocated_numbers(dir)
     //     .max()

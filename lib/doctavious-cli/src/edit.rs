@@ -98,16 +98,16 @@ pub fn get_editor() -> Result<PathBuf> {
 ///
 /// This function saves its input to a temporary file and then opens the default editor to it.
 /// It waits for the editor to return, re-reads the (possibly changed/edited) temporary file, and then deletes it.
-#[cfg(not(test))]
+// #[cfg(not(test))]
 pub fn edit<S: AsRef<[u8]>>(text: S) -> Result<String> {
     let builder = Builder::new();
     edit_with_builder(text, &builder)
 }
 
-#[cfg(test)]
-pub fn edit<S: AsRef<[u8]>>(text: S) -> Result<String> {
-    Ok(String::from_utf8_lossy(text.as_ref()).to_string())
-}
+// #[cfg(test)]
+// pub fn edit<S: AsRef<[u8]>>(text: S) -> Result<String> {
+//     Ok(String::from_utf8_lossy(text.as_ref()).to_string())
+// }
 
 /// Open the contents of a string or buffer in the [default editor] using a temporary file with a
 /// custom path or filename.

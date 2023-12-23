@@ -1,5 +1,5 @@
+use std::borrow::Cow;
 use std::collections::HashMap;
-use std::ffi::OsString;
 use std::fs;
 use std::io::ErrorKind;
 use std::path::{Path, PathBuf};
@@ -10,7 +10,7 @@ use serde::{Deserialize, Serialize};
 use crate::cmd::githooks::Hook;
 use crate::file_structure::FileStructure;
 use crate::markup_format::MarkupFormat;
-use crate::CliResult;
+use crate::{CliResult, DoctaviousCliError};
 
 // TODO: better way to do this? Do we want to keep a default settings file in doctavious dir?
 pub const DEFAULT_CONFIG_NAME: &str = "doctavious.toml";
@@ -26,7 +26,14 @@ pub const DEFAULT_RFD_DIR: &str = "docs/rfd";
 pub const DEFAULT_RFD_TEMPLATE_PATH: &str = "templates/rfd/template";
 // TODO: do we want this to default to the current directory?
 pub const DEFAULT_TIL_DIR: &str = "til";
+
+pub const DEFAULT_TIL_README_TEMPLATE_PATH: &str = "templates/til/readme";
 pub const DEFAULT_TIL_TEMPLATE_PATH: &str = "templates/til/template";
+
+use std::sync::OnceLock;
+
+#[cfg(not(test))]
+static SETTINGS: OnceLock<Option<Settings>> = OnceLock::new();
 
 // This is primary went to avoid having to re-parse settings but an alternative might be to have
 // a context object that gets passed around. We might do down that route anyway when we introduce
@@ -141,7 +148,7 @@ impl Settings {
     fn get_adr_template_path(&self, template_type: &str) -> PathBuf {
         let dir = self.get_adr_dir();
 
-        // see if direction defines a custom template
+        // see if directory defines a custom template
         let custom_template = Path::new(dir)
             .join("templates")
             .join(template_type)
@@ -308,17 +315,49 @@ impl Settings {
 
 pub(crate) fn get_settings_file() -> PathBuf {
     // I dont love having to use env vars here but dont seems like the most convenient way, for the time being,
-    // to get around issues of tests writing to the same settings file.
+    // to get around issues of tests writing to the same settings file. It might be better to just have most of the
+    // functions take in a `cwd` arg but not sure that solves all the issues.
     match std::env::var_os(DOCTAVIOUS_ENV_SETTINGS_PATH) {
         None => SETTINGS_FILE.to_path_buf(),
         Some(path) => PathBuf::from(path).join(SETTINGS_FILE.to_path_buf()),
     }
 }
 
-pub(crate) fn load_settings() -> CliResult<Settings> {
-    let contents = fs::read_to_string(get_settings_file())?;
-    let settings: Settings = toml::from_str(contents.as_str())?;
-    Ok(settings)
+#[cfg(not(test))]
+pub(crate) fn load_settings<'a>() -> CliResult<Cow<'a, Settings>> {
+    let settings = SETTINGS
+        .get_or_init(|| {
+            let settings_path = get_settings_file();
+            if settings_path.is_file() {
+                let contents = fs::read_to_string(settings_path).unwrap();
+                match toml::from_str(contents.as_str()) {
+                    Ok(s) => Some(s),
+                    Err(_) => None,
+                }
+            } else {
+                Some(Settings::default())
+            }
+        })
+        .as_ref()
+        .ok_or(DoctaviousCliError::InvalidSettingsFile)?;
+
+    // match settings {
+    //     Ok(s) => Ok(Cow::Borrowed(s))
+    //     Err(_) => settings
+    // }
+    Ok(Cow::Borrowed(settings))
+}
+
+#[cfg(test)]
+pub(crate) fn load_settings<'a>() -> CliResult<Cow<'a, Settings>> {
+    let settings_path = get_settings_file();
+    let settings = if settings_path.is_file() {
+        let contents = fs::read_to_string(settings_path).unwrap();
+        toml::from_str(contents.as_str())?
+    } else {
+        Settings::default()
+    };
+    Ok(Cow::Owned(settings))
 }
 
 // outside of Settings because we dont want to initialize load given we are using lazy_static
@@ -336,8 +375,8 @@ pub(crate) fn persist_settings(settings: &Settings) -> CliResult<()> {
     Ok(())
 }
 
-pub fn init_dir(dir: PathBuf) -> CliResult<()> {
-    let create_dir_result = fs::create_dir_all(&dir);
+pub fn init_dir(dir: &Path) -> CliResult<()> {
+    let create_dir_result = fs::create_dir_all(dir);
     match create_dir_result {
         Ok(_) => Ok(()),
         Err(e) if e.kind() == ErrorKind::AlreadyExists => {

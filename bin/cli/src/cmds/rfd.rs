@@ -65,7 +65,7 @@ pub(crate) struct NewRFD {
     pub number: Option<i32>,
 
     /// title of RFD
-    #[arg(long, short)]
+    #[arg(long, short, index = 0)]
     pub title: String,
 
     /// Extension that should be used

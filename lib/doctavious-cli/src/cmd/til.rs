@@ -1,7 +1,7 @@
 use std::collections::BTreeMap;
 use std::fs;
 use std::fs::File;
-use std::io::{BufRead, BufReader};
+use std::io::BufReader;
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
 
@@ -12,19 +12,22 @@ use walkdir::{DirEntry, WalkDir};
 use crate::files::friendly_filename;
 use crate::markup_format::MarkupFormat;
 use crate::settings::{init_dir, load_settings, persist_settings, TilSettings, DEFAULT_TIL_DIR};
-use crate::templates::{TemplateContext, Templates};
-use crate::{edit, get_template_content, CliResult};
+use crate::templates::{get_description, get_template_content};
+use crate::templating::{TemplateContext, TemplateType, Templates, TilTemplateType};
+use crate::{edit, CliResult};
 
 #[derive(Clone, Debug, Serialize)]
 struct TilEntry {
     topic: String,
     title: String,
     file_name: String,
+    description: String,
     date: DateTime<Utc>,
 }
 
 pub(crate) fn init_til(directory: Option<PathBuf>, extension: MarkupFormat) -> CliResult<()> {
-    let mut settings = load_settings().unwrap_or_else(|_| Default::default());
+    // let mut settings = load_settings().unwrap_or_else(|_| Default::default());
+    let mut settings = load_settings()?.into_owned();
     let dir = directory.unwrap_or_else(|| PathBuf::from(DEFAULT_TIL_DIR));
     let directory_string = dir.to_string_lossy().to_string();
 
@@ -35,7 +38,7 @@ pub(crate) fn init_til(directory: Option<PathBuf>, extension: MarkupFormat) -> C
     settings.til_settings = Some(til_settings);
 
     persist_settings(&settings)?;
-    init_dir(dir)?;
+    init_dir(&dir)?;
 
     return Ok(());
 }
@@ -47,7 +50,7 @@ pub(crate) fn new_til(
     file_name: Option<String>,
     markup_format: MarkupFormat,
     readme: bool,
-    dir: &str,
+    dir: &Path,
 ) -> CliResult<()> {
     // https://stackoverflow.com/questions/7406102/create-sane-safe-filename-from-any-unsafe-string
     // https://docs.rs/sanitize-filename/latest/sanitize_filename/
@@ -83,7 +86,7 @@ pub(crate) fn new_til(
         fs::write(&path, edited)?;
 
         if readme {
-            build_til_readme(&dir, path, markup_format.extension())?;
+            build_til_readme(dir, markup_format.extension())?;
         }
     }
 
@@ -91,11 +94,7 @@ pub(crate) fn new_til(
 }
 
 // TODO: this should just build_mod the content and return and not write
-pub(crate) fn build_til_readme(
-    dir: &str,
-    template_path: PathBuf,
-    readme_extension: &str,
-) -> CliResult<String> {
+pub(crate) fn build_til_readme(dir: &Path, readme_extension: &str) -> CliResult<String> {
     let mut all_tils: BTreeMap<String, Vec<TilEntry>> = BTreeMap::new();
     for entry in WalkDir::new(&dir)
         .into_iter()
@@ -123,13 +122,7 @@ pub(crate) fn build_til_readme(
             all_tils.insert(topic.clone(), Vec::new());
         }
 
-        let file_name = entry
-            .path()
-            .file_name()
-            .unwrap()
-            .to_str()
-            .unwrap()
-            .to_string();
+        let file_name = entry.file_name().to_string_lossy().to_string();
         let markup_format =
             MarkupFormat::from_str(entry.path().extension().unwrap().to_str().unwrap()).unwrap();
         let file = match File::open(&entry.path()) {
@@ -139,11 +132,17 @@ pub(crate) fn build_til_readme(
 
         let buffer = BufReader::new(file);
         // TODO: should this use extension to get title? Would allow for users to mix/match file types
-        let title = title_string(buffer, markup_format);
-
+        let description = get_description(buffer, markup_format);
+        let file_name = entry.path().to_string_lossy().to_string();
         all_tils.get_mut(&topic).unwrap().push(TilEntry {
             topic,
-            title,
+            title: entry
+                .path()
+                .file_stem()
+                .unwrap()
+                .to_string_lossy()
+                .to_string(), // TODO: dont unwrap
+            description,
             file_name,
             date: DateTime::from(entry.metadata()?.created()?),
         });
@@ -154,15 +153,17 @@ pub(crate) fn build_til_readme(
         til_count += topic_tils.len();
     }
 
-    let settings = load_settings()?;
-    let default_template = settings.get_til_default_template();
-    let template = get_template_content(template_path, &dir, readme_extension, default_template);
+    let template = get_template_content(
+        dir,
+        TemplateType::Til(TilTemplateType::ReadMe),
+        readme_extension,
+    );
     let mut context = TemplateContext::new();
     context.insert("categories_count", &all_tils.keys().len());
     context.insert("til_count", &til_count);
     context.insert("tils", &all_tils);
 
-    let rendered = Templates::one_off(template.as_str(), &context, false)?;
+    let rendered = Templates::one_off(template.as_str(), context, false)?;
     return Ok(rendered);
 }
 
@@ -172,28 +173,4 @@ fn is_hidden(entry: &DirEntry) -> bool {
         .to_str()
         .map(|s| s.starts_with("."))
         .unwrap_or(false)
-}
-
-pub(crate) fn title_string<R>(rdr: R, markup_format: MarkupFormat) -> String
-where
-    R: BufRead,
-{
-    // TODO: swap this implementation for AST when ready
-    let leading_char = markup_format.leading_header_character();
-    for line in rdr.lines() {
-        let line = line.unwrap();
-        if line.starts_with(leading_char) {
-            let last_hash = line
-                .char_indices()
-                .skip_while(|&(_, c)| c == leading_char)
-                .next()
-                .map_or(0, |(idx, _)| idx);
-
-            // Trim the leading hashes and any whitespace
-            return line[last_hash..].trim().to_string();
-        }
-    }
-
-    // TODO: dont panic. default to filename if cant get title
-    panic!("Unable to find title for file");
 }

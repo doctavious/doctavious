@@ -64,9 +64,8 @@ pub(crate) struct NewADR {
     #[arg(long, short)]
     pub number: Option<i32>,
 
-    // TODO: can we give title index so we dont have to specify --title or -t?
     /// title of ADR
-    #[arg(long, short)]
+    #[arg(long, short, index = 0)]
     pub title: String,
 
     /// Extension that should be used
@@ -91,7 +90,7 @@ pub(crate) struct NewADR {
     // LINK is the description of the link created in the new ADR.
     // REVERSE-LINK is the description of the link created in the
     // existing ADR that will refer to the new ADR.
-    #[arg(long, short, help = "")]
+    #[arg(long, short)]
     pub link: Option<Vec<String>>,
 }
 

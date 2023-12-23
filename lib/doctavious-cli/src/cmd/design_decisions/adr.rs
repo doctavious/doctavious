@@ -1,5 +1,6 @@
+use std::fmt::Display;
 use std::fs;
-use std::io::{BufRead, BufReader};
+use std::io::{BufRead, BufReader, ErrorKind};
 use std::path::{Path, PathBuf};
 
 use chrono::Utc;
@@ -9,13 +10,14 @@ use glob::glob;
 use regex::RegexBuilder;
 use walkdir::WalkDir;
 
-use crate::cmd::design_decisions::{build_path, format_number, reserve_number};
+use crate::cmd::design_decisions::{build_path, format_number, is_valid_file, reserve_number};
 use crate::file_structure::FileStructure;
 use crate::files::ensure_path;
 use crate::markup_format::MarkupFormat;
 use crate::settings::{init_dir, load_settings, persist_settings, AdrSettings, DEFAULT_ADR_DIR};
-use crate::templates::{TemplateContext, Templates};
-use crate::{edit, get_template, git, CliResult, DoctaviousCliError};
+use crate::templates::{get_description, get_template};
+use crate::templating::{AdrTemplateType, TemplateContext, TemplateType, Templates};
+use crate::{edit, git, CliResult, DoctaviousCliError};
 
 // TODO(Sean): might not be a great idea to include setting related stuff here in the lib
 // as it might make it more difficult to use in various other scenarios. Fine for now but
@@ -30,7 +32,8 @@ pub(crate) fn init(
     structure: FileStructure,
     extension: Option<MarkupFormat>,
 ) -> CliResult<PathBuf> {
-    let mut settings = load_settings().unwrap_or_else(|_| Default::default());
+    // let mut settings = load_settings().unwrap_or_else(|_| Default::default());
+    let mut settings = load_settings()?.into_owned();
     let path = path.unwrap_or_else(|| PathBuf::from(DEFAULT_ADR_DIR));
     let adr_dir = cwd.join(path);
     if adr_dir.exists() {
@@ -45,40 +48,48 @@ pub(crate) fn init(
     });
 
     persist_settings(&settings)?;
-    init_dir(adr_dir)?;
+    init_dir(&adr_dir)?;
 
     let adr_extension = settings.get_adr_template_extension(extension);
     return new(
+        Some(adr_dir.as_path()),
         Some(1),
         "Record Architecture Decisions",
+        AdrTemplateType::Init,
         adr_extension,
-        settings.get_adr_default_init_template(),
         None,
         None,
     );
 }
 
+/// Create a new ADR
+///
+/// This does not require `init` to be called prior as it will use appropriate defaults
 pub(crate) fn new(
+    cwd: Option<&Path>,
     number: Option<i32>,
     title: &str,
+    template_type: AdrTemplateType,
     extension: MarkupFormat,
-    template_path: PathBuf,
     supersedes: Option<Vec<String>>,
     links: Option<Vec<String>>,
 ) -> CliResult<PathBuf> {
-    let settings = load_settings()?;
-    let dir = settings.get_adr_dir();
-    let default_template = settings.get_adr_default_template();
+    let settings = load_settings()?.into_owned();
+    let dir = if let Some(cwd) = cwd {
+        cwd
+    } else {
+        Path::new(settings.get_adr_dir())
+    };
+
     let template = get_template(
-        Some(template_path),
-        &dir,
+        dir,
+        TemplateType::Adr(template_type),
         &extension.extension(),
-        default_template,
     );
-    let reserve_number = reserve_number(&dir, number, settings.get_adr_structure())?;
+    let reserve_number = reserve_number(dir, number, settings.get_adr_structure())?;
     let formatted_reserved_number = format_number(reserve_number);
     let adr_path = build_path(
-        &dir,
+        dir,
         title,
         &formatted_reserved_number,
         extension,
@@ -98,7 +109,7 @@ pub(crate) fn new(
     // TODO: allow date to be customized
     context.insert("date", &Utc::now().format("%Y-%m-%d").to_string());
 
-    let rendered = Templates::one_off(starting_content.as_str(), &context, false)?;
+    let rendered = Templates::one_off(starting_content.as_str(), context, false)?;
 
     // TODO:
     if let Some(targets) = supersedes {
@@ -128,6 +139,8 @@ pub(crate) fn new(
     Ok(adr_path)
 }
 
+// TODO: cwd should be optional and default
+// TODO: format should be optional? Try and determine from settings otherwise either default or look for both
 pub fn list(cwd: PathBuf, format: MarkupFormat) -> CliResult<Vec<PathBuf>> {
     // this does a recursive search rather than a read_dir because we supported nested directory structures
     let mut paths = Vec::new();
@@ -160,13 +173,18 @@ pub fn list(cwd: PathBuf, format: MarkupFormat) -> CliResult<Vec<PathBuf>> {
 // from the RFD in the branch until it is merged.
 // I think this would be implemented as a    git hook
 pub(crate) fn reserve(
+    cwd: Option<&Path>,
     number: Option<i32>,
     title: String,
     extension: MarkupFormat,
 ) -> CliResult<()> {
     let settings = load_settings()?;
-    let dir = settings.get_adr_dir();
-    let reserve_number = reserve_number(&dir, number, settings.get_adr_structure())?;
+    let dir = if let Some(cwd) = cwd {
+        cwd
+    } else {
+        Path::new(settings.get_adr_dir())
+    };
+    let reserve_number = reserve_number(dir, number, settings.get_adr_structure())?;
 
     // TODO: support more than current directory
     let repo = Repository::open(".")?;
@@ -178,10 +196,11 @@ pub(crate) fn reserve(
     git::checkout_branch(&repo, reserve_number.to_string().as_str())?;
 
     let new_adr = new(
+        Some(dir),
         number,
         title.as_str(),
+        AdrTemplateType::Template,
         extension,
-        settings.get_adr_default_template(),
         None,
         None,
     )?;
@@ -299,6 +318,71 @@ pub(crate) fn remove_status(file: &str, current_status: &str) -> CliResult<()> {
 
 pub(crate) fn generate_csv() {}
 
+// TODO: not a fan of the list ToC for ADRs and RFDs
+// TODO: pass in header
+pub(crate) fn generate_toc(
+    dir: &Path,
+    extension: MarkupFormat,
+    intro: Option<&str>,
+    outro: Option<&str>,
+    link_prefix: Option<&str>,
+) -> String {
+    let leading_char = extension.leading_header_character();
+    let mut content = String::new();
+    content.push_str(&format!(
+        "{} {}\n\n",
+        leading_char, "Architecture Decision Records"
+    ));
+
+    if intro.is_some() {
+        content.push_str(&intro.unwrap());
+        content.push_str("\n\n");
+    }
+
+    match fs::metadata(&dir) {
+        Ok(_) => {
+            let link_prefix = link_prefix.unwrap_or("");
+            for entry in WalkDir::new(&dir)
+                .sort_by(|a, b| a.file_name().cmp(b.file_name()))
+                .into_iter()
+                .filter_map(Result::ok)
+                .filter(|e| e.file_type().is_file())
+                .filter(|f| is_valid_file(&f.path()))
+            {
+                let file = match fs::File::open(&entry.path()) {
+                    Ok(file) => file,
+                    Err(_) => panic!("Unable to read file {:?}", entry.path()),
+                };
+
+                println!("{}", fs::read_to_string(&entry.path()).unwrap());
+
+                let buffer = BufReader::new(file);
+                let description = get_description(buffer, extension);
+                // let file_name = entry.path().to_string_lossy().to_string();
+                content.push_str(&format!(
+                    "* [{}]({}{})\n",
+                    description,
+                    link_prefix,
+                    entry.path().display()
+                ));
+            }
+            content.push('\n');
+        }
+        Err(e) => match e.kind() {
+            ErrorKind::NotFound => {
+                eprintln!("the {} directory should exist", dir.to_string_lossy())
+            }
+            _ => eprintln!("Error occurred: {:?}", e),
+        },
+    }
+
+    if outro.is_some() {
+        content.push_str(&outro.unwrap());
+    }
+
+    content
+}
+
 pub(crate) fn graph_adrs() {
     let graph = GraphBuilder::new_named_directed("example")
         .add_node(Node::new("N0"))
@@ -332,27 +416,253 @@ fn get_file(target: &str) -> Option<PathBuf> {
 
 #[cfg(test)]
 mod tests {
-    use std::path::PathBuf;
-    use tempfile::{Builder, TempDir};
+    use std::fs;
+    use std::path::{Path, PathBuf};
 
-    use crate::cmd::design_decisions::adr::init;
+    use tempfile::TempDir;
+
+    use crate::cmd::design_decisions::adr::{generate_toc, init, list, new};
     use crate::file_structure::FileStructure;
     use crate::markup_format::MarkupFormat;
     use crate::settings::DOCTAVIOUS_ENV_SETTINGS_PATH;
+    use crate::templating::AdrTemplateType;
 
     // avoid-octal-numbers.expected
 
-    // create first record
+    #[test]
+    fn create_first_record() {
+        let dir = TempDir::new().unwrap();
 
-    // create multiple records
+        temp_env::with_vars(
+            [
+                (DOCTAVIOUS_ENV_SETTINGS_PATH, Some(dir.path())),
+                ("EDITOR", Some(Path::new("./tests/fixtures/fake-editor"))),
+            ],
+            || {
+                let path = new(
+                    Some(dir.path()),
+                    None,
+                    "The First Decision",
+                    AdrTemplateType::Template,
+                    MarkupFormat::Markdown,
+                    None,
+                    None,
+                )
+                .expect("Should be able to create first new record");
 
-    // edit ADR on creation
+                assert!(path
+                    .to_string_lossy()
+                    .ends_with("/0001-the-first-decision.md"));
+            },
+        );
 
-    // generate content with header and footer
+        dir.close().unwrap();
+    }
 
-    // generate contents with prefix
+    #[test]
+    fn create_multiple_records() {
+        let dir = TempDir::new().unwrap();
+
+        temp_env::with_vars(
+            [
+                (DOCTAVIOUS_ENV_SETTINGS_PATH, Some(dir.path())),
+                ("EDITOR", Some(Path::new("./tests/fixtures/fake-editor"))),
+            ],
+            || {
+                new(
+                    Some(dir.path()),
+                    None,
+                    "The First Decision",
+                    AdrTemplateType::Template,
+                    MarkupFormat::Markdown,
+                    None,
+                    None,
+                )
+                .unwrap();
+
+                let second = new(
+                    Some(dir.path()),
+                    None,
+                    "The Second Decision",
+                    AdrTemplateType::Template,
+                    MarkupFormat::Markdown,
+                    None,
+                    None,
+                )
+                .unwrap();
+
+                let third = new(
+                    Some(dir.path()),
+                    None,
+                    "The Third Decision",
+                    AdrTemplateType::Template,
+                    MarkupFormat::Markdown,
+                    None,
+                    None,
+                )
+                .unwrap();
+
+                assert!(second
+                    .to_string_lossy()
+                    .ends_with("/0002-the-second-decision.md"));
+
+                assert!(third
+                    .to_string_lossy()
+                    .ends_with("/0003-the-third-decision.md"));
+            },
+        );
+
+        dir.close().unwrap();
+    }
+
+    #[test]
+    fn should_edit_adr_on_create() {
+        let dir = TempDir::new().unwrap();
+
+        temp_env::with_vars(
+            [
+                (DOCTAVIOUS_ENV_SETTINGS_PATH, Some(dir.path())),
+                ("EDITOR", Some(Path::new("./tests/fixtures/fake-editor"))),
+            ],
+            || {
+                let path = new(
+                    Some(dir.path()),
+                    None,
+                    "The First Decision",
+                    AdrTemplateType::Template,
+                    MarkupFormat::Markdown,
+                    None,
+                    None,
+                )
+                .expect("Should be able to create first new record");
+
+                let content = fs::read_to_string(&path).unwrap();
+                assert!(content.starts_with("EDITOR"));
+            },
+        );
+
+        dir.close().unwrap();
+    }
+
+    #[test]
+    fn should_use_visual_edit_adr_on_create() {
+        let dir = TempDir::new().unwrap();
+
+        temp_env::with_vars(
+            [
+                (DOCTAVIOUS_ENV_SETTINGS_PATH, Some(dir.path())),
+                ("VISUAL", Some(Path::new("./tests/fixtures/fake-visual"))),
+            ],
+            || {
+                let path = new(
+                    Some(dir.path()),
+                    None,
+                    "The First Decision",
+                    AdrTemplateType::Template,
+                    MarkupFormat::Markdown,
+                    None,
+                    None,
+                )
+                .expect("Should be able to create first new record");
+
+                let content = fs::read_to_string(&path).unwrap();
+                assert!(content.starts_with("VISUAL"));
+            },
+        );
+
+        dir.close().unwrap();
+    }
 
     // generate contents
+    #[test]
+    fn should_generate_toc() {
+        let dir = TempDir::new().unwrap();
+
+        temp_env::with_vars(
+            [
+                (DOCTAVIOUS_ENV_SETTINGS_PATH, Some(dir.path())),
+                ("EDITOR", Some(Path::new("./tests/fixtures/noop-editor"))),
+            ],
+            || {
+                let first = new(
+                    Some(dir.path()),
+                    None,
+                    "The First Decision",
+                    AdrTemplateType::Template,
+                    MarkupFormat::Markdown,
+                    None,
+                    None,
+                )
+                .unwrap();
+
+                let second = new(
+                    Some(dir.path()),
+                    None,
+                    "The Second Decision",
+                    AdrTemplateType::Template,
+                    MarkupFormat::Markdown,
+                    None,
+                    None,
+                )
+                .unwrap();
+
+                let toc = generate_toc(dir.path(), MarkupFormat::Markdown, None, None, None);
+            },
+        );
+
+        dir.close().unwrap();
+    }
+
+    #[test]
+    fn should_generate_toc_with_header_footer() {
+        let dir = TempDir::new().unwrap();
+
+        temp_env::with_vars(
+            [
+                (DOCTAVIOUS_ENV_SETTINGS_PATH, Some(dir.path())),
+                ("EDITOR", Some(Path::new("./tests/fixtures/noop-editor"))),
+            ],
+            || {
+                let first = new(
+                    Some(dir.path()),
+                    None,
+                    "The First Decision",
+                    AdrTemplateType::Template,
+                    MarkupFormat::Markdown,
+                    None,
+                    None,
+                )
+                .unwrap();
+
+                let second = new(
+                    Some(dir.path()),
+                    None,
+                    "The Second Decision",
+                    AdrTemplateType::Template,
+                    MarkupFormat::Markdown,
+                    None,
+                    None,
+                )
+                .unwrap();
+
+                let toc = generate_toc(
+                    dir.path(),
+                    MarkupFormat::Markdown,
+                    Some(
+                        r#"An intro.
+
+Multiple paragraphs."#,
+                    ),
+                    Some("An outro."),
+                    None,
+                );
+            },
+        );
+
+        dir.close().unwrap();
+    }
+
+    // generate contents with prefix
 
     // generate graph
 
@@ -365,6 +675,10 @@ mod tests {
     // linking
 
     // list
+    #[test]
+    fn should_list() {
+        // list(PathBuf::new(), MarkupFormat::Asciidoc).unwrap();
+    }
 
     // must provide a title when creating new ADR
 
@@ -380,10 +694,13 @@ mod tests {
 
     #[test]
     fn init_should_create_adr_directory_and_add_first_adr() {
-        let dir =
-            get_temp_dir(".tmp_doctavious_init_should_create_adr_directory_and_add_first_adr");
+        let dir = TempDir::new().unwrap();
 
-        temp_env::with_var(DOCTAVIOUS_ENV_SETTINGS_PATH, Some(dir.path()), || {
+        temp_env::with_vars(
+            [
+                (DOCTAVIOUS_ENV_SETTINGS_PATH, Some(dir.path())),
+                ("EDITOR", Some(Path::new("./tests/fixtures/fake-editor"))),
+            ],|| {
             init(
                 dir.path(),
                 None,
@@ -398,9 +715,13 @@ mod tests {
 
     #[test]
     fn init_with_custom_directory() {
-        let dir = get_temp_dir(".tmp_doctavious_init_with_custom_directory");
+        let dir = TempDir::new().unwrap();
 
-        temp_env::with_var(DOCTAVIOUS_ENV_SETTINGS_PATH, Some(dir.path()), || {
+        temp_env::with_vars(
+            [
+                (DOCTAVIOUS_ENV_SETTINGS_PATH, Some(dir.path())),
+                ("EDITOR", Some(Path::new("./tests/fixtures/fake-editor"))),
+            ],|| {
             let adr_path = init(
                 dir.path(),
                 Some(PathBuf::from("test/adrs")),
@@ -411,7 +732,6 @@ mod tests {
 
             let trimmed_adr_path =
                 &adr_path.to_string_lossy()[dir.path().to_string_lossy().len()..];
-            println!("{trimmed_adr_path}");
 
             assert!(trimmed_adr_path.starts_with("/test/adrs"));
         });
@@ -421,8 +741,12 @@ mod tests {
 
     #[test]
     fn init_should_fail_on_non_empty_directory() {
-        let dir = get_temp_dir(".tmp_doctavious_init_should_fail_on_non_empty_directory");
-        temp_env::with_var(DOCTAVIOUS_ENV_SETTINGS_PATH, Some(dir.path()), || {
+        let dir = TempDir::new().unwrap();
+        temp_env::with_vars(
+            [
+                (DOCTAVIOUS_ENV_SETTINGS_PATH, Some(dir.path())),
+                ("EDITOR", Some(Path::new("./tests/fixtures/fake-editor"))),
+            ],|| {
             init(
                 dir.path(),
                 None,
@@ -438,10 +762,8 @@ mod tests {
                 Some(MarkupFormat::default()),
             );
 
-            println!("{:?}", adr_dir);
             assert!(adr_dir.is_err());
         });
-        println!("close dir");
         dir.close().unwrap();
     }
 
@@ -452,12 +774,4 @@ mod tests {
     // new w/o init
 
     // new with init
-
-    fn get_temp_dir(prefix: &str) -> TempDir {
-        Builder::new()
-            .prefix(prefix)
-            .rand_bytes(12)
-            .tempdir()
-            .unwrap()
-    }
 }
