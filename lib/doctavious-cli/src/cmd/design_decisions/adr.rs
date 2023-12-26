@@ -15,7 +15,11 @@ use crate::cmd::design_decisions::{build_path, format_number, is_valid_file, res
 use crate::file_structure::FileStructure;
 use crate::files::ensure_path;
 use crate::markup_format::MarkupFormat;
-use crate::settings::{init_dir, load_settings, persist_settings, AdrSettings, DEFAULT_ADR_DIR};
+use crate::settings::{
+    init_dir, load_settings, persist_settings, AdrSettings, DEFAULT_ADR_DIR,
+    DEFAULT_ADR_INIT_TEMPLATE_PATH, DEFAULT_ADR_RECORD_TEMPLATE_PATH,
+    DEFAULT_ADR_TOC_TEMPLATE_PATH,
+};
 use crate::templates::{get_description, get_template};
 use crate::templating::{AdrTemplateType, TemplateContext, TemplateType, Templates};
 use crate::{edit, git, CliResult, DoctaviousCliError};
@@ -140,12 +144,18 @@ pub(crate) fn new(
     Ok(adr_path)
 }
 
-// TODO: cwd should be optional and default
 // TODO: format should be optional? Try and determine from settings otherwise either default or look for both
-pub fn list(cwd: PathBuf, format: MarkupFormat) -> CliResult<Vec<PathBuf>> {
+pub fn list(cwd: Option<&Path>, format: MarkupFormat) -> CliResult<Vec<PathBuf>> {
+    let settings = load_settings()?.into_owned();
+    let dir = if let Some(cwd) = cwd {
+        cwd
+    } else {
+        Path::new(settings.get_adr_dir())
+    };
+
     // this does a recursive search rather than a read_dir because we supported nested directory structures
     let mut paths = Vec::new();
-    for entry in glob(format!("{}/**/*.{}", cwd.to_string_lossy(), format.extension()).as_str())? {
+    for entry in glob(format!("{}/**/*.{}", dir.to_string_lossy(), format.extension()).as_str())? {
         if let Ok(entry) = entry {
             paths.push(entry);
         }
@@ -333,7 +343,7 @@ pub(crate) fn generate_toc(
     #[derive(Clone, Debug, Serialize)]
     struct AdrEntry {
         description: String,
-        file_name: String,
+        file_path: String,
     }
 
     let mut adrs = Vec::new();
@@ -351,9 +361,16 @@ pub(crate) fn generate_toc(
 
         let buffer = BufReader::new(file);
         let description = get_description(buffer, extension);
+
+        let file_path = entry
+            .path()
+            .to_string_lossy()
+            .trim_start_matches("./")
+            .to_string();
+
         adrs.push(AdrEntry {
             description,
-            file_name: entry.path().to_string_lossy().to_string(),
+            file_path,
         });
     }
 
@@ -373,16 +390,40 @@ pub(crate) fn generate_toc(
         &extension.extension(),
     );
 
-    let starting_content = fs::read_to_string(&template).expect(&format!(
-        "failed to read file {}.",
-        &template.to_string_lossy()
-    ));
+    let starting_content = fs::read_to_string(&template)?;
 
     Ok(Templates::one_off(
         starting_content.as_str(),
         context,
         false,
     )?)
+}
+
+pub(crate) fn add_custom_template(
+    cwd: Option<&Path>,
+    template: AdrTemplateType,
+    format: MarkupFormat,
+    content: &str,
+) -> CliResult<()> {
+    let settings = load_settings()?;
+    let dir = if let Some(cwd) = cwd {
+        cwd
+    } else {
+        Path::new(settings.get_adr_dir())
+    };
+
+    let template_path = match template {
+        AdrTemplateType::Init => DEFAULT_ADR_INIT_TEMPLATE_PATH,
+        AdrTemplateType::Record => DEFAULT_ADR_RECORD_TEMPLATE_PATH,
+        AdrTemplateType::ToC => DEFAULT_ADR_TOC_TEMPLATE_PATH,
+    };
+
+    let path = dir.join(template_path).with_extension(format.extension());
+    fs::create_dir_all(&path.parent().expect("ADR template dir should have parent"))?;
+
+    fs::write(&path, content)?;
+
+    Ok(())
 }
 
 pub(crate) fn graph_adrs() {
@@ -423,7 +464,7 @@ mod tests {
 
     use tempfile::TempDir;
 
-    use crate::cmd::design_decisions::adr::{generate_toc, init, list, new};
+    use crate::cmd::design_decisions::adr::{add_custom_template, generate_toc, init, list, new};
     use crate::file_structure::FileStructure;
     use crate::markup_format::MarkupFormat;
     use crate::settings::DOCTAVIOUS_ENV_SETTINGS_PATH;
@@ -575,7 +616,6 @@ mod tests {
         dir.close().unwrap();
     }
 
-    // generate contents
     #[test]
     fn should_generate_toc() {
         let dir = TempDir::new().unwrap();
@@ -610,6 +650,12 @@ mod tests {
 
                 let toc =
                     generate_toc(dir.path(), MarkupFormat::Markdown, None, None, None).unwrap();
+
+                insta::with_settings!({filters => vec![
+                    (dir.path().to_str().unwrap(), "[DIR]"),
+                ]}, {
+                    insta::assert_snapshot!(toc);
+                });
             },
         );
 
@@ -661,14 +707,68 @@ Multiple paragraphs."#,
                 )
                 .unwrap();
 
-                println!("{toc}");
+                insta::with_settings!({filters => vec![
+                    (dir.path().to_str().unwrap(), "[DIR]"),
+                ]}, {
+                    insta::assert_snapshot!(toc);
+                });
             },
         );
 
         dir.close().unwrap();
     }
 
-    // generate contents with prefix
+    #[test]
+    fn should_generate_toc_with_link_prefix() {
+        let dir = TempDir::new().unwrap();
+
+        temp_env::with_vars(
+            [
+                (DOCTAVIOUS_ENV_SETTINGS_PATH, Some(dir.path())),
+                ("EDITOR", Some(Path::new("./tests/fixtures/noop-editor"))),
+            ],
+            || {
+                let first = new(
+                    Some(dir.path()),
+                    None,
+                    "The First Decision",
+                    AdrTemplateType::Record,
+                    MarkupFormat::Markdown,
+                    None,
+                    None,
+                )
+                .unwrap();
+
+                let second = new(
+                    Some(dir.path()),
+                    None,
+                    "The Second Decision",
+                    AdrTemplateType::Record,
+                    MarkupFormat::Markdown,
+                    None,
+                    None,
+                )
+                .unwrap();
+
+                let toc = generate_toc(
+                    dir.path(),
+                    MarkupFormat::Markdown,
+                    None,
+                    None,
+                    Some("a-link-prefix"),
+                )
+                .unwrap();
+
+                insta::with_settings!({filters => vec![
+                    (dir.path().to_str().unwrap(), "[DIR]"),
+                ]}, {
+                    insta::assert_snapshot!(toc);
+                });
+            },
+        );
+
+        dir.close().unwrap();
+    }
 
     // generate graph
 
@@ -683,16 +783,116 @@ Multiple paragraphs."#,
     // list
     #[test]
     fn should_list() {
-        // list(PathBuf::new(), MarkupFormat::Asciidoc).unwrap();
+        let dir = TempDir::new().unwrap();
+
+        temp_env::with_vars(
+            [
+                (DOCTAVIOUS_ENV_SETTINGS_PATH, Some(dir.path())),
+                ("EDITOR", Some(Path::new("./tests/fixtures/noop-editor"))),
+            ],
+            || {
+                let first = new(
+                    Some(dir.path()),
+                    None,
+                    "The First Decision",
+                    AdrTemplateType::Record,
+                    MarkupFormat::Markdown,
+                    None,
+                    None,
+                )
+                .unwrap();
+
+                let second = new(
+                    Some(dir.path()),
+                    None,
+                    "The Second Decision",
+                    AdrTemplateType::Record,
+                    MarkupFormat::Markdown,
+                    None,
+                    None,
+                )
+                .unwrap();
+
+                let adrs = list(Some(dir.path()), MarkupFormat::Markdown).unwrap();
+
+                assert_eq!(2, adrs.len());
+                insta::with_settings!({filters => vec![
+                    (dir.path().to_str().unwrap(), "[DIR]"),
+                    (r"\d{4}-\d{2}-\d{2}", "[DATE]")
+                ]}, {
+                    insta::assert_snapshot!(fs::read_to_string(&adrs[0]).unwrap());
+                    insta::assert_snapshot!(fs::read_to_string(&adrs[1]).unwrap());
+                });
+            },
+        );
+
+        dir.close().unwrap();
     }
 
     // must provide a title when creating new ADR
 
     // project specific template
+    #[test]
+    fn should_allow_custom_project_template() {
+        let dir = TempDir::new().unwrap();
 
-    // search for ADR directory
+        temp_env::with_vars(
+            [
+                (DOCTAVIOUS_ENV_SETTINGS_PATH, Some(dir.path())),
+                ("EDITOR", Some(Path::new("./tests/fixtures/noop-editor"))),
+            ],
+            || {
+                init(
+                    dir.path(),
+                    None,
+                    FileStructure::default(),
+                    Some(MarkupFormat::default()),
+                )
+                .expect("should init adr");
 
-    // search for custom ADR directory
+                add_custom_template(
+                    Some(dir.path()),
+                    AdrTemplateType::Record,
+                    MarkupFormat::Markdown,
+                    r#"# TITLE
+
+Project specific template!
+
+# Status
+
+STATUS
+
+# Info
+
+ADR Number: {{ number }}
+
+Date: {{ date }}
+"#,
+                )
+                .unwrap();
+
+                let custom_template = new(
+                    Some(dir.path()),
+                    None,
+                    "Custom Template Record",
+                    AdrTemplateType::Record,
+                    MarkupFormat::Markdown,
+                    None,
+                    None,
+                )
+                .unwrap();
+
+                insta::with_settings!({filters => vec![
+                    (dir.path().to_str().unwrap(), "[DIR]"),
+                    (r"\d{4}-\d{2}-\d{2}", "[DATE]")
+                ]}, {
+                    insta::assert_snapshot!(fs::read_to_string(custom_template).unwrap());
+                });
+            },
+        );
+
+        dir.close().unwrap();
+    }
 
     // supersede existing ADR
 
@@ -705,16 +905,25 @@ Multiple paragraphs."#,
         temp_env::with_vars(
             [
                 (DOCTAVIOUS_ENV_SETTINGS_PATH, Some(dir.path())),
-                ("EDITOR", Some(Path::new("./tests/fixtures/fake-editor"))),
+                ("EDITOR", Some(Path::new("./tests/fixtures/noop-editor"))),
             ],
             || {
-                init(
+                let path = init(
                     dir.path(),
                     None,
                     FileStructure::default(),
                     Some(MarkupFormat::default()),
                 )
                 .expect("should init adr");
+
+                let content = fs::read_to_string(path).unwrap();
+
+                insta::with_settings!({filters => vec![
+                    (dir.path().to_str().unwrap(), "[DIR]"),
+                    (r"\d{4}-\d{2}-\d{2}", "[DATE]")
+                ]}, {
+                    insta::assert_snapshot!(content);
+                });
             },
         );
 

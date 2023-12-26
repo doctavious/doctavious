@@ -18,6 +18,10 @@ pub const DEFAULT_CONFIG_NAME: &str = "doctavious.toml";
 pub const DOCTAVIOUS_ENV_SETTINGS_PATH: &str = "DOCTAVIOUS_CONFIG_PATH";
 
 pub const DEFAULT_ADR_DIR: &str = "docs/adr";
+
+// TODO: could use const_format formatcp
+pub const DEFAULT_TEMPLATE_DIR: &str = "templates";
+
 pub const DEFAULT_ADR_INIT_TEMPLATE_PATH: &str = "templates/adr/init";
 pub const DEFAULT_ADR_RECORD_TEMPLATE_PATH: &str = "templates/adr/record";
 pub const DEFAULT_ADR_TOC_TEMPLATE_PATH: &str = "templates/adr/toc";

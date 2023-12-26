@@ -1,0 +1,17 @@
+---
+source: lib/doctavious-cli/src/cmd/design_decisions/adr.rs
+expression: "fs::read_to_string(custom_template).unwrap()"
+---
+# TITLE
+
+Project specific template!
+
+# Status
+
+STATUS
+
+# Info
+
+ADR Number: 2
+
+Date: [DATE]

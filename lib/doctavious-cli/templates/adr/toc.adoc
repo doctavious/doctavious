@@ -5,7 +5,7 @@
 
 {% endif %}
 {%- for adr in adrs -%}
-* [`{{ adr.description }}`]({{ adr.link_prefix}}/{{ adr.path }})
+* [`{{ adr.description }}`]({{ link_prefix }}/{{ adr.file_path }})
 {% endfor -%}
 {%- if outro is defined %}
 {{ outro }}

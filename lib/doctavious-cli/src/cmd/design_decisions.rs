@@ -1,13 +1,14 @@
 use std::fmt::Display;
+use std::fs;
 use std::io::ErrorKind;
 use std::path::{Path, PathBuf};
-use std::{fmt, fs};
 
 use unidecode::unidecode;
 use walkdir::WalkDir;
 
 use crate::file_structure::FileStructure;
 use crate::markup_format::{MarkupFormat, MARKUP_FORMAT_EXTENSIONS};
+use crate::settings::DEFAULT_TEMPLATE_DIR;
 use crate::{CliResult, DoctaviousCliError};
 
 mod adr;
@@ -107,11 +108,16 @@ pub(crate) fn get_allocated_numbers_via_nested(dir: &Path) -> Vec<i32> {
 // expected struct `std::iter::Map`, found struct `std::iter::Empty`
 // using vec for now
 pub(crate) fn get_allocated_numbers_via_flat_files(dir: &Path) -> Vec<i32> {
-    //impl Iterator<Item = i32> {
-
     let mut allocated_numbers = Vec::new();
     for entry in WalkDir::new(&dir)
         .into_iter()
+        .filter_entry(|e| {
+            if e.path().is_dir() {
+                return e.file_name().to_string_lossy() != DEFAULT_TEMPLATE_DIR;
+            }
+
+            true
+        })
         .filter_map(Result::ok)
         .filter(|e| e.file_type().is_file())
         .filter(|e| is_valid_file(&e.path()))
