@@ -8,8 +8,9 @@ use serde::Serialize;
 use serde_json::{to_value, Value};
 
 use crate::settings::{
-    DEFAULT_ADR_TEMPLATE_PATH, DEFAULT_INIT_ADR_TEMPLATE_PATH, DEFAULT_RFD_TEMPLATE_PATH,
-    DEFAULT_TIL_README_TEMPLATE_PATH, DEFAULT_TIL_TEMPLATE_PATH,
+    DEFAULT_ADR_INIT_TEMPLATE_PATH, DEFAULT_ADR_RECORD_TEMPLATE_PATH,
+    DEFAULT_ADR_TOC_TEMPLATE_PATH, DEFAULT_RFD_RECORD_TEMPLATE_PATH,
+    DEFAULT_TIL_POST_TEMPLATE_PATH, DEFAULT_TIL_README_TEMPLATE_PATH,
 };
 use crate::{CliResult, DoctaviousCliError};
 
@@ -22,12 +23,20 @@ pub enum TemplateType {
 pub enum AdrTemplateType {
     Init,
     #[default]
-    Template,
+    Record,
+    ToC,
+}
+
+#[derive(Default)]
+pub enum RfdTemplateType {
+    #[default]
+    Record,
+    ToC,
 }
 
 pub enum TilTemplateType {
     ReadMe,
-    Template,
+    Post,
 }
 
 impl TemplateType {
@@ -35,13 +44,14 @@ impl TemplateType {
     pub fn get_default_path(&self) -> PathBuf {
         let s = match self {
             TemplateType::Adr(templates) => match templates {
-                AdrTemplateType::Init => DEFAULT_INIT_ADR_TEMPLATE_PATH,
-                AdrTemplateType::Template => DEFAULT_ADR_TEMPLATE_PATH,
+                AdrTemplateType::Init => DEFAULT_ADR_INIT_TEMPLATE_PATH,
+                AdrTemplateType::Record => DEFAULT_ADR_RECORD_TEMPLATE_PATH,
+                AdrTemplateType::ToC => DEFAULT_ADR_TOC_TEMPLATE_PATH,
             },
-            TemplateType::Rfd => DEFAULT_RFD_TEMPLATE_PATH,
+            TemplateType::Rfd => DEFAULT_RFD_RECORD_TEMPLATE_PATH,
             TemplateType::Til(templates) => match templates {
                 TilTemplateType::ReadMe => DEFAULT_TIL_README_TEMPLATE_PATH,
-                TilTemplateType::Template => DEFAULT_TIL_TEMPLATE_PATH,
+                TilTemplateType::Post => DEFAULT_TIL_POST_TEMPLATE_PATH,
             },
         };
 
@@ -49,6 +59,7 @@ impl TemplateType {
     }
 }
 
+// TODO: do we really need a new-type or could this be a type alias?
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct TemplateContext {
     pub data: BTreeMap<String, Value>,

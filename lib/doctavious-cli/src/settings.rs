@@ -18,17 +18,17 @@ pub const DEFAULT_CONFIG_NAME: &str = "doctavious.toml";
 pub const DOCTAVIOUS_ENV_SETTINGS_PATH: &str = "DOCTAVIOUS_CONFIG_PATH";
 
 pub const DEFAULT_ADR_DIR: &str = "docs/adr";
-pub const DEFAULT_ADR_TEMPLATE_PATH: &str = "templates/adr/template";
-
-pub const DEFAULT_INIT_ADR_TEMPLATE_PATH: &str = "templates/adr/init";
+pub const DEFAULT_ADR_INIT_TEMPLATE_PATH: &str = "templates/adr/init";
+pub const DEFAULT_ADR_RECORD_TEMPLATE_PATH: &str = "templates/adr/record";
+pub const DEFAULT_ADR_TOC_TEMPLATE_PATH: &str = "templates/adr/toc";
 
 pub const DEFAULT_RFD_DIR: &str = "docs/rfd";
-pub const DEFAULT_RFD_TEMPLATE_PATH: &str = "templates/rfd/template";
+pub const DEFAULT_RFD_RECORD_TEMPLATE_PATH: &str = "templates/rfd/record";
 // TODO: do we want this to default to the current directory?
 pub const DEFAULT_TIL_DIR: &str = "til";
 
 pub const DEFAULT_TIL_README_TEMPLATE_PATH: &str = "templates/til/readme";
-pub const DEFAULT_TIL_TEMPLATE_PATH: &str = "templates/til/template";
+pub const DEFAULT_TIL_POST_TEMPLATE_PATH: &str = "templates/til/post";
 
 use std::sync::OnceLock;
 
@@ -137,8 +137,8 @@ impl Settings {
         return DEFAULT_ADR_DIR;
     }
 
-    pub fn get_adr_template(&self) -> PathBuf {
-        self.get_adr_template_path("template")
+    pub fn get_adr_record_template(&self) -> PathBuf {
+        self.get_adr_template_path("record")
     }
 
     pub fn get_adr_init_template(&self) -> PathBuf {
@@ -165,7 +165,7 @@ impl Settings {
     pub fn get_adr_default_template(&self) -> PathBuf {
         PathBuf::from(format!(
             "{}.{}",
-            DEFAULT_ADR_TEMPLATE_PATH,
+            DEFAULT_ADR_RECORD_TEMPLATE_PATH,
             self.get_adr_template_extension(None)
         ))
     }
@@ -179,7 +179,7 @@ impl Settings {
     #[cfg(test)]
     pub fn get_adr_default_init_template(&self) -> PathBuf {
         PathBuf::from(format!(
-            "templates/adr/init.{}",
+            "{DEFAULT_ADR_INIT_TEMPLATE_PATH}.{}",
             self.get_adr_template_extension(None)
         ))
     }
@@ -234,7 +234,7 @@ impl Settings {
     pub fn get_rfd_default_template(&self) -> PathBuf {
         PathBuf::from(format!(
             "{}.{}",
-            DEFAULT_RFD_TEMPLATE_PATH,
+            DEFAULT_RFD_RECORD_TEMPLATE_PATH,
             self.get_rfd_template_extension(None)
         ))
     }
@@ -303,11 +303,12 @@ impl Settings {
         return MarkupFormat::default();
     }
 
+    // TODO: might need a test / not(test) versions of this
     pub fn get_til_default_template(&self) -> PathBuf {
         PathBuf::from(format!(
             "{}/{}.{}",
             self.get_til_dir(),
-            DEFAULT_TIL_TEMPLATE_PATH,
+            DEFAULT_TIL_POST_TEMPLATE_PATH,
             self.get_til_template_extension(None)
         ))
     }
@@ -341,10 +342,6 @@ pub(crate) fn load_settings<'a>() -> CliResult<Cow<'a, Settings>> {
         .as_ref()
         .ok_or(DoctaviousCliError::InvalidSettingsFile)?;
 
-    // match settings {
-    //     Ok(s) => Ok(Cow::Borrowed(s))
-    //     Err(_) => settings
-    // }
     Ok(Cow::Borrowed(settings))
 }
 
@@ -357,6 +354,7 @@ pub(crate) fn load_settings<'a>() -> CliResult<Cow<'a, Settings>> {
     } else {
         Settings::default()
     };
+
     Ok(Cow::Owned(settings))
 }
 

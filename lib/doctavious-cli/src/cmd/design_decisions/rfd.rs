@@ -11,7 +11,7 @@ use crate::files::ensure_path;
 use crate::markup_format::MarkupFormat;
 use crate::settings::{
     init_dir, load_settings, persist_settings, RFDSettings, DEFAULT_RFD_DIR,
-    DEFAULT_RFD_TEMPLATE_PATH,
+    DEFAULT_RFD_RECORD_TEMPLATE_PATH,
 };
 use crate::templates::get_template;
 use crate::templating::{TemplateContext, TemplateType, Templates};
@@ -43,7 +43,7 @@ pub(crate) fn init_rfd(
     let rfd_extension = settings.get_rfd_template_extension(extension);
 
     // TODO: fix
-    return new_rfd(None, Some(1), "Use RFDs ...", rfd_extension);
+    new_rfd(None, Some(1), "Use RFDs ...", rfd_extension)
 }
 
 pub(crate) fn new_rfd(

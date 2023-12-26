@@ -1,6 +1,6 @@
 use std::fmt::Display;
 use std::fs;
-use std::io::{BufRead, BufReader, ErrorKind};
+use std::io::{BufRead, BufReader};
 use std::path::{Path, PathBuf};
 
 use chrono::Utc;
@@ -8,6 +8,7 @@ use dotavious::{Dot, Edge, GraphBuilder, Node};
 use git2::Repository;
 use glob::glob;
 use regex::RegexBuilder;
+use serde::Serialize;
 use walkdir::WalkDir;
 
 use crate::cmd::design_decisions::{build_path, format_number, is_valid_file, reserve_number};
@@ -199,7 +200,7 @@ pub(crate) fn reserve(
         Some(dir),
         number,
         title.as_str(),
-        AdrTemplateType::Template,
+        AdrTemplateType::Record,
         extension,
         None,
         None,
@@ -318,69 +319,70 @@ pub(crate) fn remove_status(file: &str, current_status: &str) -> CliResult<()> {
 
 pub(crate) fn generate_csv() {}
 
-// TODO: not a fan of the list ToC for ADRs and RFDs
-// TODO: pass in header
 pub(crate) fn generate_toc(
     dir: &Path,
     extension: MarkupFormat,
     intro: Option<&str>,
     outro: Option<&str>,
     link_prefix: Option<&str>,
-) -> String {
-    let leading_char = extension.leading_header_character();
-    let mut content = String::new();
-    content.push_str(&format!(
-        "{} {}\n\n",
-        leading_char, "Architecture Decision Records"
+) -> CliResult<String> {
+    if !dir.is_dir() {
+        return Err(DoctaviousCliError::DesignDocDirectoryInvalid);
+    }
+
+    #[derive(Clone, Debug, Serialize)]
+    struct AdrEntry {
+        description: String,
+        file_name: String,
+    }
+
+    let mut adrs = Vec::new();
+    for entry in WalkDir::new(&dir)
+        .sort_by(|a, b| a.file_name().cmp(b.file_name()))
+        .into_iter()
+        .filter_map(Result::ok)
+        .filter(|e| e.file_type().is_file())
+        .filter(|f| is_valid_file(&f.path()))
+    {
+        let file = match fs::File::open(&entry.path()) {
+            Ok(file) => file,
+            Err(_) => panic!("Unable to read file {:?}", entry.path()),
+        };
+
+        let buffer = BufReader::new(file);
+        let description = get_description(buffer, extension);
+        adrs.push(AdrEntry {
+            description,
+            file_name: entry.path().to_string_lossy().to_string(),
+        });
+    }
+
+    let mut context = TemplateContext::new();
+    if let Some(intro) = intro {
+        context.insert("intro", intro);
+    }
+    if let Some(outro) = outro {
+        context.insert("outro", outro);
+    }
+    context.insert("link_prefix", link_prefix.unwrap_or_default());
+    context.insert("adrs", &adrs);
+
+    let template = get_template(
+        dir,
+        TemplateType::Adr(AdrTemplateType::ToC),
+        &extension.extension(),
+    );
+
+    let starting_content = fs::read_to_string(&template).expect(&format!(
+        "failed to read file {}.",
+        &template.to_string_lossy()
     ));
 
-    if intro.is_some() {
-        content.push_str(&intro.unwrap());
-        content.push_str("\n\n");
-    }
-
-    match fs::metadata(&dir) {
-        Ok(_) => {
-            let link_prefix = link_prefix.unwrap_or("");
-            for entry in WalkDir::new(&dir)
-                .sort_by(|a, b| a.file_name().cmp(b.file_name()))
-                .into_iter()
-                .filter_map(Result::ok)
-                .filter(|e| e.file_type().is_file())
-                .filter(|f| is_valid_file(&f.path()))
-            {
-                let file = match fs::File::open(&entry.path()) {
-                    Ok(file) => file,
-                    Err(_) => panic!("Unable to read file {:?}", entry.path()),
-                };
-
-                println!("{}", fs::read_to_string(&entry.path()).unwrap());
-
-                let buffer = BufReader::new(file);
-                let description = get_description(buffer, extension);
-                // let file_name = entry.path().to_string_lossy().to_string();
-                content.push_str(&format!(
-                    "* [{}]({}{})\n",
-                    description,
-                    link_prefix,
-                    entry.path().display()
-                ));
-            }
-            content.push('\n');
-        }
-        Err(e) => match e.kind() {
-            ErrorKind::NotFound => {
-                eprintln!("the {} directory should exist", dir.to_string_lossy())
-            }
-            _ => eprintln!("Error occurred: {:?}", e),
-        },
-    }
-
-    if outro.is_some() {
-        content.push_str(&outro.unwrap());
-    }
-
-    content
+    Ok(Templates::one_off(
+        starting_content.as_str(),
+        context,
+        false,
+    )?)
 }
 
 pub(crate) fn graph_adrs() {
@@ -443,7 +445,7 @@ mod tests {
                     Some(dir.path()),
                     None,
                     "The First Decision",
-                    AdrTemplateType::Template,
+                    AdrTemplateType::Record,
                     MarkupFormat::Markdown,
                     None,
                     None,
@@ -473,7 +475,7 @@ mod tests {
                     Some(dir.path()),
                     None,
                     "The First Decision",
-                    AdrTemplateType::Template,
+                    AdrTemplateType::Record,
                     MarkupFormat::Markdown,
                     None,
                     None,
@@ -484,7 +486,7 @@ mod tests {
                     Some(dir.path()),
                     None,
                     "The Second Decision",
-                    AdrTemplateType::Template,
+                    AdrTemplateType::Record,
                     MarkupFormat::Markdown,
                     None,
                     None,
@@ -495,7 +497,7 @@ mod tests {
                     Some(dir.path()),
                     None,
                     "The Third Decision",
-                    AdrTemplateType::Template,
+                    AdrTemplateType::Record,
                     MarkupFormat::Markdown,
                     None,
                     None,
@@ -529,7 +531,7 @@ mod tests {
                     Some(dir.path()),
                     None,
                     "The First Decision",
-                    AdrTemplateType::Template,
+                    AdrTemplateType::Record,
                     MarkupFormat::Markdown,
                     None,
                     None,
@@ -558,7 +560,7 @@ mod tests {
                     Some(dir.path()),
                     None,
                     "The First Decision",
-                    AdrTemplateType::Template,
+                    AdrTemplateType::Record,
                     MarkupFormat::Markdown,
                     None,
                     None,
@@ -588,7 +590,7 @@ mod tests {
                     Some(dir.path()),
                     None,
                     "The First Decision",
-                    AdrTemplateType::Template,
+                    AdrTemplateType::Record,
                     MarkupFormat::Markdown,
                     None,
                     None,
@@ -599,14 +601,15 @@ mod tests {
                     Some(dir.path()),
                     None,
                     "The Second Decision",
-                    AdrTemplateType::Template,
+                    AdrTemplateType::Record,
                     MarkupFormat::Markdown,
                     None,
                     None,
                 )
                 .unwrap();
 
-                let toc = generate_toc(dir.path(), MarkupFormat::Markdown, None, None, None);
+                let toc =
+                    generate_toc(dir.path(), MarkupFormat::Markdown, None, None, None).unwrap();
             },
         );
 
@@ -627,7 +630,7 @@ mod tests {
                     Some(dir.path()),
                     None,
                     "The First Decision",
-                    AdrTemplateType::Template,
+                    AdrTemplateType::Record,
                     MarkupFormat::Markdown,
                     None,
                     None,
@@ -638,7 +641,7 @@ mod tests {
                     Some(dir.path()),
                     None,
                     "The Second Decision",
-                    AdrTemplateType::Template,
+                    AdrTemplateType::Record,
                     MarkupFormat::Markdown,
                     None,
                     None,
@@ -655,7 +658,10 @@ Multiple paragraphs."#,
                     ),
                     Some("An outro."),
                     None,
-                );
+                )
+                .unwrap();
+
+                println!("{toc}");
             },
         );
 
@@ -700,15 +706,17 @@ Multiple paragraphs."#,
             [
                 (DOCTAVIOUS_ENV_SETTINGS_PATH, Some(dir.path())),
                 ("EDITOR", Some(Path::new("./tests/fixtures/fake-editor"))),
-            ],|| {
-            init(
-                dir.path(),
-                None,
-                FileStructure::default(),
-                Some(MarkupFormat::default()),
-            )
-            .expect("should init adr");
-        });
+            ],
+            || {
+                init(
+                    dir.path(),
+                    None,
+                    FileStructure::default(),
+                    Some(MarkupFormat::default()),
+                )
+                .expect("should init adr");
+            },
+        );
 
         dir.close().unwrap();
     }
@@ -721,20 +729,22 @@ Multiple paragraphs."#,
             [
                 (DOCTAVIOUS_ENV_SETTINGS_PATH, Some(dir.path())),
                 ("EDITOR", Some(Path::new("./tests/fixtures/fake-editor"))),
-            ],|| {
-            let adr_path = init(
-                dir.path(),
-                Some(PathBuf::from("test/adrs")),
-                FileStructure::default(),
-                Some(MarkupFormat::default()),
-            )
-            .expect("should init adr");
+            ],
+            || {
+                let adr_path = init(
+                    dir.path(),
+                    Some(PathBuf::from("test/adrs")),
+                    FileStructure::default(),
+                    Some(MarkupFormat::default()),
+                )
+                .expect("should init adr");
 
-            let trimmed_adr_path =
-                &adr_path.to_string_lossy()[dir.path().to_string_lossy().len()..];
+                let trimmed_adr_path =
+                    &adr_path.to_string_lossy()[dir.path().to_string_lossy().len()..];
 
-            assert!(trimmed_adr_path.starts_with("/test/adrs"));
-        });
+                assert!(trimmed_adr_path.starts_with("/test/adrs"));
+            },
+        );
 
         dir.close().unwrap();
     }
@@ -746,24 +756,26 @@ Multiple paragraphs."#,
             [
                 (DOCTAVIOUS_ENV_SETTINGS_PATH, Some(dir.path())),
                 ("EDITOR", Some(Path::new("./tests/fixtures/fake-editor"))),
-            ],|| {
-            init(
-                dir.path(),
-                None,
-                FileStructure::default(),
-                Some(MarkupFormat::default()),
-            )
-            .expect("should init adr");
+            ],
+            || {
+                init(
+                    dir.path(),
+                    None,
+                    FileStructure::default(),
+                    Some(MarkupFormat::default()),
+                )
+                .expect("should init adr");
 
-            let adr_dir = init(
-                dir.path(),
-                None,
-                FileStructure::default(),
-                Some(MarkupFormat::default()),
-            );
+                let adr_dir = init(
+                    dir.path(),
+                    None,
+                    FileStructure::default(),
+                    Some(MarkupFormat::default()),
+                );
 
-            assert!(adr_dir.is_err());
-        });
+                assert!(adr_dir.is_err());
+            },
+        );
         dir.close().unwrap();
     }
 

@@ -13,23 +13,6 @@ use crate::{CliResult, DoctaviousCliError};
 mod adr;
 mod rfd;
 
-#[derive(Default)]
-pub enum TemplateType {
-    Init,
-    #[default]
-    Template,
-}
-
-impl Display for TemplateType {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let s = match self {
-            TemplateType::Init => "init",
-            TemplateType::Template => "template",
-        };
-        write!(f, "{s}")
-    }
-}
-
 pub(crate) fn format_number(number: i32) -> String {
     return format!("{:0>4}", number);
 }

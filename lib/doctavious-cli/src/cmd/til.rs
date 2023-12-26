@@ -26,7 +26,6 @@ struct TilEntry {
 }
 
 pub(crate) fn init_til(directory: Option<PathBuf>, extension: MarkupFormat) -> CliResult<()> {
-    // let mut settings = load_settings().unwrap_or_else(|_| Default::default());
     let mut settings = load_settings()?.into_owned();
     let dir = directory.unwrap_or_else(|| PathBuf::from(DEFAULT_TIL_DIR));
     let directory_string = dir.to_string_lossy().to_string();
@@ -40,7 +39,7 @@ pub(crate) fn init_til(directory: Option<PathBuf>, extension: MarkupFormat) -> C
     persist_settings(&settings)?;
     init_dir(&dir)?;
 
-    return Ok(());
+    Ok(())
 }
 
 pub(crate) fn new_til(
@@ -54,6 +53,8 @@ pub(crate) fn new_til(
 ) -> CliResult<()> {
     // https://stackoverflow.com/questions/7406102/create-sane-safe-filename-from-any-unsafe-string
     // https://docs.rs/sanitize-filename/latest/sanitize_filename/
+    // https://github.com/danielecook/TIL-Tool/ has the following
+    // arg("fname", nargs = 1, help="Filename in the format topic/title (e.g. R/create_matrix")
     // TODO: convert to a better file name
     // spaces to hyphens
     // special characters?
@@ -68,29 +69,29 @@ pub(crate) fn new_til(
         .join(file_name)
         .with_extension(markup_format.extension());
 
-    if path.exists() {
+    if path.is_file() {
         // TODO: this should return the error
         eprintln!("File {} already exists", path.to_string_lossy());
-    } else {
-        let leading_char = markup_format.leading_header_character();
-
-        let mut starting_content = format!("{} {}\n", leading_char, title);
-        if tags.is_some() {
-            starting_content.push_str("\ntags: ");
-            starting_content.push_str(tags.unwrap().join(" ").as_str());
-        }
-
-        let edited = edit::edit(&starting_content)?;
-
-        fs::create_dir_all(path.parent().unwrap())?;
-        fs::write(&path, edited)?;
-
-        if readme {
-            build_til_readme(dir, markup_format.extension())?;
-        }
     }
 
-    return Ok(());
+    let leading_char = markup_format.leading_header_character();
+
+    let mut starting_content = format!("{} {}\n", leading_char, title);
+    if tags.is_some() {
+        starting_content.push_str("\ntags: ");
+        starting_content.push_str(tags.unwrap().join(" ").as_str());
+    }
+
+    let edited = edit::edit(&starting_content)?;
+
+    fs::create_dir_all(path.parent().unwrap())?;
+    fs::write(&path, edited)?;
+
+    if readme {
+        build_til_readme(dir, markup_format.extension())?;
+    }
+
+    Ok(())
 }
 
 // TODO: this should just build_mod the content and return and not write
@@ -103,7 +104,7 @@ pub(crate) fn build_til_readme(dir: &Path, readme_extension: &str) -> CliResult<
         .filter(|e| e.file_type().is_file())
     {
         // skip files that are under til dir
-        if Path::new(dir) == entry.path().parent().unwrap() {
+        if dir == entry.path().parent().unwrap() {
             continue;
         }
 
@@ -122,17 +123,14 @@ pub(crate) fn build_til_readme(dir: &Path, readme_extension: &str) -> CliResult<
             all_tils.insert(topic.clone(), Vec::new());
         }
 
-        let file_name = entry.file_name().to_string_lossy().to_string();
         let markup_format =
             MarkupFormat::from_str(entry.path().extension().unwrap().to_str().unwrap()).unwrap();
-        let file = match File::open(&entry.path()) {
-            Ok(file) => file,
-            Err(_) => panic!("Unable to read title from {:?}", entry.path()),
-        };
 
+        let file = File::open(&entry.path())?;
         let buffer = BufReader::new(file);
         // TODO: should this use extension to get title? Would allow for users to mix/match file types
         let description = get_description(buffer, markup_format);
+        // let file_name = entry.file_name().to_string_lossy().to_string();
         let file_name = entry.path().to_string_lossy().to_string();
         all_tils.get_mut(&topic).unwrap().push(TilEntry {
             topic,
@@ -164,7 +162,7 @@ pub(crate) fn build_til_readme(dir: &Path, readme_extension: &str) -> CliResult<
     context.insert("tils", &all_tils);
 
     let rendered = Templates::one_off(template.as_str(), context, false)?;
-    return Ok(rendered);
+    Ok(rendered)
 }
 
 fn is_hidden(entry: &DirEntry) -> bool {

@@ -9,13 +9,7 @@ pub mod settings;
 mod templates;
 mod templating;
 
-use std::fs;
-use std::path::{Path, PathBuf};
-
 use thiserror::Error;
-
-use crate::settings::DEFAULT_ADR_TEMPLATE_PATH;
-use crate::templating::TemplateType;
 
 #[remain::sorted]
 #[derive(Debug, Error)]
@@ -92,32 +86,3 @@ pub enum DoctaviousCliError {
 }
 
 pub type CliResult<T> = Result<T, DoctaviousCliError>;
-
-// TODO: PUT THESE SOMEWHERE BETTER!
-
-// TODO: This is wrong for ADRs init as it doesnt look for a custom init template
-// does it need to take in name?
-// If the ADR directory contains a file `templates/template.<format>`, use it as the template for the new ADR.
-// Otherwise a use the default template.
-// pub(crate) fn get_template(
-//     template_path: Option<PathBuf>,
-//     dir: &str,
-//     extension: &str,
-//     default_template: PathBuf,
-// ) -> PathBuf {
-//     if let Some(template_path) = template_path {
-//         template_path
-//     } else {
-//         // see if direction defines a custom template
-//         let custom_template = Path::new(dir)
-//             .join("templates")
-//             .join("template")
-//             .with_extension(extension);
-//
-//         if custom_template.is_file() {
-//             custom_template
-//         } else {
-//             default_template
-//         }
-//     }
-// }
