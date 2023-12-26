@@ -20,7 +20,7 @@ use crate::CliResult;
 // git rev-parse --abbrev-ref origin/HEAD
 // git branch --remotes --list '*/HEAD'
 
-pub(crate) fn branch_exists(repo: &Repository, reserve_number: i32) -> CliResult<bool> {
+pub(crate) fn branch_exists(repo: &Repository, reserve_number: u32) -> CliResult<bool> {
     let re = Regex::new(format!("*{reserve_number}").as_str())
         .expect("Should be able to create regex to find reservation number");
 

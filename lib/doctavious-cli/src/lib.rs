@@ -48,7 +48,7 @@ pub enum DoctaviousCliError {
 
     /// Error that may occur while reserving ADR/RFD number.
     #[error("{0} has already been reserved")]
-    ReservedNumberError(i32),
+    ReservedNumberError(u32),
 
     #[error("json serialize/deserialize error: {0}")]
     SerdeJson(#[from] serde_json::Error),

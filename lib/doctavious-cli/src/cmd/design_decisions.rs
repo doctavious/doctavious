@@ -2,10 +2,12 @@ use std::fmt::Display;
 use std::fs;
 use std::io::ErrorKind;
 use std::path::{Path, PathBuf};
+use std::str::FromStr;
 
 use unidecode::unidecode;
 use walkdir::WalkDir;
 
+use crate::cmd::design_decisions::adr::list;
 use crate::file_structure::FileStructure;
 use crate::markup_format::{MarkupFormat, MARKUP_FORMAT_EXTENSIONS};
 use crate::settings::DEFAULT_TEMPLATE_DIR;
@@ -14,8 +16,38 @@ use crate::{CliResult, DoctaviousCliError};
 mod adr;
 mod rfd;
 
-pub(crate) fn format_number(number: i32) -> String {
-    return format!("{:0>4}", number);
+pub enum DesignDocumentReference {
+    FILE_NAME(String),
+    Number(u32),
+}
+
+impl FromStr for DesignDocumentReference {
+    type Err = ();
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        Ok(if let Ok(num) = s.parse::<u32>() {
+            Self::Number(num)
+        } else {
+            Self::FILE_NAME(s.to_string())
+        })
+    }
+}
+
+impl DesignDocumentReference {
+    pub fn get(&self, cwd: &Path) -> Option<PathBuf> {
+        let reference = match self {
+            DesignDocumentReference::FILE_NAME(file) => file.to_string(),
+            DesignDocumentReference::Number(num) => format_number(num),
+        };
+
+        // list()
+
+        None
+    }
+}
+
+pub(crate) fn format_number(number: &u32) -> String {
+    format!("{:0>4}", number)
 }
 
 // TODO: is there a more concise way to do this?
@@ -44,9 +76,9 @@ pub(crate) fn build_path(
 
 pub(crate) fn reserve_number(
     dir: &Path,
-    number: Option<i32>,
+    number: Option<u32>,
     file_structure: FileStructure,
-) -> CliResult<i32> {
+) -> CliResult<u32> {
     return if let Some(i) = number {
         if is_number_reserved(dir, i, file_structure) {
             // TODO: the prompt to overwrite be here?
@@ -59,7 +91,7 @@ pub(crate) fn reserve_number(
     };
 }
 
-pub(crate) fn is_number_reserved(dir: &Path, number: i32, file_structure: FileStructure) -> bool {
+pub(crate) fn is_number_reserved(dir: &Path, number: u32, file_structure: FileStructure) -> bool {
     // TODO: revisit iterator
     // return get_allocated_numbers(dir)
     //     .find(|n| n == &number)
@@ -68,7 +100,7 @@ pub(crate) fn is_number_reserved(dir: &Path, number: i32, file_structure: FileSt
     get_allocated_numbers(dir, file_structure).contains(&number)
 }
 
-pub(crate) fn get_allocated_numbers(dir: &Path, file_structure: FileStructure) -> Vec<i32> {
+pub(crate) fn get_allocated_numbers(dir: &Path, file_structure: FileStructure) -> Vec<u32> {
     match file_structure {
         FileStructure::Flat => get_allocated_numbers_via_flat_files(dir),
         FileStructure::Nested => get_allocated_numbers_via_nested(dir),
@@ -79,7 +111,7 @@ pub(crate) fn get_allocated_numbers(dir: &Path, file_structure: FileStructure) -
 // TODO: would be nice to do this via an Iterator but having trouble with empty
 // expected struct `std::iter::Map`, found struct `std::iter::Empty`
 // using vec for now
-pub(crate) fn get_allocated_numbers_via_nested(dir: &Path) -> Vec<i32> {
+pub(crate) fn get_allocated_numbers_via_nested(dir: &Path) -> Vec<u32> {
     match fs::read_dir(dir) {
         Ok(files) => {
             return files
@@ -87,7 +119,7 @@ pub(crate) fn get_allocated_numbers_via_nested(dir: &Path) -> Vec<i32> {
                 .filter_map(|e| {
                     // TODO: is there a better way to do this?
                     if e.file_type().is_ok() && e.file_type().unwrap().is_dir() {
-                        return Some(e.file_name().to_string_lossy().parse::<i32>().unwrap());
+                        return Some(e.file_name().to_string_lossy().parse::<u32>().unwrap());
                     } else {
                         None
                     }
@@ -104,10 +136,11 @@ pub(crate) fn get_allocated_numbers_via_nested(dir: &Path) -> Vec<i32> {
     }
 }
 
+// TODO: extract this to list or a list helper
 // TODO: would be nice to do this via an Iterator but having trouble with empty
 // expected struct `std::iter::Map`, found struct `std::iter::Empty`
 // using vec for now
-pub(crate) fn get_allocated_numbers_via_flat_files(dir: &Path) -> Vec<i32> {
+pub(crate) fn get_allocated_numbers_via_flat_files(dir: &Path) -> Vec<u32> {
     let mut allocated_numbers = Vec::new();
     for entry in WalkDir::new(&dir)
         .into_iter()
@@ -129,13 +162,13 @@ pub(crate) fn get_allocated_numbers_via_flat_files(dir: &Path) -> Vec<i32> {
         let ss = file_name.to_str().unwrap();
         let first_space_index = ss.find("-").expect("didnt find a hyphen");
         let num: String = ss.chars().take(first_space_index).collect();
-        allocated_numbers.push(num.parse::<i32>().unwrap());
+        allocated_numbers.push(num.parse::<u32>().unwrap());
     }
 
     allocated_numbers
 }
 
-pub(crate) fn get_next_number(dir: &Path, file_structure: FileStructure) -> i32 {
+pub(crate) fn get_next_number(dir: &Path, file_structure: FileStructure) -> u32 {
     // TODO: revisit iterator
     // return get_allocated_numbers(dir)
     //     .max()

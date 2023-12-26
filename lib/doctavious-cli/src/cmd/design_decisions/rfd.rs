@@ -48,7 +48,7 @@ pub(crate) fn init_rfd(
 
 pub(crate) fn new_rfd(
     cwd: Option<&Path>,
-    number: Option<i32>,
+    number: Option<u32>,
     title: &str,
     extension: MarkupFormat,
 ) -> CliResult<PathBuf> {
@@ -60,7 +60,7 @@ pub(crate) fn new_rfd(
     };
     let template = get_template(Path::new(dir), TemplateType::Rfd, &extension.extension());
     let reserve_number = reserve_number(dir, number, settings.get_rfd_structure())?;
-    let formatted_reserved_number = format_number(reserve_number);
+    let formatted_reserved_number = format_number(&reserve_number);
     let rfd_path = build_path(
         dir,
         &title,
@@ -92,7 +92,7 @@ pub(crate) fn new_rfd(
 }
 
 pub(crate) fn reserve_rfd(
-    number: Option<i32>,
+    number: Option<u32>,
     title: String,
     extension: MarkupFormat,
 ) -> CliResult<()> {

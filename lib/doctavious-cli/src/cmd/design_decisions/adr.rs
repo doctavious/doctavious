@@ -72,7 +72,7 @@ pub(crate) fn init(
 /// This does not require `init` to be called prior as it will use appropriate defaults
 pub(crate) fn new(
     cwd: Option<&Path>,
-    number: Option<i32>,
+    number: Option<u32>,
     title: &str,
     template_type: AdrTemplateType,
     extension: MarkupFormat,
@@ -92,7 +92,7 @@ pub(crate) fn new(
         &extension.extension(),
     );
     let reserve_number = reserve_number(dir, number, settings.get_adr_structure())?;
-    let formatted_reserved_number = format_number(reserve_number);
+    let formatted_reserved_number = format_number(&reserve_number);
     let adr_path = build_path(
         dir,
         title,
@@ -153,6 +153,7 @@ pub fn list(cwd: Option<&Path>, format: MarkupFormat) -> CliResult<Vec<PathBuf>>
         Path::new(settings.get_adr_dir())
     };
 
+    // TODO: I think this will pick up template files.
     // this does a recursive search rather than a read_dir because we supported nested directory structures
     let mut paths = Vec::new();
     for entry in glob(format!("{}/**/*.{}", dir.to_string_lossy(), format.extension()).as_str())? {
@@ -185,7 +186,7 @@ pub fn list(cwd: Option<&Path>, format: MarkupFormat) -> CliResult<Vec<PathBuf>>
 // I think this would be implemented as a    git hook
 pub(crate) fn reserve(
     cwd: Option<&Path>,
-    number: Option<i32>,
+    number: Option<u32>,
     title: String,
     extension: MarkupFormat,
 ) -> CliResult<()> {
@@ -223,6 +224,7 @@ pub(crate) fn reserve(
     Ok(())
 }
 
+// TODO: This doc is better for the CLI
 /// Creates a link between two ADRs, from SOURCE to TARGET new
 /// SOURCE and TARGET are both a reference (number or partial filename) to an ADR
 /// LINK is the description of the link created in the SOURCE.
@@ -464,13 +466,13 @@ mod tests {
 
     use tempfile::TempDir;
 
-    use crate::cmd::design_decisions::adr::{add_custom_template, generate_toc, init, list, new};
+    use crate::cmd::design_decisions::adr::{
+        add_custom_template, generate_toc, init, link, list, new,
+    };
     use crate::file_structure::FileStructure;
     use crate::markup_format::MarkupFormat;
     use crate::settings::DOCTAVIOUS_ENV_SETTINGS_PATH;
     use crate::templating::AdrTemplateType;
-
-    // avoid-octal-numbers.expected
 
     #[test]
     fn create_first_record() {
@@ -772,15 +774,80 @@ Multiple paragraphs."#,
 
     // generate graph
 
-    // init ADR repository
+    // linking
+    #[test]
+    fn should_support_linking_adr() {
+        let dir = TempDir::new().unwrap();
 
-    // init alternative ADR directory
+        temp_env::with_vars(
+            [
+                (DOCTAVIOUS_ENV_SETTINGS_PATH, Some(dir.path())),
+                ("EDITOR", Some(Path::new("./tests/fixtures/noop-editor"))),
+            ],
+            || {
+                let first = new(
+                    Some(dir.path()),
+                    None,
+                    "First Record",
+                    AdrTemplateType::Record,
+                    MarkupFormat::Markdown,
+                    None,
+                    None,
+                )
+                .unwrap();
+
+                let second = new(
+                    Some(dir.path()),
+                    None,
+                    "Second Record",
+                    AdrTemplateType::Record,
+                    MarkupFormat::Markdown,
+                    None,
+                    None,
+                )
+                .unwrap();
+
+                let third = new(
+                    Some(dir.path()),
+                    None,
+                    "Third Record",
+                    AdrTemplateType::Record,
+                    MarkupFormat::Markdown,
+                    None,
+                    None,
+                )
+                .unwrap();
+
+                // adr link 3 Amends 1 "Amended by"
+                // adr link 3 Clarifies 2 "Clarified by"
+                link("3", "Amends", "1", "Amended by").unwrap();
+                link("3", "Clarifies", "2", "Clarified by").unwrap();
+
+                insta::with_settings!({filters => vec![
+                    (dir.path().to_str().unwrap(), "[DIR]"),
+                ]}, {
+                    insta::assert_snapshot!(fs::read_to_string(first).unwrap());
+                    insta::assert_snapshot!(fs::read_to_string(second).unwrap());
+                    insta::assert_snapshot!(fs::read_to_string(third).unwrap());
+                });
+            },
+        );
+
+        dir.close().unwrap();
+    }
 
     // linking new records
+    #[test]
+    fn should_support_linking_when_creating_new_adr() {}
 
-    // linking
+    // supersede existing ADR
+    #[test]
+    fn should_support_superseding_adr() {}
 
-    // list
+    // supersede multiple ADRs
+    #[test]
+    fn should_support_superseding_multiple_adr() {}
+
     #[test]
     fn should_list() {
         let dir = TempDir::new().unwrap();
@@ -829,9 +896,6 @@ Multiple paragraphs."#,
         dir.close().unwrap();
     }
 
-    // must provide a title when creating new ADR
-
-    // project specific template
     #[test]
     fn should_allow_custom_project_template() {
         let dir = TempDir::new().unwrap();
@@ -893,10 +957,6 @@ Date: {{ date }}
 
         dir.close().unwrap();
     }
-
-    // supersede existing ADR
-
-    // supersede multiple ADRs
 
     #[test]
     fn init_should_create_adr_directory_and_add_first_adr() {
@@ -987,12 +1047,4 @@ Date: {{ date }}
         );
         dir.close().unwrap();
     }
-
-    // init options
-
-    // init override existing
-
-    // new w/o init
-
-    // new with init
 }
