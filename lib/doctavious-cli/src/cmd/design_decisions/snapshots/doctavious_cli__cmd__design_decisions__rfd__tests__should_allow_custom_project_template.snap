@@ -1,0 +1,17 @@
+---
+source: lib/doctavious-cli/src/cmd/design_decisions/rfd.rs
+expression: "fs::read_to_string(custom_template).unwrap()"
+---
+# TITLE
+
+Project specific template!
+
+# Status
+
+STATUS
+
+# Info
+
+RFD Number: 2
+
+Date: [DATE]

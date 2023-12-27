@@ -254,11 +254,13 @@ pub(crate) fn add_custom_template(
 #[cfg(test)]
 mod tests {
     use std::fs;
-    use std::path::Path;
+    use std::path::{Path, PathBuf};
     use tempfile::TempDir;
-    use crate::cmd::design_decisions::rfd::new;
+    use crate::cmd::design_decisions::rfd::{add_custom_template, init, list, new};
+    use crate::file_structure::FileStructure;
     use crate::markup_format::MarkupFormat;
     use crate::settings::DOCTAVIOUS_ENV_SETTINGS_PATH;
+    use crate::templating::RfdTemplateType;
 
     #[test]
     fn create_first_record() {
@@ -384,6 +386,166 @@ mod tests {
 
                 let content = fs::read_to_string(&path).unwrap();
                 assert!(content.starts_with("VISUAL"));
+            },
+        );
+
+        dir.close().unwrap();
+    }
+
+    #[test]
+    fn should_list() {
+        let dir = TempDir::new().unwrap();
+
+        temp_env::with_vars(
+            [
+                (DOCTAVIOUS_ENV_SETTINGS_PATH, Some(dir.path())),
+                ("EDITOR", Some(Path::new("./tests/fixtures/noop-editor"))),
+            ],
+            || {
+                let first = new(
+                    Some(dir.path()),
+                    None,
+                    "The First Decision",
+                    MarkupFormat::Markdown,
+                )
+                    .unwrap();
+
+                let second = new(
+                    Some(dir.path()),
+                    None,
+                    "The Second Decision",
+                    MarkupFormat::Markdown,
+                )
+                    .unwrap();
+
+                let rfds = list(Some(dir.path()), MarkupFormat::Markdown).unwrap();
+
+                assert_eq!(2, rfds.len());
+                insta::with_settings!({filters => vec![
+                    (dir.path().to_str().unwrap(), "[DIR]"),
+                    (r"\d{4}-\d{2}-\d{2}", "[DATE]")
+                ]}, {
+                    insta::assert_snapshot!(fs::read_to_string(&rfds[0]).unwrap());
+                    insta::assert_snapshot!(fs::read_to_string(&rfds[1]).unwrap());
+                });
+            },
+        );
+
+        dir.close().unwrap();
+    }
+
+    #[test]
+    fn should_allow_custom_project_template() {
+        let dir = TempDir::new().unwrap();
+
+        temp_env::with_vars(
+            [
+                (DOCTAVIOUS_ENV_SETTINGS_PATH, Some(dir.path())),
+                ("EDITOR", Some(Path::new("./tests/fixtures/noop-editor"))),
+            ],
+            || {
+                init(
+                    dir.path(),
+                    None,
+                    FileStructure::default(),
+                    Some(MarkupFormat::default()),
+                )
+                    .expect("should init adr");
+
+                add_custom_template(
+                    Some(dir.path()),
+                    RfdTemplateType::Record,
+                    MarkupFormat::Markdown,
+                    r#"# TITLE
+
+Project specific template!
+
+# Status
+
+STATUS
+
+# Info
+
+RFD Number: {{ number }}
+
+Date: {{ date }}
+"#,
+                )
+                    .unwrap();
+
+                let custom_template = new(
+                    Some(dir.path()),
+                    None,
+                    "Custom Template Record",
+                    MarkupFormat::Markdown,
+                )
+                    .unwrap();
+
+                insta::with_settings!({filters => vec![
+                    (dir.path().to_str().unwrap(), "[DIR]"),
+                    (r"\d{4}-\d{2}-\d{2}", "[DATE]")
+                ]}, {
+                    insta::assert_snapshot!(fs::read_to_string(custom_template).unwrap());
+                });
+            },
+        );
+
+        dir.close().unwrap();
+    }
+
+    #[test]
+    fn init_with_custom_directory() {
+        let dir = TempDir::new().unwrap();
+
+        temp_env::with_vars(
+            [
+                (DOCTAVIOUS_ENV_SETTINGS_PATH, Some(dir.path())),
+                ("EDITOR", Some(Path::new("./tests/fixtures/fake-editor"))),
+            ],
+            || {
+                let path = init(
+                    dir.path(),
+                    Some(PathBuf::from("test/rfds")),
+                    FileStructure::default(),
+                    Some(MarkupFormat::default()),
+                )
+                    .expect("should init RFDs");
+
+                let trimmed_path =
+                    &path.to_string_lossy()[dir.path().to_string_lossy().len()..];
+
+                assert!(trimmed_path.starts_with("/test/rfds"));
+            },
+        );
+
+        dir.close().unwrap();
+    }
+
+    #[test]
+    fn init_should_fail_on_non_empty_directory() {
+        let dir = TempDir::new().unwrap();
+        temp_env::with_vars(
+            [
+                (DOCTAVIOUS_ENV_SETTINGS_PATH, Some(dir.path())),
+                ("EDITOR", Some(Path::new("./tests/fixtures/fake-editor"))),
+            ],
+            || {
+                init(
+                    dir.path(),
+                    None,
+                    FileStructure::default(),
+                    Some(MarkupFormat::default()),
+                )
+                    .expect("should init rfd");
+
+                let dir = init(
+                    dir.path(),
+                    None,
+                    FileStructure::default(),
+                    Some(MarkupFormat::default()),
+                );
+
+                assert!(dir.is_err());
             },
         );
 

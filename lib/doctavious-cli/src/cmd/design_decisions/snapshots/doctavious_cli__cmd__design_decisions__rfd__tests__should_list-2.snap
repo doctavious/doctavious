@@ -1,0 +1,12 @@
+---
+source: lib/doctavious-cli/src/cmd/design_decisions/rfd.rs
+expression: "fs::read_to_string(&rfds[1]).unwrap()"
+---
+---
+authors: 
+state: predraft
+discussion: 
+---
+
+# RFD 2 The Second Decision
+
