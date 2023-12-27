@@ -4,6 +4,7 @@ use std::io::ErrorKind;
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
 
+use thiserror::Error;
 use unidecode::unidecode;
 use walkdir::{DirEntry, WalkDir};
 
@@ -14,6 +15,26 @@ use crate::{CliResult, DoctaviousCliError};
 
 mod adr;
 mod rfd;
+
+#[remain::sorted]
+#[derive(Debug, Error)]
+pub enum DesignDecisionErrors {
+    #[error("design doc directory already exists")]
+    DesignDocDirectoryAlreadyExists,
+
+    #[error("invalid design doc directory. Should be utf-8")]
+    DesignDocDirectoryInvalid,
+
+    #[error("invalid link reference")]
+    InvalidLinkReference,
+
+    /// Error that may occur while reserving ADR/RFD number.
+    #[error("{0} has already been reserved")]
+    ReservedNumberError(u32),
+
+    #[error("Unknown design document: {0}")]
+    UnknownDesignDocument(String),
+}
 
 pub enum LinkReference {
     FileName(String),
@@ -122,7 +143,9 @@ pub(crate) fn reserve_number(
         if is_number_reserved(dir, i, file_structure) {
             // TODO: the prompt to overwrite be here?
             eprintln!("{} has already been reserved in directory {:?}", i, dir);
-            return Err(DoctaviousCliError::ReservedNumberError(i));
+            return Err(DoctaviousCliError::DesignDecisionErrors(
+                DesignDecisionErrors::ReservedNumberError(i),
+            ));
         }
         Ok(i)
     } else {
@@ -251,8 +274,7 @@ pub(crate) fn slugify(string: &str) -> String {
     }
 
     let s = String::from_utf8(slug).unwrap();
-    s.trim_end_matches(separator_char).to_string();
-    s
+    s.trim_end_matches(separator_char).to_string()
 }
 
 // TODO: where does this belong

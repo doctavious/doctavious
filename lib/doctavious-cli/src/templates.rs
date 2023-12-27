@@ -5,8 +5,6 @@ use std::path::{Path, PathBuf};
 use crate::markup_format::MarkupFormat;
 use crate::templating::TemplateType;
 
-// TODO: This is wrong for ADRs init as it doesnt look for a custom init template
-// does it need to take in name?
 /// If the ADR directory contains a file `templates/template.<format>`, use it as the template for the new ADR.
 /// Otherwise a use the default template.
 pub(crate) fn get_template(dir: &Path, template_type: TemplateType, extension: &str) -> PathBuf {

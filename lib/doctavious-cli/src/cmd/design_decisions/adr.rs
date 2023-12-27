@@ -5,14 +5,13 @@ use std::path::{Path, PathBuf};
 use std::str::FromStr;
 
 use chrono::Utc;
-use dotavious::{Dot, Edge, GraphBuilder, Node};
 use git2::Repository;
 use regex::RegexBuilder;
 use serde::Serialize;
 use walkdir::WalkDir;
 
 use crate::cmd::design_decisions::{
-    build_path, format_number, get_records, is_valid_file, reserve_number, LinkReference,
+    build_path, format_number, get_records, reserve_number, DesignDecisionErrors, LinkReference,
 };
 use crate::file_structure::FileStructure;
 use crate::files::ensure_path;
@@ -39,15 +38,16 @@ pub(crate) fn init(
     structure: FileStructure,
     extension: Option<MarkupFormat>,
 ) -> CliResult<PathBuf> {
-    // let mut settings = load_settings().unwrap_or_else(|_| Default::default());
     let mut settings = load_settings()?.into_owned();
     let path = path.unwrap_or_else(|| PathBuf::from(DEFAULT_ADR_DIR));
-    let adr_dir = cwd.join(path);
-    if adr_dir.exists() {
-        return Err(DoctaviousCliError::DesignDocDirectoryAlreadyExists);
+    let dir = cwd.join(path);
+    if dir.exists() {
+        return Err(DoctaviousCliError::DesignDecisionErrors(
+            DesignDecisionErrors::DesignDocDirectoryAlreadyExists,
+        ));
     }
 
-    let directory_string = adr_dir.to_string_lossy().to_string();
+    let directory_string = dir.to_string_lossy().to_string();
     settings.adr_settings = Some(AdrSettings {
         dir: Some(directory_string),
         structure: Some(structure),
@@ -55,11 +55,11 @@ pub(crate) fn init(
     });
 
     persist_settings(&settings)?;
-    init_dir(&adr_dir)?;
+    init_dir(&dir)?;
 
     let adr_extension = settings.get_adr_template_extension(extension);
     return new(
-        Some(adr_dir.as_path()),
+        Some(dir.as_path()),
         Some(1),
         "Record Architecture Decisions",
         AdrTemplateType::Init,
@@ -91,7 +91,7 @@ pub(crate) fn new(
     let template = get_template(dir, TemplateType::Adr(template_type), &format.extension());
     let reserve_number = reserve_number(dir, number, settings.get_adr_structure())?;
     let formatted_reserved_number = format_number(&reserve_number);
-    let adr_path = build_path(
+    let output_path = build_path(
         dir,
         title,
         &formatted_reserved_number,
@@ -99,7 +99,7 @@ pub(crate) fn new(
         settings.get_adr_structure(),
     );
 
-    ensure_path(&adr_path)?;
+    ensure_path(&output_path)?;
 
     let starting_content = fs::read_to_string(&template).expect(&format!(
         "failed to read file {}.",
@@ -113,18 +113,16 @@ pub(crate) fn new(
     context.insert("date", &Utc::now().format("%Y-%m-%d").to_string());
 
     let rendered = Templates::one_off(starting_content.as_str(), context, false)?;
-    fs::write(&adr_path, rendered.as_bytes())?;
+    fs::write(&output_path, rendered.as_bytes())?;
 
     if let Some(targets) = supersedes {
-        let dest_reference = LinkReference::Path(adr_path.to_owned());
+        let dest_reference = LinkReference::Path(output_path.to_owned());
         for target in targets {
             let target_reference = LinkReference::from_str(target.as_str())?;
             // TODO: clean this up
-            let target_path = target_reference
-                .get_path(dir)
-                .ok_or(DoctaviousCliError::UnknownDesignDocument(
-                    target.to_string(),
-                ))?;
+            let target_path = target_reference.get_path(dir).ok_or(
+                DesignDecisionErrors::UnknownDesignDocument(target.to_string()),
+            )?;
             add_link(dir, &target_reference, "Superseded by", &dest_reference)?;
             remove_status(target_path.as_path(), "Accepted")?;
             add_link(dir, &dest_reference, "Supersedes", &target_reference)?;
@@ -132,7 +130,7 @@ pub(crate) fn new(
     }
 
     if let Some(links) = links {
-        let dest_reference = LinkReference::Path(adr_path.to_owned());
+        let dest_reference = LinkReference::Path(output_path.to_owned());
         for l in links {
             let parts = l.split(":").collect::<Vec<&str>>();
             if parts.len() != 3 {
@@ -146,9 +144,9 @@ pub(crate) fn new(
         }
     }
 
-    let edited = edit::edit_path(adr_path.as_path())?;
-    fs::write(&adr_path, edited)?;
-    Ok(adr_path)
+    let edited = edit::edit_path(output_path.as_path())?;
+    fs::write(&output_path, edited)?;
+    Ok(output_path)
 }
 
 // TODO: format should be optional? Try and determine from settings otherwise either default or look for both
@@ -196,7 +194,7 @@ pub(crate) fn reserve(
     cwd: Option<&Path>,
     number: Option<u32>,
     title: String,
-    extension: MarkupFormat,
+    format: MarkupFormat,
 ) -> CliResult<()> {
     let settings = load_settings()?;
     let dir = if let Some(cwd) = cwd {
@@ -206,8 +204,7 @@ pub(crate) fn reserve(
     };
     let reserve_number = reserve_number(dir, number, settings.get_adr_structure())?;
 
-    // TODO: support more than current directory
-    let repo = Repository::open(".")?;
+    let repo = Repository::open(dir)?;
     if git::branch_exists(&repo, reserve_number).is_err() {
         // TODO: use a different error than git2
         return Err(git2::Error::from_str("branch already exists in remote. Please pull.").into());
@@ -220,7 +217,7 @@ pub(crate) fn reserve(
         number,
         title.as_str(),
         AdrTemplateType::Record,
-        extension,
+        format,
         None,
         None,
     )?;
@@ -257,7 +254,7 @@ pub(crate) fn add_link(
 ) -> CliResult<()> {
     let target_path = target
         .get_path(cwd)
-        .ok_or(DoctaviousCliError::UnknownDesignDocument(
+        .ok_or(DesignDecisionErrors::UnknownDesignDocument(
             target.to_string(),
         ))?;
 
@@ -269,7 +266,7 @@ pub(crate) fn add_link(
 
     let source_path = source
         .get_path(cwd)
-        .ok_or(DoctaviousCliError::UnknownDesignDocument(
+        .ok_or(DesignDecisionErrors::UnknownDesignDocument(
             source.to_string(),
         ))?;
     let source_content = fs::read_to_string(&source_path)?;
@@ -350,13 +347,15 @@ pub(crate) fn generate_csv() {}
 
 pub(crate) fn generate_toc(
     dir: &Path,
-    extension: MarkupFormat,
+    format: MarkupFormat,
     intro: Option<&str>,
     outro: Option<&str>,
     link_prefix: Option<&str>,
 ) -> CliResult<String> {
     if !dir.is_dir() {
-        return Err(DoctaviousCliError::DesignDocDirectoryInvalid);
+        return Err(DoctaviousCliError::DesignDecisionErrors(
+            DesignDecisionErrors::DesignDocDirectoryInvalid,
+        ));
     }
 
     #[derive(Clone, Debug, Serialize)]
@@ -366,26 +365,16 @@ pub(crate) fn generate_toc(
     }
 
     let mut adrs = Vec::new();
-    for entry in WalkDir::new(&dir)
-        .sort_by(|a, b| a.file_name().cmp(b.file_name()))
-        .into_iter()
-        .filter_map(Result::ok)
-        .filter(|e| e.file_type().is_file())
-        .filter(|f| is_valid_file(&f.path()))
-    {
-        let file = match fs::File::open(&entry.path()) {
+    for p in list(Some(dir), format)? {
+        let file = match fs::File::open(p.as_path()) {
             Ok(file) => file,
-            Err(_) => panic!("Unable to read file {:?}", entry.path()),
+            Err(_) => panic!("Unable to read file {:?}", p),
         };
 
         let buffer = BufReader::new(file);
-        let description = get_title(buffer, extension);
+        let description = get_title(buffer, format);
 
-        let file_path = entry
-            .path()
-            .to_string_lossy()
-            .trim_start_matches("./")
-            .to_string();
+        let file_path = p.to_string_lossy().trim_start_matches("./").to_string();
 
         adrs.push(AdrEntry {
             description,
@@ -406,7 +395,7 @@ pub(crate) fn generate_toc(
     let template = get_template(
         dir,
         TemplateType::Adr(AdrTemplateType::ToC),
-        &extension.extension(),
+        &format.extension(),
     );
 
     let starting_content = fs::read_to_string(&template)?;
@@ -444,17 +433,6 @@ pub(crate) fn add_custom_template(
     fs::write(&path, content)?;
 
     Ok(())
-}
-
-pub(crate) fn graph_adrs() {
-    let graph = GraphBuilder::new_named_directed("example")
-        .add_node(Node::new("N0"))
-        .add_node(Node::new("N1"))
-        .add_edge(Edge::new("N0", "N1"))
-        .build()
-        .unwrap();
-
-    let dot = Dot { graph };
 }
 
 fn get_file(target: &str) -> Option<PathBuf> {
@@ -947,7 +925,7 @@ Multiple paragraphs."#,
                     None,
                     None,
                 )
-                    .unwrap();
+                .unwrap();
 
                 let second = new(
                     Some(dir.path()),
@@ -958,8 +936,7 @@ Multiple paragraphs."#,
                     Some(vec!["1".to_string()]),
                     None,
                 )
-                    .unwrap();
-
+                .unwrap();
 
                 insta::with_settings!({filters => vec![
                     (dir.path().to_str().unwrap(), "[DIR]"),
@@ -993,7 +970,7 @@ Multiple paragraphs."#,
                     None,
                     None,
                 )
-                    .unwrap();
+                .unwrap();
 
                 let second = new(
                     Some(dir.path()),
@@ -1004,7 +981,7 @@ Multiple paragraphs."#,
                     None,
                     None,
                 )
-                    .unwrap();
+                .unwrap();
 
                 let third = new(
                     Some(dir.path()),
@@ -1015,7 +992,7 @@ Multiple paragraphs."#,
                     Some(vec!["1".to_string(), "2".to_string()]),
                     None,
                 )
-                    .unwrap();
+                .unwrap();
 
                 insta::with_settings!({filters => vec![
                     (dir.path().to_str().unwrap(), "[DIR]"),
@@ -1029,7 +1006,6 @@ Multiple paragraphs."#,
         );
 
         dir.close().unwrap();
-
     }
 
     #[test]

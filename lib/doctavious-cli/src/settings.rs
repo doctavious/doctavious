@@ -28,6 +28,7 @@ pub const DEFAULT_ADR_TOC_TEMPLATE_PATH: &str = "templates/adr/toc";
 
 pub const DEFAULT_RFD_DIR: &str = "docs/rfd";
 pub const DEFAULT_RFD_RECORD_TEMPLATE_PATH: &str = "templates/rfd/record";
+pub const DEFAULT_RFD_TOC_TEMPLATE_PATH: &str = "templates/rfd/toc";
 // TODO: do we want this to default to the current directory?
 pub const DEFAULT_TIL_DIR: &str = "til";
 

@@ -7,16 +7,12 @@ use minijinja::{AutoEscape, Environment};
 use serde::Serialize;
 use serde_json::{to_value, Value};
 
-use crate::settings::{
-    DEFAULT_ADR_INIT_TEMPLATE_PATH, DEFAULT_ADR_RECORD_TEMPLATE_PATH,
-    DEFAULT_ADR_TOC_TEMPLATE_PATH, DEFAULT_RFD_RECORD_TEMPLATE_PATH,
-    DEFAULT_TIL_POST_TEMPLATE_PATH, DEFAULT_TIL_README_TEMPLATE_PATH,
-};
+use crate::settings::{DEFAULT_ADR_INIT_TEMPLATE_PATH, DEFAULT_ADR_RECORD_TEMPLATE_PATH, DEFAULT_ADR_TOC_TEMPLATE_PATH, DEFAULT_RFD_RECORD_TEMPLATE_PATH, DEFAULT_RFD_TOC_TEMPLATE_PATH, DEFAULT_TIL_POST_TEMPLATE_PATH, DEFAULT_TIL_README_TEMPLATE_PATH};
 use crate::{CliResult, DoctaviousCliError};
 
 pub enum TemplateType {
     Adr(AdrTemplateType),
-    Rfd,
+    Rfd(RfdTemplateType),
     Til(TilTemplateType),
 }
 #[derive(Default)]
@@ -48,7 +44,10 @@ impl TemplateType {
                 AdrTemplateType::Record => DEFAULT_ADR_RECORD_TEMPLATE_PATH,
                 AdrTemplateType::ToC => DEFAULT_ADR_TOC_TEMPLATE_PATH,
             },
-            TemplateType::Rfd => DEFAULT_RFD_RECORD_TEMPLATE_PATH,
+            TemplateType::Rfd(templates) => match templates {
+                RfdTemplateType::Record => DEFAULT_RFD_RECORD_TEMPLATE_PATH,
+                RfdTemplateType::ToC => DEFAULT_RFD_TOC_TEMPLATE_PATH,
+            },
             TemplateType::Til(templates) => match templates {
                 TilTemplateType::ReadMe => DEFAULT_TIL_README_TEMPLATE_PATH,
                 TilTemplateType::Post => DEFAULT_TIL_POST_TEMPLATE_PATH,

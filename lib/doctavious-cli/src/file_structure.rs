@@ -30,10 +30,10 @@ impl FileStructure {
     // }
 
     pub(crate) fn value(&self) -> &'static str {
-        return match self {
+        match self {
             Self::Flat => "flat",
             Self::Nested => "nested",
-        };
+        }
     }
 
     #[must_use]

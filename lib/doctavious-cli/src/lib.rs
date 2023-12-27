@@ -11,6 +11,8 @@ mod templating;
 
 use thiserror::Error;
 
+use crate::cmd::design_decisions;
+
 #[remain::sorted]
 #[derive(Debug, Error)]
 pub enum DoctaviousCliError {
@@ -20,11 +22,8 @@ pub enum DoctaviousCliError {
     #[error("cifrs error: {0}")]
     CifrsError(#[from] cifrs::CifrsError),
 
-    #[error("design doc directory already exists")]
-    DesignDocDirectoryAlreadyExists,
-
-    #[error("invalid design doc directory. Should be utf-8")]
-    DesignDocDirectoryInvalid,
+    #[error("design decision error: {0}")]
+    DesignDecisionErrors(#[from] design_decisions::DesignDecisionErrors),
 
     /// Error variant that represents errors coming out of libgit2.
     #[error("Git error: `{0}`")]
@@ -32,9 +31,6 @@ pub enum DoctaviousCliError {
 
     #[error("Glob pattern error: `{0}`")]
     GlobPatternError(#[from] glob::PatternError),
-
-    #[error("invalid link reference")]
-    InvalidLinkReference,
 
     #[error("invalid settings file")]
     InvalidSettingsFile,
@@ -48,10 +44,6 @@ pub enum DoctaviousCliError {
 
     #[error("regex error: {0}")]
     RegexError(#[from] regex::Error),
-
-    /// Error that may occur while reserving ADR/RFD number.
-    #[error("{0} has already been reserved")]
-    ReservedNumberError(u32),
 
     #[error("json serialize/deserialize error: {0}")]
     SerdeJson(#[from] serde_json::Error),
@@ -77,9 +69,6 @@ pub enum DoctaviousCliError {
     /// Errors that may occur when serializing types from TOML format.
     #[error("toml serialization error: `{0}`")]
     TomlSerializeError(#[from] toml::ser::Error),
-
-    #[error("Unknown design document: {0}")]
-    UnknownDesignDocument(String),
 
     #[error("Unknown markup extension for path: {0}")]
     UnknownMarkupExtension(String),

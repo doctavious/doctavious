@@ -4,7 +4,7 @@ date: {{date}}
 discussion:
 ---
 
-= 1. Record architecture decisions
+= 1. Record Architecture Decisions
 
 Date: {{date}}
 
