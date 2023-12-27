@@ -36,7 +36,7 @@ pub(crate) fn get_template_content(
     ))
 }
 
-pub(crate) fn get_description<R>(rdr: R, markup_format: MarkupFormat) -> String
+pub(crate) fn get_title<R>(rdr: R, markup_format: MarkupFormat) -> String
 where
     R: BufRead,
 {
@@ -56,6 +56,5 @@ where
         }
     }
 
-    // TODO: dont panic. default to filename if cant get title
-    panic!("Unable to find title for file");
+    String::new()
 }

@@ -12,7 +12,7 @@ use walkdir::{DirEntry, WalkDir};
 use crate::files::friendly_filename;
 use crate::markup_format::MarkupFormat;
 use crate::settings::{init_dir, load_settings, persist_settings, TilSettings, DEFAULT_TIL_DIR};
-use crate::templates::{get_description, get_template_content};
+use crate::templates::{get_template_content, get_title};
 use crate::templating::{TemplateContext, TemplateType, Templates, TilTemplateType};
 use crate::{edit, CliResult};
 
@@ -129,7 +129,7 @@ pub(crate) fn build_til_readme(dir: &Path, readme_extension: &str) -> CliResult<
         let file = File::open(&entry.path())?;
         let buffer = BufReader::new(file);
         // TODO: should this use extension to get title? Would allow for users to mix/match file types
-        let description = get_description(buffer, markup_format);
+        let description = get_title(buffer, markup_format);
         // let file_name = entry.file_name().to_string_lossy().to_string();
         let file_name = entry.path().to_string_lossy().to_string();
         all_tils.get_mut(&topic).unwrap().push(TilEntry {

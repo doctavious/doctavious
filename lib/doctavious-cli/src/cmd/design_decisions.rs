@@ -1,13 +1,12 @@
-use std::fmt::Display;
+use std::fmt::{Display, Formatter, Pointer};
 use std::fs;
 use std::io::ErrorKind;
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
 
 use unidecode::unidecode;
-use walkdir::WalkDir;
+use walkdir::{DirEntry, WalkDir};
 
-use crate::cmd::design_decisions::adr::list;
 use crate::file_structure::FileStructure;
 use crate::markup_format::{MarkupFormat, MARKUP_FORMAT_EXTENSIONS};
 use crate::settings::DEFAULT_TEMPLATE_DIR;
@@ -16,34 +15,74 @@ use crate::{CliResult, DoctaviousCliError};
 mod adr;
 mod rfd;
 
-pub enum DesignDocumentReference {
-    FILE_NAME(String),
+pub enum LinkReference {
+    FileName(String),
     Number(u32),
+    Path(PathBuf),
 }
 
-impl FromStr for DesignDocumentReference {
-    type Err = ();
+impl FromStr for LinkReference {
+    type Err = DoctaviousCliError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         Ok(if let Ok(num) = s.parse::<u32>() {
             Self::Number(num)
         } else {
-            Self::FILE_NAME(s.to_string())
+            if let Ok(path) = PathBuf::from_str(s) {
+                if path.is_file() {
+                    return Ok(Self::Path(path));
+                }
+            }
+            Self::FileName(s.to_string())
         })
     }
 }
 
-impl DesignDocumentReference {
-    pub fn get(&self, cwd: &Path) -> Option<PathBuf> {
+impl LinkReference {
+    pub fn get_path(&self, cwd: &Path) -> Option<PathBuf> {
         let reference = match self {
-            DesignDocumentReference::FILE_NAME(file) => file.to_string(),
-            DesignDocumentReference::Number(num) => format_number(num),
+            Self::FileName(file) => file.to_string(),
+            Self::Number(num) => format_number(num),
+            Self::Path(path) => return Some(path.to_owned()),
         };
 
-        // list()
-
-        None
+        get_records(cwd)
+            .filter_map(|e| {
+                if e.path().to_string_lossy().contains(&reference) {
+                    Some(e.path().to_path_buf())
+                } else {
+                    None
+                }
+            })
+            .next()
     }
+}
+
+impl Display for LinkReference {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        let s = match self {
+            Self::FileName(f) => f.to_string(),
+            Self::Number(n) => n.to_string(),
+            Self::Path(p) => p.to_string_lossy().to_string(),
+        };
+
+        write!(f, "{s}")
+    }
+}
+
+pub(crate) fn get_records(cwd: &Path) -> impl Iterator<Item = DirEntry> {
+    WalkDir::new(cwd)
+        .into_iter()
+        .filter_entry(|e| {
+            if e.path().is_dir() {
+                return e.file_name().to_string_lossy() != DEFAULT_TEMPLATE_DIR;
+            }
+
+            true
+        })
+        .filter_map(Result::ok)
+        .filter(|e| e.file_type().is_file())
+        .filter(|e| is_valid_file(&e.path()))
 }
 
 pub(crate) fn format_number(number: &u32) -> String {
@@ -58,7 +97,7 @@ pub(crate) fn build_path(
     extension: MarkupFormat,
     file_structure: FileStructure,
 ) -> PathBuf {
-    return match file_structure {
+    match file_structure {
         FileStructure::Flat => {
             let slug = slugify(&title);
             let file_name = format!("{}-{}", reserved_number, slug);
@@ -69,9 +108,9 @@ pub(crate) fn build_path(
 
         FileStructure::Nested => Path::new(dir)
             .join(&reserved_number)
-            .join("README.")
+            .join("README")
             .with_extension(extension.to_string()),
-    };
+    }
 }
 
 pub(crate) fn reserve_number(
@@ -79,7 +118,7 @@ pub(crate) fn reserve_number(
     number: Option<u32>,
     file_structure: FileStructure,
 ) -> CliResult<u32> {
-    return if let Some(i) = number {
+    if let Some(i) = number {
         if is_number_reserved(dir, i, file_structure) {
             // TODO: the prompt to overwrite be here?
             eprintln!("{} has already been reserved in directory {:?}", i, dir);
@@ -88,7 +127,7 @@ pub(crate) fn reserve_number(
         Ok(i)
     } else {
         Ok(get_next_number(dir, file_structure))
-    };
+    }
 }
 
 pub(crate) fn is_number_reserved(dir: &Path, number: u32, file_structure: FileStructure) -> bool {
@@ -117,9 +156,8 @@ pub(crate) fn get_allocated_numbers_via_nested(dir: &Path) -> Vec<u32> {
             return files
                 .filter_map(Result::ok)
                 .filter_map(|e| {
-                    // TODO: is there a better way to do this?
-                    if e.file_type().is_ok() && e.file_type().unwrap().is_dir() {
-                        return Some(e.file_name().to_string_lossy().parse::<u32>().unwrap());
+                    if e.path().is_dir() {
+                        e.file_name().to_string_lossy().parse::<u32>().ok()
                     } else {
                         None
                     }
@@ -127,10 +165,10 @@ pub(crate) fn get_allocated_numbers_via_nested(dir: &Path) -> Vec<u32> {
                 .collect();
         }
         Err(e) if e.kind() == ErrorKind::NotFound => {
-            // return std::iter::empty();
             return Vec::new();
         }
         Err(e) => {
+            // TODO: dont panic here
             panic!("Error reading directory {:?}. Error: {}", dir, e);
         }
     }

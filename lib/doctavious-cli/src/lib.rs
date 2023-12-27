@@ -33,6 +33,9 @@ pub enum DoctaviousCliError {
     #[error("Glob pattern error: `{0}`")]
     GlobPatternError(#[from] glob::PatternError),
 
+    #[error("invalid link reference")]
+    InvalidLinkReference,
+
     #[error("invalid settings file")]
     InvalidSettingsFile,
 

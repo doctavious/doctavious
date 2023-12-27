@@ -104,6 +104,12 @@ pub fn edit<S: AsRef<[u8]>>(text: S) -> Result<String> {
     edit_with_builder(text, &builder)
 }
 
+pub fn edit_path<P: AsRef<Path>>(path: P) -> Result<String> {
+    edit_file(&path)?;
+
+    String::from_utf8(fs::read(&path)?).map_err(|_| Error::from(ErrorKind::InvalidData))
+}
+
 // #[cfg(test)]
 // pub fn edit<S: AsRef<[u8]>>(text: S) -> Result<String> {
 //     Ok(String::from_utf8_lossy(text.as_ref()).to_string())

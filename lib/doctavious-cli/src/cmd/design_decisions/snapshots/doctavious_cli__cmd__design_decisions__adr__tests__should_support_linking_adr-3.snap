@@ -1,0 +1,33 @@
+---
+source: lib/doctavious-cli/src/cmd/design_decisions/adr.rs
+expression: "fs::read_to_string(third).unwrap()"
+---
+---
+authors: 
+date: [DATE]
+discussion: 
+---
+
+# 3. Third Record
+
+Date: [DATE]
+
+## Status
+
+Accepted
+
+Amends [1. First Record]([DIR]/0001-first-record.md)
+
+Clarifies [2. Second Record]([DIR]/0002-second-record.md)
+
+## Context
+
+The issue motivating this decision, and any context that influences or constrains the decision.
+
+## Decision
+
+The change that we're proposing or have agreed to implement.
+
+## Consequences
+
+What becomes easier or more difficult to do and any risks introduced by the change that will need to be mitigated.

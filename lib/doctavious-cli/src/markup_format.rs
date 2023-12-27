@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 use std::fmt::Display;
-use std::path::PathBuf;
+use std::path::Path;
 use std::str::FromStr;
 
 use lazy_static::lazy_static;
@@ -31,10 +31,6 @@ pub enum MarkupFormat {
 }
 
 impl MarkupFormat {
-    // pub(crate) fn iterator() -> Iter<'static, MarkupFormat> {
-    //     return [Asciidoc, Markdown].iter();
-    // }
-
     pub(crate) fn extension(&self) -> &'static str {
         return match self {
             Asciidoc => "adoc",
@@ -54,7 +50,7 @@ impl MarkupFormat {
         <Self as strum::VariantNames>::VARIANTS
     }
 
-    pub fn from_path<P: AsRef<PathBuf>>(path: P) -> CliResult<Self> {
+    pub fn from_path<P: AsRef<Path>>(path: P) -> CliResult<Self> {
         let path = path.as_ref();
         // has to be a better way to do this
         let extension = path

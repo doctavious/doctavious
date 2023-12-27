@@ -1,17 +1,19 @@
 use std::fmt::Display;
 use std::fs;
-use std::io::{BufRead, BufReader};
+use std::io::{BufRead, BufReader, Write};
 use std::path::{Path, PathBuf};
+use std::str::FromStr;
 
 use chrono::Utc;
 use dotavious::{Dot, Edge, GraphBuilder, Node};
 use git2::Repository;
-use glob::glob;
 use regex::RegexBuilder;
 use serde::Serialize;
 use walkdir::WalkDir;
 
-use crate::cmd::design_decisions::{build_path, format_number, is_valid_file, reserve_number};
+use crate::cmd::design_decisions::{
+    build_path, format_number, get_records, is_valid_file, reserve_number, LinkReference,
+};
 use crate::file_structure::FileStructure;
 use crate::files::ensure_path;
 use crate::markup_format::MarkupFormat;
@@ -20,7 +22,7 @@ use crate::settings::{
     DEFAULT_ADR_INIT_TEMPLATE_PATH, DEFAULT_ADR_RECORD_TEMPLATE_PATH,
     DEFAULT_ADR_TOC_TEMPLATE_PATH,
 };
-use crate::templates::{get_description, get_template};
+use crate::templates::{get_template, get_title};
 use crate::templating::{AdrTemplateType, TemplateContext, TemplateType, Templates};
 use crate::{edit, git, CliResult, DoctaviousCliError};
 
@@ -116,31 +118,38 @@ pub(crate) fn new(
 
     let rendered = Templates::one_off(starting_content.as_str(), context, false)?;
 
-    // TODO:
+    let mut dest_file = tempfile::NamedTempFile::new()?;
+    dest_file.write_all(rendered.as_bytes())?;
+
     if let Some(targets) = supersedes {
+        let dest_reference = LinkReference::Path(dest_file.path().to_path_buf());
         for target in targets {
-            link(target.as_str(), "superseded by", rendered.as_str())?;
+            let target_reference = LinkReference::from_str(target.as_str())?;
+            add_link(dir, &target_reference, "superseded by", &dest_reference)?;
             // TODO: Do we care if its "Accepted"?
             remove_status(target.as_str(), "Accepted")?;
-            link(rendered.as_str(), "supersedes", target.as_str())?;
+            add_link(dir, &dest_reference, "supersedes", &target_reference)?;
         }
     }
 
-    // TODO
     if let Some(links) = links {
         // links look like: "5:Amends:Amended by"
+        let dest_reference = LinkReference::Path(dest_file.path().to_path_buf());
         for l in links {
             let parts = l.split(":").collect::<Vec<&str>>();
             if parts.len() != 3 {
-                // error / warn / etc...
+                // TODO: error / warn / etc...
             }
-            link(rendered.as_str(), parts[1], parts[0])?;
-            link(parts[0], parts[2], rendered.as_str())?;
+            let target_reference = LinkReference::from_str(parts[0])?;
+
+            add_link(dir, &dest_reference, parts[1], &target_reference)?;
+            add_link(dir, &target_reference, parts[2], &dest_reference)?;
         }
     }
 
     let edited = edit::edit(&rendered)?;
     fs::write(&adr_path, edited)?;
+    dest_file.close()?;
     Ok(adr_path)
 }
 
@@ -153,14 +162,15 @@ pub fn list(cwd: Option<&Path>, format: MarkupFormat) -> CliResult<Vec<PathBuf>>
         Path::new(settings.get_adr_dir())
     };
 
-    // TODO: I think this will pick up template files.
-    // this does a recursive search rather than a read_dir because we supported nested directory structures
-    let mut paths = Vec::new();
-    for entry in glob(format!("{}/**/*.{}", dir.to_string_lossy(), format.extension()).as_str())? {
-        if let Ok(entry) = entry {
-            paths.push(entry);
-        }
-    }
+    let mut paths: Vec<_> = get_records(dir)
+        .filter(|e| {
+            if let Some(extension) = e.path().extension() {
+                return extension.to_string_lossy() == format.extension();
+            }
+            false
+        })
+        .map(|e| e.path().to_path_buf())
+        .collect();
 
     paths.sort_by(|a, b| a.file_name().cmp(&b.file_name()));
     Ok(paths)
@@ -229,16 +239,52 @@ pub(crate) fn reserve(
 /// SOURCE and TARGET are both a reference (number or partial filename) to an ADR
 /// LINK is the description of the link created in the SOURCE.
 /// REVERSE-LINK is the description of the link created in the TARGET
-pub(crate) fn link(source: &str, link: &str, target: &str) -> CliResult<()> {
-    let target_file = get_file(target).ok_or(DoctaviousCliError::UnknownDesignDocument(
-        target.to_string(),
-    ))?;
+pub(crate) fn link(
+    cwd: &Path,
+    source: &LinkReference,
+    forward_link: &str,
+    target: &LinkReference,
+    reverse_link: &str,
+) -> CliResult<()> {
+    add_link(cwd, source, forward_link, target)?;
+    add_link(cwd, target, reverse_link, source)?;
+    Ok(())
+}
 
-    let f = fs::File::open(&source)?;
-    let reader = BufReader::new(f);
+pub(crate) fn add_link(
+    cwd: &Path,
+    source: &LinkReference,
+    link: &str,
+    target: &LinkReference,
+) -> CliResult<()> {
+    // let source_path = source.get(cwd)
+
+    let target_path = target
+        .get_path(cwd)
+        .ok_or(DoctaviousCliError::UnknownDesignDocument(
+            target.to_string(),
+        ))?;
+
+    let target_file = fs::File::open(&target_path)?;
+    let target_title = get_title(
+        BufReader::new(target_file),
+        MarkupFormat::from_path(&target_path)?,
+    );
+
+    // let target_file = get_file(target).ok_or(DoctaviousCliError::UnknownDesignDocument(
+    //     target.to_string(),
+    // ))?;
+
+    // let f = fs::File::open(&source)?;
+    // let reader = BufReader::new(f);
+    let source_path = source
+        .get_path(cwd)
+        .ok_or(DoctaviousCliError::UnknownDesignDocument(
+            source.to_string(),
+        ))?;
+    let source_content = fs::read_to_string(&source_path)?;
+
     let mut in_status_section = false;
-    let mut target_title = None;
-
     let mut new_lines = vec![];
 
     // TODO implement link
@@ -258,34 +304,29 @@ pub(crate) fn link(source: &str, link: &str, target: &str) -> CliResult<()> {
 
     // TODO(Sean): while this logic is straight forward I might, some day, want to swap for
     // modifying an AST to make changes.
-    for line in reader.lines() {
-        if let Ok(line) = line {
-            if line.starts_with("# ") {
-                target_title = Some(line[2..].to_string());
+    for line in source_content.lines() {
+        if line == "## Status" {
+            in_status_section = true;
+        } else if line.starts_with("##") {
+            if in_status_section {
+                new_lines.push(format!(
+                    "{link} [{}]({})",
+                    target_title.clone(), // TODO: not sure how to avoid the clone
+                    target_path.to_string_lossy()
+                ));
+                new_lines.push(String::new());
             }
-
-            if line == "## Status" {
-                in_status_section = true;
-            } else if line.starts_with("##") {
-                if in_status_section {
-                    new_lines.push(format!(
-                        "{link} [{}]({})",
-                        target_title.clone().unwrap_or_default(), // TODO: not sure how to avoid the clone
-                        target_file.to_string_lossy()
-                    ));
-                    new_lines.push(String::new());
-                }
-                in_status_section = false;
-            }
-
-            new_lines.push(line);
+            in_status_section = false;
         }
+
+        new_lines.push(line.to_string());
     }
 
+    fs::write(source_path, new_lines.join("\n"))?;
     Ok(())
 }
 
-pub(crate) fn remove_status(file: &str, current_status: &str) -> CliResult<()> {
+pub(crate) fn remove_status(file: &str, current_status: &str) -> CliResult<String> {
     let f = fs::File::open(file)?;
     let reader = BufReader::new(f);
     let mut in_status_section = false;
@@ -326,7 +367,7 @@ pub(crate) fn remove_status(file: &str, current_status: &str) -> CliResult<()> {
         }
     }
 
-    Ok(())
+    Ok(new_lines.join("\n"))
 }
 
 pub(crate) fn generate_csv() {}
@@ -362,7 +403,7 @@ pub(crate) fn generate_toc(
         };
 
         let buffer = BufReader::new(file);
-        let description = get_description(buffer, extension);
+        let description = get_title(buffer, extension);
 
         let file_path = entry
             .path()
@@ -469,6 +510,7 @@ mod tests {
     use crate::cmd::design_decisions::adr::{
         add_custom_template, generate_toc, init, link, list, new,
     };
+    use crate::cmd::design_decisions::LinkReference;
     use crate::file_structure::FileStructure;
     use crate::markup_format::MarkupFormat;
     use crate::settings::DOCTAVIOUS_ENV_SETTINGS_PATH;
@@ -820,11 +862,26 @@ Multiple paragraphs."#,
 
                 // adr link 3 Amends 1 "Amended by"
                 // adr link 3 Clarifies 2 "Clarified by"
-                link("3", "Amends", "1", "Amended by").unwrap();
-                link("3", "Clarifies", "2", "Clarified by").unwrap();
+                link(
+                    dir.path(),
+                    &LinkReference::Number(3),
+                    "Amends",
+                    &LinkReference::Number(1),
+                    "Amended by",
+                )
+                .unwrap();
+                link(
+                    dir.path(),
+                    &LinkReference::Number(3),
+                    "Clarifies",
+                    &LinkReference::Number(2),
+                    "Clarified by",
+                )
+                .unwrap();
 
                 insta::with_settings!({filters => vec![
                     (dir.path().to_str().unwrap(), "[DIR]"),
+                    (r"\d{4}-\d{2}-\d{2}", "[DATE]")
                 ]}, {
                     insta::assert_snapshot!(fs::read_to_string(first).unwrap());
                     insta::assert_snapshot!(fs::read_to_string(second).unwrap());
