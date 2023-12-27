@@ -7,7 +7,7 @@ use git2::Repository;
 use serde::Serialize;
 
 use crate::cmd::design_decisions::{
-    build_path, format_number, get_records, reserve_number, DesignDecisionErrors,
+    build_path, format_number, reserve_number, DesignDecisionErrors,
 };
 use crate::file_structure::FileStructure;
 use crate::files::ensure_path;
@@ -19,6 +19,7 @@ use crate::settings::{
 use crate::templates::{get_template, get_title};
 use crate::templating::{RfdTemplateType, TemplateContext, TemplateType, Templates};
 use crate::{edit, git, CliResult, DoctaviousCliError};
+use crate::cmd::design_decisions;
 
 // RFD parsing: https://github.com/oxidecomputer/cio/blob/master/parse-rfd/src/lib.rs
 // https://github.com/oxidecomputer/cio/tree/master/parse-rfd/parser
@@ -146,18 +147,7 @@ pub fn list(cwd: Option<&Path>, format: MarkupFormat) -> CliResult<Vec<PathBuf>>
         Path::new(settings.get_rfd_dir())
     };
 
-    let mut paths: Vec<_> = get_records(dir)
-        .filter(|e| {
-            if let Some(extension) = e.path().extension() {
-                return extension.to_string_lossy() == format.extension();
-            }
-            false
-        })
-        .map(|e| e.path().to_path_buf())
-        .collect();
-
-    paths.sort_by(|a, b| a.file_name().cmp(&b.file_name()));
-    Ok(paths)
+    Ok(design_decisions::list(dir, format)?)
 }
 
 pub(crate) fn generate_csv() {}

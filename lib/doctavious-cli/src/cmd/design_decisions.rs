@@ -91,7 +91,22 @@ impl Display for LinkReference {
     }
 }
 
-pub(crate) fn get_records(cwd: &Path) -> impl Iterator<Item = DirEntry> {
+pub fn list(dir: &Path, format: MarkupFormat) -> CliResult<Vec<PathBuf>> {
+    let mut paths: Vec<_> = get_records(dir)
+        .filter(|e| {
+            if let Some(extension) = e.path().extension() {
+                return extension.to_string_lossy() == format.extension();
+            }
+            false
+        })
+        .map(|e| e.path().to_path_buf())
+        .collect();
+
+    paths.sort_by(|a, b| a.file_name().cmp(&b.file_name()));
+    Ok(paths)
+}
+
+fn get_records(cwd: &Path) -> impl Iterator<Item = DirEntry> {
     WalkDir::new(cwd)
         .into_iter()
         .filter_entry(|e| {
