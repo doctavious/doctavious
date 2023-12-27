@@ -77,7 +77,7 @@ pub(crate) fn new(
     number: Option<u32>,
     title: &str,
     template_type: AdrTemplateType,
-    extension: MarkupFormat,
+    format: MarkupFormat,
     supersedes: Option<Vec<String>>,
     links: Option<Vec<String>>,
 ) -> CliResult<PathBuf> {
@@ -88,18 +88,14 @@ pub(crate) fn new(
         Path::new(settings.get_adr_dir())
     };
 
-    let template = get_template(
-        dir,
-        TemplateType::Adr(template_type),
-        &extension.extension(),
-    );
+    let template = get_template(dir, TemplateType::Adr(template_type), &format.extension());
     let reserve_number = reserve_number(dir, number, settings.get_adr_structure())?;
     let formatted_reserved_number = format_number(&reserve_number);
     let adr_path = build_path(
         dir,
         title,
         &formatted_reserved_number,
-        extension,
+        format,
         settings.get_adr_structure(),
     );
 
@@ -117,29 +113,32 @@ pub(crate) fn new(
     context.insert("date", &Utc::now().format("%Y-%m-%d").to_string());
 
     let rendered = Templates::one_off(starting_content.as_str(), context, false)?;
-
-    let mut dest_file = tempfile::NamedTempFile::new()?;
-    dest_file.write_all(rendered.as_bytes())?;
+    fs::write(&adr_path, rendered.as_bytes())?;
 
     if let Some(targets) = supersedes {
-        let dest_reference = LinkReference::Path(dest_file.path().to_path_buf());
+        let dest_reference = LinkReference::Path(adr_path.to_owned());
         for target in targets {
             let target_reference = LinkReference::from_str(target.as_str())?;
-            add_link(dir, &target_reference, "superseded by", &dest_reference)?;
-            // TODO: Do we care if its "Accepted"?
-            remove_status(target.as_str(), "Accepted")?;
-            add_link(dir, &dest_reference, "supersedes", &target_reference)?;
+            // TODO: clean this up
+            let target_path = target_reference
+                .get_path(dir)
+                .ok_or(DoctaviousCliError::UnknownDesignDocument(
+                    target.to_string(),
+                ))?;
+            add_link(dir, &target_reference, "Superseded by", &dest_reference)?;
+            remove_status(target_path.as_path(), "Accepted")?;
+            add_link(dir, &dest_reference, "Supersedes", &target_reference)?;
         }
     }
 
     if let Some(links) = links {
-        // links look like: "5:Amends:Amended by"
-        let dest_reference = LinkReference::Path(dest_file.path().to_path_buf());
+        let dest_reference = LinkReference::Path(adr_path.to_owned());
         for l in links {
             let parts = l.split(":").collect::<Vec<&str>>();
             if parts.len() != 3 {
                 // TODO: error / warn / etc...
             }
+
             let target_reference = LinkReference::from_str(parts[0])?;
 
             add_link(dir, &dest_reference, parts[1], &target_reference)?;
@@ -147,9 +146,8 @@ pub(crate) fn new(
         }
     }
 
-    let edited = edit::edit(&rendered)?;
+    let edited = edit::edit_path(adr_path.as_path())?;
     fs::write(&adr_path, edited)?;
-    dest_file.close()?;
     Ok(adr_path)
 }
 
@@ -257,8 +255,6 @@ pub(crate) fn add_link(
     link: &str,
     target: &LinkReference,
 ) -> CliResult<()> {
-    // let source_path = source.get(cwd)
-
     let target_path = target
         .get_path(cwd)
         .ok_or(DoctaviousCliError::UnknownDesignDocument(
@@ -271,12 +267,6 @@ pub(crate) fn add_link(
         MarkupFormat::from_path(&target_path)?,
     );
 
-    // let target_file = get_file(target).ok_or(DoctaviousCliError::UnknownDesignDocument(
-    //     target.to_string(),
-    // ))?;
-
-    // let f = fs::File::open(&source)?;
-    // let reader = BufReader::new(f);
     let source_path = source
         .get_path(cwd)
         .ok_or(DoctaviousCliError::UnknownDesignDocument(
@@ -286,21 +276,6 @@ pub(crate) fn add_link(
 
     let mut in_status_section = false;
     let mut new_lines = vec![];
-
-    // TODO implement link
-    // find "## Status"
-    // then find next "##" header
-    // insert link
-    // EX: adr new -l "1:Amends:Amended by" -l "2:Clarifies:Clarified by" Third Record
-    // ## Status
-    //
-    // Accepted
-    //
-    // Amends [1. First Record](0001-first-record.md)
-    //
-    // Clarifies [2. Second Record](0002-second-record.md)
-    //
-    // ## Context
 
     // TODO(Sean): while this logic is straight forward I might, some day, want to swap for
     // modifying an AST to make changes.
@@ -326,8 +301,8 @@ pub(crate) fn add_link(
     Ok(())
 }
 
-pub(crate) fn remove_status(file: &str, current_status: &str) -> CliResult<String> {
-    let f = fs::File::open(file)?;
+pub(crate) fn remove_status(path: &Path, current_status: &str) -> CliResult<()> {
+    let f = fs::File::open(path)?;
     let reader = BufReader::new(f);
     let mut in_status_section = false;
     let mut after_blank = false;
@@ -367,7 +342,8 @@ pub(crate) fn remove_status(file: &str, current_status: &str) -> CliResult<Strin
         }
     }
 
-    Ok(new_lines.join("\n"))
+    fs::write(path, new_lines.join("\n"))?;
+    Ok(())
 }
 
 pub(crate) fn generate_csv() {}
@@ -814,9 +790,8 @@ Multiple paragraphs."#,
         dir.close().unwrap();
     }
 
-    // generate graph
+    // TODO: generate graph
 
-    // linking
     #[test]
     fn should_support_linking_adr() {
         let dir = TempDir::new().unwrap();
@@ -860,8 +835,6 @@ Multiple paragraphs."#,
                 )
                 .unwrap();
 
-                // adr link 3 Amends 1 "Amended by"
-                // adr link 3 Clarifies 2 "Clarified by"
                 link(
                     dir.path(),
                     &LinkReference::Number(3),
@@ -870,6 +843,7 @@ Multiple paragraphs."#,
                     "Amended by",
                 )
                 .unwrap();
+
                 link(
                     dir.path(),
                     &LinkReference::Number(3),
@@ -893,13 +867,111 @@ Multiple paragraphs."#,
         dir.close().unwrap();
     }
 
-    // linking new records
     #[test]
-    fn should_support_linking_when_creating_new_adr() {}
+    fn should_support_linking_when_creating_new_adr() {
+        let dir = TempDir::new().unwrap();
 
-    // supersede existing ADR
+        temp_env::with_vars(
+            [
+                (DOCTAVIOUS_ENV_SETTINGS_PATH, Some(dir.path())),
+                ("EDITOR", Some(Path::new("./tests/fixtures/noop-editor"))),
+            ],
+            || {
+                let first = new(
+                    Some(dir.path()),
+                    None,
+                    "First Record",
+                    AdrTemplateType::Record,
+                    MarkupFormat::Markdown,
+                    None,
+                    None,
+                )
+                .unwrap();
+
+                let second = new(
+                    Some(dir.path()),
+                    None,
+                    "Second Record",
+                    AdrTemplateType::Record,
+                    MarkupFormat::Markdown,
+                    None,
+                    None,
+                )
+                .unwrap();
+
+                let third = new(
+                    Some(dir.path()),
+                    None,
+                    "Third Record",
+                    AdrTemplateType::Record,
+                    MarkupFormat::Markdown,
+                    None,
+                    Some(vec![
+                        "1:Amends:Amended by".to_string(),
+                        "2:Clarifies:Clarified by".to_string(),
+                    ]),
+                )
+                .unwrap();
+
+                insta::with_settings!({filters => vec![
+                    (dir.path().to_str().unwrap(), "[DIR]"),
+                    (r"\d{4}-\d{2}-\d{2}", "[DATE]")
+                ]}, {
+                    insta::assert_snapshot!(fs::read_to_string(first).unwrap());
+                    insta::assert_snapshot!(fs::read_to_string(second).unwrap());
+                    insta::assert_snapshot!(fs::read_to_string(third).unwrap());
+                });
+            },
+        );
+
+        dir.close().unwrap();
+    }
+
     #[test]
-    fn should_support_superseding_adr() {}
+    fn should_support_superseding_adr() {
+        let dir = TempDir::new().unwrap();
+
+        temp_env::with_vars(
+            [
+                (DOCTAVIOUS_ENV_SETTINGS_PATH, Some(dir.path())),
+                ("EDITOR", Some(Path::new("./tests/fixtures/noop-editor"))),
+            ],
+            || {
+                let first = new(
+                    Some(dir.path()),
+                    None,
+                    "First Record",
+                    AdrTemplateType::Record,
+                    MarkupFormat::Markdown,
+                    None,
+                    None,
+                )
+                    .unwrap();
+
+                let second = new(
+                    Some(dir.path()),
+                    None,
+                    "Second Record",
+                    AdrTemplateType::Record,
+                    MarkupFormat::Markdown,
+                    Some(vec!["1".to_string()]),
+                    None,
+                )
+                    .unwrap();
+
+
+                insta::with_settings!({filters => vec![
+                    (dir.path().to_str().unwrap(), "[DIR]"),
+                    (r"\d{4}-\d{2}-\d{2}", "[DATE]")
+                ]}, {
+                    insta::assert_snapshot!(fs::read_to_string(first).unwrap());
+                    insta::assert_snapshot!(fs::read_to_string(second).unwrap());
+                });
+            },
+        );
+
+        dir.close().unwrap();
+    }
 
     // supersede multiple ADRs
     #[test]
