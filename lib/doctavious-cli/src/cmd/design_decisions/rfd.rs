@@ -259,7 +259,6 @@ mod tests {
     use crate::cmd::design_decisions::rfd::new;
     use crate::markup_format::MarkupFormat;
     use crate::settings::DOCTAVIOUS_ENV_SETTINGS_PATH;
-    use crate::templating::{AdrTemplateType, RfdTemplateType};
 
     #[test]
     fn create_first_record() {
@@ -349,14 +348,11 @@ mod tests {
                 ("EDITOR", Some(Path::new("./tests/fixtures/fake-editor"))),
             ],
             || {
-                let path = crate::cmd::design_decisions::adr::new(
+                let path = new(
                     Some(dir.path()),
                     None,
                     "The First Decision",
-                    AdrTemplateType::Record,
                     MarkupFormat::Markdown,
-                    None,
-                    None,
                 )
                     .expect("Should be able to create first new record");
 
