@@ -1,6 +1,6 @@
 ---
 source: lib/doctavious-cli/src/cmd/design_decisions/adr.rs
-expression: "fs::read_to_string(first).unwrap()"
+expression: "fs::read_to_string(second).unwrap()"
 ---
 ---
 authors: 
@@ -8,13 +8,13 @@ date: [DATE]
 discussion: 
 ---
 
-# 1. First Record
+# 2. Second Record
 
 Date: [DATE]
 
 ## Status
 
-Superseded by [2. Second Record]([DIR]/0002-second-record.md)
+Superseded by [3. Third Record]([DIR]/0003-third-record.md)
 
 ## Context
 

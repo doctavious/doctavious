@@ -418,6 +418,7 @@ pub(crate) fn generate_toc(
     )?)
 }
 
+// TODO: option for global template
 pub(crate) fn add_custom_template(
     cwd: Option<&Path>,
     template: AdrTemplateType,
@@ -973,9 +974,63 @@ Multiple paragraphs."#,
         dir.close().unwrap();
     }
 
-    // supersede multiple ADRs
     #[test]
-    fn should_support_superseding_multiple_adr() {}
+    fn should_support_superseding_multiple_adr() {
+        let dir = TempDir::new().unwrap();
+
+        temp_env::with_vars(
+            [
+                (DOCTAVIOUS_ENV_SETTINGS_PATH, Some(dir.path())),
+                ("EDITOR", Some(Path::new("./tests/fixtures/noop-editor"))),
+            ],
+            || {
+                let first = new(
+                    Some(dir.path()),
+                    None,
+                    "First Record",
+                    AdrTemplateType::Record,
+                    MarkupFormat::Markdown,
+                    None,
+                    None,
+                )
+                    .unwrap();
+
+                let second = new(
+                    Some(dir.path()),
+                    None,
+                    "Second Record",
+                    AdrTemplateType::Record,
+                    MarkupFormat::Markdown,
+                    None,
+                    None,
+                )
+                    .unwrap();
+
+                let third = new(
+                    Some(dir.path()),
+                    None,
+                    "Third Record",
+                    AdrTemplateType::Record,
+                    MarkupFormat::Markdown,
+                    Some(vec!["1".to_string(), "2".to_string()]),
+                    None,
+                )
+                    .unwrap();
+
+                insta::with_settings!({filters => vec![
+                    (dir.path().to_str().unwrap(), "[DIR]"),
+                    (r"\d{4}-\d{2}-\d{2}", "[DATE]")
+                ]}, {
+                    insta::assert_snapshot!(fs::read_to_string(first).unwrap());
+                    insta::assert_snapshot!(fs::read_to_string(second).unwrap());
+                    insta::assert_snapshot!(fs::read_to_string(third).unwrap());
+                });
+            },
+        );
+
+        dir.close().unwrap();
+
+    }
 
     #[test]
     fn should_list() {
