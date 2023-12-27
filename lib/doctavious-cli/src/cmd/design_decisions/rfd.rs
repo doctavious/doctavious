@@ -250,3 +250,147 @@ pub(crate) fn add_custom_template(
 
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use std::fs;
+    use std::path::Path;
+    use tempfile::TempDir;
+    use crate::cmd::design_decisions::rfd::new;
+    use crate::markup_format::MarkupFormat;
+    use crate::settings::DOCTAVIOUS_ENV_SETTINGS_PATH;
+    use crate::templating::{AdrTemplateType, RfdTemplateType};
+
+    #[test]
+    fn create_first_record() {
+        let dir = TempDir::new().unwrap();
+
+        temp_env::with_vars(
+            [
+                (DOCTAVIOUS_ENV_SETTINGS_PATH, Some(dir.path())),
+                ("EDITOR", Some(Path::new("./tests/fixtures/noop-editor"))),
+            ],
+            || {
+                let path = new(
+                    Some(dir.path()),
+                    None,
+                    "The First Decision",
+                    MarkupFormat::Markdown,
+                )
+                    .expect("Should be able to create first new record");
+
+                insta::with_settings!({filters => vec![
+                    (dir.path().to_str().unwrap(), "[DIR]"),
+                    (r"\d{4}-\d{2}-\d{2}", "[DATE]")
+                ]}, {
+                    insta::assert_snapshot!(fs::read_to_string(path).unwrap());
+                });
+            },
+        );
+
+        dir.close().unwrap();
+    }
+
+    #[test]
+    fn create_multiple_records() {
+        let dir = TempDir::new().unwrap();
+
+        temp_env::with_vars(
+            [
+                (DOCTAVIOUS_ENV_SETTINGS_PATH, Some(dir.path())),
+                ("EDITOR", Some(Path::new("./tests/fixtures/noop-editor"))),
+            ],
+            || {
+                let first = new(
+                    Some(dir.path()),
+                    None,
+                    "The First Decision",
+                    MarkupFormat::Markdown,
+                )
+                    .unwrap();
+
+                let second = new(
+                    Some(dir.path()),
+                    None,
+                    "The Second Decision",
+                    MarkupFormat::Markdown,
+                )
+                    .unwrap();
+
+                let third = new(
+                    Some(dir.path()),
+                    None,
+                    "The Third Decision",
+                    MarkupFormat::Markdown,
+                )
+                    .unwrap();
+
+                insta::with_settings!({filters => vec![
+                    (dir.path().to_str().unwrap(), "[DIR]"),
+                    (r"\d{4}-\d{2}-\d{2}", "[DATE]")
+                ]}, {
+                    insta::assert_snapshot!(fs::read_to_string(first).unwrap());
+                    insta::assert_snapshot!(fs::read_to_string(second).unwrap());
+                    insta::assert_snapshot!(fs::read_to_string(third).unwrap());
+                });
+            },
+        );
+
+        dir.close().unwrap();
+    }
+
+    #[test]
+    fn should_edit_on_create() {
+        let dir = TempDir::new().unwrap();
+
+        temp_env::with_vars(
+            [
+                (DOCTAVIOUS_ENV_SETTINGS_PATH, Some(dir.path())),
+                ("EDITOR", Some(Path::new("./tests/fixtures/fake-editor"))),
+            ],
+            || {
+                let path = crate::cmd::design_decisions::adr::new(
+                    Some(dir.path()),
+                    None,
+                    "The First Decision",
+                    AdrTemplateType::Record,
+                    MarkupFormat::Markdown,
+                    None,
+                    None,
+                )
+                    .expect("Should be able to create first new record");
+
+                let content = fs::read_to_string(&path).unwrap();
+                assert!(content.starts_with("EDITOR"));
+            },
+        );
+
+        dir.close().unwrap();
+    }
+
+    #[test]
+    fn should_use_visual_edit_on_create() {
+        let dir = TempDir::new().unwrap();
+
+        temp_env::with_vars(
+            [
+                (DOCTAVIOUS_ENV_SETTINGS_PATH, Some(dir.path())),
+                ("VISUAL", Some(Path::new("./tests/fixtures/fake-visual"))),
+            ],
+            || {
+                let path = new(
+                    Some(dir.path()),
+                    None,
+                    "The First Decision",
+                    MarkupFormat::Markdown,
+                )
+                    .expect("Should be able to create first new record");
+
+                let content = fs::read_to_string(&path).unwrap();
+                assert!(content.starts_with("VISUAL"));
+            },
+        );
+
+        dir.close().unwrap();
+    }
+}

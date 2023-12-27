@@ -478,7 +478,7 @@ mod tests {
         temp_env::with_vars(
             [
                 (DOCTAVIOUS_ENV_SETTINGS_PATH, Some(dir.path())),
-                ("EDITOR", Some(Path::new("./tests/fixtures/fake-editor"))),
+                ("EDITOR", Some(Path::new("./tests/fixtures/noop-editor"))),
             ],
             || {
                 let path = new(
@@ -492,9 +492,12 @@ mod tests {
                 )
                 .expect("Should be able to create first new record");
 
-                assert!(path
-                    .to_string_lossy()
-                    .ends_with("/0001-the-first-decision.md"));
+                insta::with_settings!({filters => vec![
+                    (dir.path().to_str().unwrap(), "[DIR]"),
+                    (r"\d{4}-\d{2}-\d{2}", "[DATE]")
+                ]}, {
+                    insta::assert_snapshot!(fs::read_to_string(path).unwrap());
+                });
             },
         );
 
@@ -508,10 +511,10 @@ mod tests {
         temp_env::with_vars(
             [
                 (DOCTAVIOUS_ENV_SETTINGS_PATH, Some(dir.path())),
-                ("EDITOR", Some(Path::new("./tests/fixtures/fake-editor"))),
+                ("EDITOR", Some(Path::new("./tests/fixtures/noop-editor"))),
             ],
             || {
-                new(
+                let first = new(
                     Some(dir.path()),
                     None,
                     "The First Decision",
@@ -544,13 +547,14 @@ mod tests {
                 )
                 .unwrap();
 
-                assert!(second
-                    .to_string_lossy()
-                    .ends_with("/0002-the-second-decision.md"));
-
-                assert!(third
-                    .to_string_lossy()
-                    .ends_with("/0003-the-third-decision.md"));
+                insta::with_settings!({filters => vec![
+                    (dir.path().to_str().unwrap(), "[DIR]"),
+                    (r"\d{4}-\d{2}-\d{2}", "[DATE]")
+                ]}, {
+                    insta::assert_snapshot!(fs::read_to_string(first).unwrap());
+                    insta::assert_snapshot!(fs::read_to_string(second).unwrap());
+                    insta::assert_snapshot!(fs::read_to_string(third).unwrap());
+                });
             },
         );
 
@@ -768,8 +772,6 @@ Multiple paragraphs."#,
 
         dir.close().unwrap();
     }
-
-    // TODO: generate graph
 
     #[test]
     fn should_support_linking_adr() {
