@@ -7,7 +7,6 @@ use lazy_static::lazy_static;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use strum::{Display, EnumIter, EnumString, EnumVariantNames, IntoEnumIterator};
 
-use crate::markup_format::MarkupFormat::{Asciidoc, Markdown};
 use crate::{CliResult, DoctaviousCliError};
 
 lazy_static! {
@@ -33,15 +32,15 @@ pub enum MarkupFormat {
 impl MarkupFormat {
     pub(crate) fn extension(&self) -> &'static str {
         return match self {
-            Asciidoc => "adoc",
-            Markdown => "md",
+            Self::Asciidoc => "adoc",
+            Self::Markdown => "md",
         };
     }
 
     pub(crate) fn leading_header_character(&self) -> char {
         return match self {
-            Asciidoc => '=',
-            Markdown => '#',
+            Self::Asciidoc => '=',
+            Self::Markdown => '#',
         };
     }
 
@@ -99,7 +98,7 @@ impl MarkupFormat {
 
 impl Default for MarkupFormat {
     fn default() -> Self {
-        Markdown
+        Self::Markdown
     }
 }
 

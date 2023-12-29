@@ -13,12 +13,16 @@ use crate::markup_format::{MarkupFormat, MARKUP_FORMAT_EXTENSIONS};
 use crate::settings::DEFAULT_TEMPLATE_DIR;
 use crate::{CliResult, DoctaviousCliError};
 
-mod adr;
-mod rfd;
+pub mod adr;
+pub mod rfd;
 
 #[remain::sorted]
 #[derive(Debug, Error)]
 pub enum DesignDecisionErrors {
+
+    #[error("design doc directory already initialized")]
+    DesignDocAlreadyInitialized,
+
     #[error("design doc directory already exists")]
     DesignDocDirectoryAlreadyExists,
 
@@ -91,7 +95,7 @@ impl Display for LinkReference {
     }
 }
 
-pub fn list(dir: &Path, format: MarkupFormat) -> CliResult<Vec<PathBuf>> {
+pub(crate) fn list(dir: &Path, format: MarkupFormat) -> CliResult<Vec<PathBuf>> {
     let mut paths: Vec<_> = get_records(dir)
         .filter(|e| {
             if let Some(extension) = e.path().extension() {
@@ -120,6 +124,7 @@ fn get_records(cwd: &Path) -> impl Iterator<Item = DirEntry> {
         .filter(|e| e.file_type().is_file())
         .filter(|e| is_valid_file(&e.path()))
 }
+
 
 pub(crate) fn format_number(number: &u32) -> String {
     format!("{:0>4}", number)

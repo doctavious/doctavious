@@ -1,3 +1,4 @@
+use std::borrow::{Borrow, Cow};
 use std::fs;
 use std::io::BufReader;
 use std::path::{Path, PathBuf};
@@ -6,6 +7,7 @@ use chrono::Utc;
 use git2::Repository;
 use serde::Serialize;
 
+use crate::cmd::design_decisions;
 use crate::cmd::design_decisions::{
     build_path, format_number, reserve_number, DesignDecisionErrors,
 };
@@ -19,7 +21,6 @@ use crate::settings::{
 use crate::templates::{get_template, get_title};
 use crate::templating::{RfdTemplateType, TemplateContext, TemplateType, Templates};
 use crate::{edit, git, CliResult, DoctaviousCliError};
-use crate::cmd::design_decisions;
 
 // RFD parsing: https://github.com/oxidecomputer/cio/blob/master/parse-rfd/src/lib.rs
 // https://github.com/oxidecomputer/cio/tree/master/parse-rfd/parser
@@ -43,7 +44,7 @@ pub(crate) fn init(
     let rfd_settings = RFDSettings {
         dir: Some(directory_string),
         structure: Some(structure),
-        template_extension: extension,
+        template_format: extension,
     };
     settings.rfd_settings = Some(rfd_settings);
 
@@ -64,21 +65,17 @@ pub(crate) fn new(
     format: MarkupFormat,
 ) -> CliResult<PathBuf> {
     let settings = load_settings()?;
-    let dir = if let Some(cwd) = cwd {
-        cwd
-    } else {
-        Path::new(settings.get_rfd_dir())
-    };
+    let dir = get_rfd_dir(cwd)?;
 
     let template = get_template(
-        Path::new(dir),
+        Path::new(dir.as_ref()),
         TemplateType::Rfd(RfdTemplateType::Record),
         &format.extension(),
     );
-    let reserve_number = reserve_number(dir, number, settings.get_rfd_structure())?;
+    let reserve_number = reserve_number(&dir, number, settings.get_rfd_structure())?;
     let formatted_reserved_number = format_number(&reserve_number);
     let output_path = build_path(
-        dir,
+        &dir,
         &title,
         &formatted_reserved_number,
         format,
@@ -114,15 +111,15 @@ pub(crate) fn reserve(
     format: MarkupFormat,
 ) -> CliResult<()> {
     let settings = load_settings()?;
-    let dir = if let Some(cwd) = cwd {
-        cwd
-    } else {
-        Path::new(settings.get_rfd_dir())
-    };
+    let dir = get_rfd_dir(cwd)?;
 
-    let reserve_number = reserve_number(Path::new(dir), number, settings.get_rfd_structure())?;
+    let reserve_number = reserve_number(
+        Path::new(dir.as_ref()),
+        number,
+        settings.get_rfd_structure(),
+    )?;
 
-    let repo = Repository::open(dir)?;
+    let repo = Repository::open(dir.as_ref())?;
     if git::branch_exists(&repo, reserve_number).is_err() {
         // TODO: use a different error than git2
         return Err(git2::Error::from_str("branch already exists in remote. Please pull.").into());
@@ -140,30 +137,21 @@ pub(crate) fn reserve(
 }
 
 pub fn list(cwd: Option<&Path>, format: MarkupFormat) -> CliResult<Vec<PathBuf>> {
-    let settings = load_settings()?.into_owned();
-    let dir = if let Some(cwd) = cwd {
-        cwd
-    } else {
-        Path::new(settings.get_rfd_dir())
-    };
+    let dir = get_rfd_dir(cwd)?;
 
-    Ok(design_decisions::list(dir, format)?)
+    Ok(design_decisions::list(dir.as_ref(), format)?)
 }
 
 pub(crate) fn generate_csv() {}
 
 pub(crate) fn generate_toc(
-    dir: &Path,
+    cwd: Option<&Path>,
     format: MarkupFormat,
     intro: Option<&str>,
     outro: Option<&str>,
     link_prefix: Option<&str>,
 ) -> CliResult<String> {
-    if !dir.is_dir() {
-        return Err(DoctaviousCliError::DesignDecisionErrors(
-            DesignDecisionErrors::DesignDocDirectoryInvalid,
-        ));
-    }
+    let dir = get_rfd_dir(cwd)?;
 
     #[derive(Clone, Debug, Serialize)]
     struct TocEntry {
@@ -172,7 +160,7 @@ pub(crate) fn generate_toc(
     }
 
     let mut toc_entry = Vec::new();
-    for p in list(Some(dir), format)? {
+    for p in list(Some(dir.as_ref()), format)? {
         let file = match fs::File::open(p.as_path()) {
             Ok(file) => file,
             Err(_) => panic!("Unable to read file {:?}", p),
@@ -196,11 +184,12 @@ pub(crate) fn generate_toc(
     if let Some(outro) = outro {
         context.insert("outro", outro);
     }
+
     context.insert("link_prefix", link_prefix.unwrap_or_default());
     context.insert("entries", &toc_entry);
 
     let template = get_template(
-        dir,
+        dir.as_ref(),
         TemplateType::Rfd(RfdTemplateType::ToC),
         &format.extension(),
     );
@@ -221,12 +210,7 @@ pub(crate) fn add_custom_template(
     format: MarkupFormat,
     content: &str,
 ) -> CliResult<()> {
-    let settings = load_settings()?;
-    let dir = if let Some(cwd) = cwd {
-        cwd
-    } else {
-        Path::new(settings.get_adr_dir())
-    };
+    let dir = get_rfd_dir(cwd)?;
 
     let template_path = match template {
         RfdTemplateType::Record => DEFAULT_RFD_RECORD_TEMPLATE_PATH,
@@ -241,11 +225,27 @@ pub(crate) fn add_custom_template(
     Ok(())
 }
 
+fn get_rfd_dir(cwd: Option<&Path>) -> CliResult<Cow<Path>> {
+    let settings = load_settings()?.into_owned();
+    if let Some(cwd) = cwd {
+        if !cwd.is_dir() {
+            return Err(DoctaviousCliError::DesignDecisionErrors(
+                DesignDecisionErrors::DesignDocDirectoryInvalid,
+            ));
+        }
+        Ok(Cow::Borrowed(cwd))
+    } else {
+        Ok(Cow::Owned(PathBuf::from(settings.get_rfd_dir())))
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use std::fs;
     use std::path::{Path, PathBuf};
+
     use tempfile::TempDir;
+
     use crate::cmd::design_decisions::rfd::{add_custom_template, init, list, new};
     use crate::file_structure::FileStructure;
     use crate::markup_format::MarkupFormat;
@@ -268,7 +268,7 @@ mod tests {
                     "The First Decision",
                     MarkupFormat::Markdown,
                 )
-                    .expect("Should be able to create first new record");
+                .expect("Should be able to create first new record");
 
                 insta::with_settings!({filters => vec![
                     (dir.path().to_str().unwrap(), "[DIR]"),
@@ -298,7 +298,7 @@ mod tests {
                     "The First Decision",
                     MarkupFormat::Markdown,
                 )
-                    .unwrap();
+                .unwrap();
 
                 let second = new(
                     Some(dir.path()),
@@ -306,7 +306,7 @@ mod tests {
                     "The Second Decision",
                     MarkupFormat::Markdown,
                 )
-                    .unwrap();
+                .unwrap();
 
                 let third = new(
                     Some(dir.path()),
@@ -314,7 +314,7 @@ mod tests {
                     "The Third Decision",
                     MarkupFormat::Markdown,
                 )
-                    .unwrap();
+                .unwrap();
 
                 insta::with_settings!({filters => vec![
                     (dir.path().to_str().unwrap(), "[DIR]"),
@@ -346,7 +346,7 @@ mod tests {
                     "The First Decision",
                     MarkupFormat::Markdown,
                 )
-                    .expect("Should be able to create first new record");
+                .expect("Should be able to create first new record");
 
                 let content = fs::read_to_string(&path).unwrap();
                 assert!(content.starts_with("EDITOR"));
@@ -372,7 +372,7 @@ mod tests {
                     "The First Decision",
                     MarkupFormat::Markdown,
                 )
-                    .expect("Should be able to create first new record");
+                .expect("Should be able to create first new record");
 
                 let content = fs::read_to_string(&path).unwrap();
                 assert!(content.starts_with("VISUAL"));
@@ -398,7 +398,7 @@ mod tests {
                     "The First Decision",
                     MarkupFormat::Markdown,
                 )
-                    .unwrap();
+                .unwrap();
 
                 let second = new(
                     Some(dir.path()),
@@ -406,7 +406,7 @@ mod tests {
                     "The Second Decision",
                     MarkupFormat::Markdown,
                 )
-                    .unwrap();
+                .unwrap();
 
                 let rfds = list(Some(dir.path()), MarkupFormat::Markdown).unwrap();
 
@@ -440,7 +440,7 @@ mod tests {
                     FileStructure::default(),
                     Some(MarkupFormat::default()),
                 )
-                    .expect("should init adr");
+                .expect("should init adr");
 
                 add_custom_template(
                     Some(dir.path()),
@@ -461,7 +461,7 @@ RFD Number: {{ number }}
 Date: {{ date }}
 "#,
                 )
-                    .unwrap();
+                .unwrap();
 
                 let custom_template = new(
                     Some(dir.path()),
@@ -469,7 +469,7 @@ Date: {{ date }}
                     "Custom Template Record",
                     MarkupFormat::Markdown,
                 )
-                    .unwrap();
+                .unwrap();
 
                 insta::with_settings!({filters => vec![
                     (dir.path().to_str().unwrap(), "[DIR]"),
@@ -499,10 +499,9 @@ Date: {{ date }}
                     FileStructure::default(),
                     Some(MarkupFormat::default()),
                 )
-                    .expect("should init RFDs");
+                .expect("should init RFDs");
 
-                let trimmed_path =
-                    &path.to_string_lossy()[dir.path().to_string_lossy().len()..];
+                let trimmed_path = &path.to_string_lossy()[dir.path().to_string_lossy().len()..];
 
                 assert!(trimmed_path.starts_with("/test/rfds"));
             },
@@ -526,7 +525,7 @@ Date: {{ date }}
                     FileStructure::default(),
                     Some(MarkupFormat::default()),
                 )
-                    .expect("should init rfd");
+                .expect("should init rfd");
 
                 let dir = init(
                     dir.path(),

@@ -2,12 +2,11 @@ use clap::Parser;
 use doctavious_cli::cmd::{build, deploy, frameworks};
 use tracing::error;
 
-use crate::cmds::adr::ADRSubCommand;
-use crate::cmds::frameworks::FrameworkSubCommand;
-use crate::cmds::rfd::RFDSubCommand;
-use crate::cmds::{Command, Opt};
+use crate::commands::frameworks::FrameworkSubCommand;
+use crate::commands::rfd::RFDSubCommand;
+use crate::commands::{adr, Command, Opt};
 
-mod cmds;
+mod commands;
 mod config;
 mod output;
 
@@ -30,18 +29,13 @@ fn main() {
         .init();
 
     // TODO: should probably log diagnostics info/debug to stderr and result to stdout
+    // not sure how to configure that
 
     // TODO: get configuration: file + env
 
+    // TODO: would like to return something other than a string so that we could handle multiple output formats
     let result = match opt.cmd {
-        Command::Adr(cmd) => match cmd.adr_command {
-            ADRSubCommand::Init(_) => unimplemented!(),
-            ADRSubCommand::Generate(_) => unimplemented!(),
-            ADRSubCommand::List(_) => unimplemented!(),
-            ADRSubCommand::Link(_) => unimplemented!(),
-            ADRSubCommand::New(_) => unimplemented!(),
-            ADRSubCommand::Reserve(_) => unimplemented!(),
-        },
+        Command::Adr(cmd) => adr::execute(cmd),
         Command::Build(cmd) => build::invoke(cmd.cwd, cmd.dry, cmd.skip_install),
         Command::Deploy(cmd) => deploy::invoke(cmd.cwd, cmd.build),
         Command::Frameworks(cmd) => match cmd.framework_command {

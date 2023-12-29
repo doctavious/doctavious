@@ -9,7 +9,7 @@ path = "src/main.rs"
 
 [dependencies]
 anyhow = { workspace = true }
-clap = { workspace = true }
+clap = { workspace = true, features = ["derive", "string"] }
 directories = { workspace = true }
 doctavious-cli = { path = "../../lib/doctavious-cli" }
 keyring = "2"
@@ -17,6 +17,7 @@ lazy_static = { workspace = true }
 remain = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
+strum = {workspace = true }
 tracing = { workspace = true }
 tracing-subscriber = { workspace = true }
 

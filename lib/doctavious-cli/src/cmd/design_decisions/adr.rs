@@ -1,3 +1,4 @@
+use std::borrow::Cow;
 use std::fmt::Display;
 use std::fs;
 use std::io::{BufRead, BufReader, Write};
@@ -9,21 +10,17 @@ use git2::Repository;
 use regex::RegexBuilder;
 use serde::Serialize;
 
+use crate::cmd::design_decisions;
 use crate::cmd::design_decisions::{
     build_path, format_number, reserve_number, DesignDecisionErrors, LinkReference,
 };
 use crate::file_structure::FileStructure;
 use crate::files::ensure_path;
 use crate::markup_format::MarkupFormat;
-use crate::settings::{
-    init_dir, load_settings, persist_settings, AdrSettings, DEFAULT_ADR_DIR,
-    DEFAULT_ADR_INIT_TEMPLATE_PATH, DEFAULT_ADR_RECORD_TEMPLATE_PATH,
-    DEFAULT_ADR_TOC_TEMPLATE_PATH,
-};
+use crate::settings::{init_dir, load_settings, persist_settings, AdrSettings, DEFAULT_ADR_DIR, DEFAULT_ADR_INIT_TEMPLATE_PATH, DEFAULT_ADR_RECORD_TEMPLATE_PATH, DEFAULT_ADR_TOC_TEMPLATE_PATH, Settings};
 use crate::templates::{get_template, get_title};
 use crate::templating::{AdrTemplateType, TemplateContext, TemplateType, Templates};
 use crate::{edit, git, CliResult, DoctaviousCliError};
-use crate::cmd::design_decisions;
 
 // TODO(Sean): might not be a great idea to include setting related stuff here in the lib
 // as it might make it more difficult to use in various other scenarios. Fine for now but
@@ -32,15 +29,20 @@ use crate::cmd::design_decisions;
 /// Initialises the directory of architecture decision records:
 /// * creates a subdirectory of the current working directory
 /// * creates the first ADR in that subdirectory, recording the decision to record architectural decisions with ADRs.
-pub(crate) fn init(
+pub fn init(
     cwd: &Path,
     path: Option<PathBuf>,
     structure: FileStructure,
-    extension: Option<MarkupFormat>,
+    format: MarkupFormat,
 ) -> CliResult<PathBuf> {
-    let mut settings = load_settings()?.into_owned();
-    let path = path.unwrap_or_else(|| PathBuf::from(DEFAULT_ADR_DIR));
-    let dir = cwd.join(path);
+    let mut settings: Settings = load_settings()?.into_owned();
+    if settings.adr_settings.is_some() {
+        return Err(DoctaviousCliError::DesignDecisionErrors(
+            DesignDecisionErrors::DesignDocAlreadyInitialized,
+        ));
+    }
+
+    let dir = cwd.join( path.unwrap_or_else(|| PathBuf::from(DEFAULT_ADR_DIR)));
     if dir.exists() {
         return Err(DoctaviousCliError::DesignDecisionErrors(
             DesignDecisionErrors::DesignDocDirectoryAlreadyExists,
@@ -50,20 +52,19 @@ pub(crate) fn init(
     let directory_string = dir.to_string_lossy().to_string();
     settings.adr_settings = Some(AdrSettings {
         dir: Some(directory_string),
-        structure: Some(structure),
-        template_extension: extension,
+        structure,
+        template_format: format,
     });
 
     persist_settings(&settings)?;
     init_dir(&dir)?;
 
-    let adr_extension = settings.get_adr_template_extension(extension);
     return new(
-        Some(dir.as_path()),
+        Some(&dir),
         Some(1),
         "Record Architecture Decisions",
         AdrTemplateType::Init,
-        adr_extension,
+        format,
         None,
         None,
     );
@@ -72,7 +73,7 @@ pub(crate) fn init(
 /// Create a new ADR
 ///
 /// This does not require `init` to be called prior as it will use appropriate defaults
-pub(crate) fn new(
+pub fn new(
     cwd: Option<&Path>,
     number: Option<u32>,
     title: &str,
@@ -82,17 +83,17 @@ pub(crate) fn new(
     links: Option<Vec<String>>,
 ) -> CliResult<PathBuf> {
     let settings = load_settings()?.into_owned();
-    let dir = if let Some(cwd) = cwd {
-        cwd
-    } else {
-        Path::new(settings.get_adr_dir())
-    };
+    let dir = get_adr_dir(cwd)?;
 
-    let template = get_template(dir, TemplateType::Adr(template_type), &format.extension());
-    let reserve_number = reserve_number(dir, number, settings.get_adr_structure())?;
+    let template = get_template(
+        dir.as_ref(),
+        TemplateType::Adr(template_type),
+        &format.extension(),
+    );
+    let reserve_number = reserve_number(dir.as_ref(), number, settings.get_adr_structure())?;
     let formatted_reserved_number = format_number(&reserve_number);
     let output_path = build_path(
-        dir,
+        dir.as_ref(),
         title,
         &formatted_reserved_number,
         format,
@@ -120,12 +121,22 @@ pub(crate) fn new(
         for target in targets {
             let target_reference = LinkReference::from_str(target.as_str())?;
             // TODO: clean this up
-            let target_path = target_reference.get_path(dir).ok_or(
+            let target_path = target_reference.get_path(dir.as_ref()).ok_or(
                 DesignDecisionErrors::UnknownDesignDocument(target.to_string()),
             )?;
-            add_link(dir, &target_reference, "Superseded by", &dest_reference)?;
+            add_link(
+                dir.as_ref(),
+                &target_reference,
+                "Superseded by",
+                &dest_reference,
+            )?;
             remove_status(target_path.as_path(), "Accepted")?;
-            add_link(dir, &dest_reference, "Supersedes", &target_reference)?;
+            add_link(
+                dir.as_ref(),
+                &dest_reference,
+                "Supersedes",
+                &target_reference,
+            )?;
         }
     }
 
@@ -139,8 +150,8 @@ pub(crate) fn new(
 
             let target_reference = LinkReference::from_str(parts[0])?;
 
-            add_link(dir, &dest_reference, parts[1], &target_reference)?;
-            add_link(dir, &target_reference, parts[2], &dest_reference)?;
+            add_link(dir.as_ref(), &dest_reference, parts[1], &target_reference)?;
+            add_link(dir.as_ref(), &target_reference, parts[2], &dest_reference)?;
         }
     }
 
@@ -151,14 +162,9 @@ pub(crate) fn new(
 
 // TODO: format should be optional? Try and determine from settings otherwise either default or look for both
 pub fn list(cwd: Option<&Path>, format: MarkupFormat) -> CliResult<Vec<PathBuf>> {
-    let settings = load_settings()?.into_owned();
-    let dir = if let Some(cwd) = cwd {
-        cwd
-    } else {
-        Path::new(settings.get_adr_dir())
-    };
+    let dir = get_adr_dir(cwd)?;
 
-    Ok(design_decisions::list(dir, format)?)
+    Ok(design_decisions::list(dir.as_ref(), format)?)
 }
 
 // implement ADR / RFD reserve command
@@ -179,21 +185,17 @@ pub fn list(cwd: Option<&Path>, format: MarkupFormat) -> CliResult<Vec<PathBuf>>
 // this updates the table as well. The single source of truth for information about the RFD comes
 // from the RFD in the branch until it is merged.
 // I think this would be implemented as a    git hook
-pub(crate) fn reserve(
+pub fn reserve(
     cwd: Option<&Path>,
     number: Option<u32>,
     title: String,
     format: MarkupFormat,
 ) -> CliResult<()> {
     let settings = load_settings()?;
-    let dir = if let Some(cwd) = cwd {
-        cwd
-    } else {
-        Path::new(settings.get_adr_dir())
-    };
-    let reserve_number = reserve_number(dir, number, settings.get_adr_structure())?;
+    let dir = get_adr_dir(cwd)?;
+    let reserve_number = reserve_number(dir.as_ref(), number, settings.get_adr_structure())?;
 
-    let repo = Repository::open(dir)?;
+    let repo = Repository::open(dir.as_ref())?;
     if git::branch_exists(&repo, reserve_number).is_err() {
         // TODO: use a different error than git2
         return Err(git2::Error::from_str("branch already exists in remote. Please pull.").into());
@@ -202,7 +204,7 @@ pub(crate) fn reserve(
     git::checkout_branch(&repo, reserve_number.to_string().as_str())?;
 
     let new_adr = new(
-        Some(dir),
+        Some(dir.as_ref()),
         number,
         title.as_str(),
         AdrTemplateType::Record,
@@ -223,19 +225,20 @@ pub(crate) fn reserve(
 /// SOURCE and TARGET are both a reference (number or partial filename) to an ADR
 /// LINK is the description of the link created in the SOURCE.
 /// REVERSE-LINK is the description of the link created in the TARGET
-pub(crate) fn link(
+pub fn link(
     cwd: &Path,
     source: &LinkReference,
     forward_link: &str,
     target: &LinkReference,
     reverse_link: &str,
 ) -> CliResult<()> {
+    // let dir = get_adr_dir(cwd);
     add_link(cwd, source, forward_link, target)?;
     add_link(cwd, target, reverse_link, source)?;
     Ok(())
 }
 
-pub(crate) fn add_link(
+fn add_link(
     cwd: &Path,
     source: &LinkReference,
     link: &str,
@@ -287,7 +290,7 @@ pub(crate) fn add_link(
     Ok(())
 }
 
-pub(crate) fn remove_status(path: &Path, current_status: &str) -> CliResult<()> {
+fn remove_status(path: &Path, current_status: &str) -> CliResult<()> {
     let f = fs::File::open(path)?;
     let reader = BufReader::new(f);
     let mut in_status_section = false;
@@ -332,20 +335,16 @@ pub(crate) fn remove_status(path: &Path, current_status: &str) -> CliResult<()> 
     Ok(())
 }
 
-pub(crate) fn generate_csv() {}
+pub fn generate_csv() {}
 
-pub(crate) fn generate_toc(
-    dir: &Path,
+pub fn generate_toc(
+    cwd: Option<&Path>,
     format: MarkupFormat,
     intro: Option<&str>,
     outro: Option<&str>,
     link_prefix: Option<&str>,
 ) -> CliResult<String> {
-    if !dir.is_dir() {
-        return Err(DoctaviousCliError::DesignDecisionErrors(
-            DesignDecisionErrors::DesignDocDirectoryInvalid,
-        ));
-    }
+    let dir = get_adr_dir(cwd)?;
 
     #[derive(Clone, Debug, Serialize)]
     struct AdrEntry {
@@ -354,7 +353,7 @@ pub(crate) fn generate_toc(
     }
 
     let mut adrs = Vec::new();
-    for p in list(Some(dir), format)? {
+    for p in design_decisions::list(dir.as_ref(), format)? {
         let file = match fs::File::open(p.as_path()) {
             Ok(file) => file,
             Err(_) => panic!("Unable to read file {:?}", p),
@@ -378,11 +377,15 @@ pub(crate) fn generate_toc(
     if let Some(outro) = outro {
         context.insert("outro", outro);
     }
+
+    // let link_prefix = link_prefix
+    //     .unwrap_or_default();
+
     context.insert("link_prefix", link_prefix.unwrap_or_default());
     context.insert("adrs", &adrs);
 
     let template = get_template(
-        dir,
+        dir.as_ref(),
         TemplateType::Adr(AdrTemplateType::ToC),
         &format.extension(),
     );
@@ -403,12 +406,7 @@ pub(crate) fn add_custom_template(
     format: MarkupFormat,
     content: &str,
 ) -> CliResult<()> {
-    let settings = load_settings()?;
-    let dir = if let Some(cwd) = cwd {
-        cwd
-    } else {
-        Path::new(settings.get_adr_dir())
-    };
+    let dir = get_adr_dir(cwd)?;
 
     let template_path = match template {
         AdrTemplateType::Init => DEFAULT_ADR_INIT_TEMPLATE_PATH,
@@ -422,6 +420,24 @@ pub(crate) fn add_custom_template(
     fs::write(&path, content)?;
 
     Ok(())
+}
+
+fn get_adr_dir(cwd: Option<&Path>) -> CliResult<Cow<Path>> {
+    // TODO: do we need this into_owned?
+    let settings = load_settings()?.into_owned();
+    let path = if let Some(cwd) = cwd {
+        Cow::Borrowed(cwd)
+    } else {
+        Cow::Owned(PathBuf::from(settings.get_adr_dir()))
+    };
+
+    if !path.is_dir() {
+        return Err(DoctaviousCliError::DesignDecisionErrors(
+            DesignDecisionErrors::DesignDocDirectoryInvalid,
+        ));
+    }
+
+    Ok(path)
 }
 
 #[cfg(test)]
@@ -620,8 +636,8 @@ mod tests {
                 )
                 .unwrap();
 
-                let toc =
-                    generate_toc(dir.path(), MarkupFormat::Markdown, None, None, None).unwrap();
+                let toc = generate_toc(Some(dir.path()), MarkupFormat::Markdown, None, None, None)
+                    .unwrap();
 
                 insta::with_settings!({filters => vec![
                     (dir.path().to_str().unwrap(), "[DIR]"),
@@ -667,7 +683,7 @@ mod tests {
                 .unwrap();
 
                 let toc = generate_toc(
-                    dir.path(),
+                    Some(dir.path()),
                     MarkupFormat::Markdown,
                     Some(
                         r#"An intro.
@@ -723,7 +739,7 @@ Multiple paragraphs."#,
                 .unwrap();
 
                 let toc = generate_toc(
-                    dir.path(),
+                    Some(dir.path()),
                     MarkupFormat::Markdown,
                     None,
                     None,
@@ -1041,7 +1057,7 @@ Multiple paragraphs."#,
                     dir.path(),
                     None,
                     FileStructure::default(),
-                    Some(MarkupFormat::default()),
+                    MarkupFormat::default(),
                 )
                 .expect("should init adr");
 
@@ -1103,7 +1119,7 @@ Date: {{ date }}
                     dir.path(),
                     None,
                     FileStructure::default(),
-                    Some(MarkupFormat::default()),
+                    MarkupFormat::default(),
                 )
                 .expect("should init adr");
 
@@ -1135,7 +1151,7 @@ Date: {{ date }}
                     dir.path(),
                     Some(PathBuf::from("test/adrs")),
                     FileStructure::default(),
-                    Some(MarkupFormat::default()),
+                    MarkupFormat::default(),
                 )
                 .expect("should init adr");
 
@@ -1162,7 +1178,7 @@ Date: {{ date }}
                     dir.path(),
                     None,
                     FileStructure::default(),
-                    Some(MarkupFormat::default()),
+                    MarkupFormat::default(),
                 )
                 .expect("should init adr");
 
@@ -1170,7 +1186,7 @@ Date: {{ date }}
                     dir.path(),
                     None,
                     FileStructure::default(),
-                    Some(MarkupFormat::default()),
+                    MarkupFormat::default(),
                 );
 
                 assert!(adr_dir.is_err());

@@ -6,6 +6,7 @@ use std::path::{Path, PathBuf};
 
 use lazy_static::lazy_static;
 use serde::{Deserialize, Serialize};
+use serde_with::skip_serializing_none;
 
 use crate::cmd::githooks::Hook;
 use crate::file_structure::FileStructure;
@@ -63,9 +64,12 @@ lazy_static! {
 }
 
 // TODO: should this include output?
+// TODO: should this be aware of CWD?
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
+#[skip_serializing_none]
 pub struct Settings {
-    pub template_extension: Option<MarkupFormat>,
+    // TODO: I dont think this is needed
+    pub template_format: Option<MarkupFormat>,
 
     #[serde(rename(serialize = "adr"))]
     #[serde(alias = "adr")]
@@ -92,9 +96,14 @@ pub struct Settings {
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct AdrSettings {
+    // #[serde(default = "DEFAULT_ADR_DIR")]
     pub dir: Option<String>,
-    pub structure: Option<FileStructure>,
-    pub template_extension: Option<MarkupFormat>,
+
+    #[serde(default)]
+    pub structure: FileStructure,
+
+    #[serde(default)]
+    pub template_format: MarkupFormat,
     // TODO: custom date format
 }
 
@@ -102,13 +111,13 @@ pub struct AdrSettings {
 pub struct RFDSettings {
     pub dir: Option<String>,
     pub structure: Option<FileStructure>,
-    pub template_extension: Option<MarkupFormat>,
+    pub template_format: Option<MarkupFormat>,
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct TilSettings {
     pub dir: Option<String>,
-    pub template_extension: Option<MarkupFormat>,
+    pub template_format: Option<MarkupFormat>,
     // TODO: custom template either as a string here or file
     // output_directory
 }
@@ -157,7 +166,7 @@ impl Settings {
         let custom_template = Path::new(dir)
             .join("templates")
             .join(template_type)
-            .with_extension(self.get_adr_template_extension(None).extension());
+            .with_extension(self.get_adr_template_format(None).extension());
 
         if custom_template.is_file() {
             custom_template
@@ -171,7 +180,7 @@ impl Settings {
         PathBuf::from(format!(
             "{}.{}",
             DEFAULT_ADR_RECORD_TEMPLATE_PATH,
-            self.get_adr_template_extension(None)
+            self.get_adr_template_format(None)
         ))
     }
 
@@ -185,7 +194,7 @@ impl Settings {
     pub fn get_adr_default_init_template(&self) -> PathBuf {
         PathBuf::from(format!(
             "{DEFAULT_ADR_INIT_TEMPLATE_PATH}.{}",
-            self.get_adr_template_extension(None)
+            self.get_adr_template_format(None)
         ))
     }
 
@@ -197,32 +206,28 @@ impl Settings {
 
     pub fn get_adr_structure(&self) -> FileStructure {
         if let Some(settings) = &self.adr_settings {
-            if let Some(structure) = settings.structure {
-                return structure;
-            }
+            settings.structure
+        } else {
+            FileStructure::default()
         }
-
-        return FileStructure::default();
     }
 
     // TODO: Might want to split these some of this function up as we end up passing in None just to
     // get to the middle portion
-    pub fn get_adr_template_extension(&self, extension: Option<MarkupFormat>) -> MarkupFormat {
-        if extension.is_some() {
-            return extension.unwrap();
+    pub fn get_adr_template_format(&self, format: Option<MarkupFormat>) -> MarkupFormat {
+        if let Some(format) = format {
+            return format;
         }
 
         if let Some(settings) = &self.adr_settings {
-            if let Some(template_extension) = settings.template_extension {
-                return template_extension;
-            }
+            return settings.template_format;
         }
 
-        if let Some(template_extension) = self.template_extension {
-            return template_extension;
+        if let Some(template_format) = self.template_format {
+            return template_format;
         }
 
-        return MarkupFormat::default();
+        MarkupFormat::default()
     }
 
     pub fn get_rfd_dir(&self) -> &str {
@@ -266,12 +271,12 @@ impl Settings {
         }
 
         if let Some(settings) = &self.rfd_settings {
-            if let Some(template_extension) = settings.template_extension {
+            if let Some(template_extension) = settings.template_format {
                 return template_extension;
             }
         }
 
-        if let Some(template_extension) = self.template_extension {
+        if let Some(template_extension) = self.template_format {
             return template_extension;
         }
 
@@ -296,12 +301,12 @@ impl Settings {
         }
 
         if let Some(settings) = &self.til_settings {
-            if let Some(template_extension) = settings.template_extension {
+            if let Some(template_extension) = settings.template_format {
                 return template_extension;
             }
         }
 
-        if let Some(template_extension) = self.template_extension {
+        if let Some(template_extension) = self.template_format {
             return template_extension;
         }
 

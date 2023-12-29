@@ -1,14 +1,14 @@
 use clap::{Parser, Subcommand};
 
-use crate::cmds::adr::ADRCommand;
-use crate::cmds::build::BuildCommand;
-use crate::cmds::deploy::DeployCommand;
-use crate::cmds::frameworks::FrameworksCommand;
-use crate::cmds::init::InitCommand;
-use crate::cmds::link::LinkCommand;
-use crate::cmds::rfd::RFDCommand;
-use crate::cmds::til::TilCommand;
-use crate::cmds::whoami::WhoAmICommand;
+use crate::commands::adr::ADRCommand;
+use crate::commands::build::BuildCommand;
+use crate::commands::deploy::DeployCommand;
+use crate::commands::frameworks::FrameworksCommand;
+use crate::commands::init::InitCommand;
+use crate::commands::link::LinkCommand;
+use crate::commands::rfd::RFDCommand;
+use crate::commands::til::TilCommand;
+use crate::commands::whoami::WhoAmICommand;
 
 pub mod adr;
 pub mod build;
@@ -16,6 +16,7 @@ pub mod deploy;
 pub mod frameworks;
 pub mod init;
 pub mod link;
+mod macros;
 pub mod rfd;
 mod til;
 pub mod whoami;

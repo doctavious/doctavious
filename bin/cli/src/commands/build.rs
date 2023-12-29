@@ -6,11 +6,8 @@ use clap::Parser;
 #[derive(Parser, Debug)]
 #[command(about = "Build on your local machine")]
 pub(crate) struct BuildCommand {
-    #[arg(
-        long,
-        short,
-        help = "The directory to build. Defaults to current directory."
-    )]
+    /// The directory to build. Defaults to current directory.
+    #[arg(long, short)]
     pub cwd: Option<PathBuf>,
 
     // Dry run: show instructions without running them (default: false)

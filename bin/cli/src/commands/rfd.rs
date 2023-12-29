@@ -20,6 +20,7 @@ pub(crate) enum RFDSubCommand {
     List(ListRFDs),
     New(NewRFD),
     Reserve(ReserveRFD),
+    // Templates (add/delete. global vs local)
 }
 
 /// Init RFD

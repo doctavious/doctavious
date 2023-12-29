@@ -25,14 +25,14 @@ struct TilEntry {
     date: DateTime<Utc>,
 }
 
-pub(crate) fn init_til(directory: Option<PathBuf>, extension: MarkupFormat) -> CliResult<()> {
+pub(crate) fn init(directory: Option<PathBuf>, extension: MarkupFormat) -> CliResult<()> {
     let mut settings = load_settings()?.into_owned();
     let dir = directory.unwrap_or_else(|| PathBuf::from(DEFAULT_TIL_DIR));
     let directory_string = dir.to_string_lossy().to_string();
 
     let til_settings = TilSettings {
         dir: Some(directory_string),
-        template_extension: Some(extension),
+        template_format: Some(extension),
     };
     settings.til_settings = Some(til_settings);
 
@@ -42,13 +42,13 @@ pub(crate) fn init_til(directory: Option<PathBuf>, extension: MarkupFormat) -> C
     Ok(())
 }
 
-pub(crate) fn new_til(
+pub(crate) fn new(
     title: String,
     category: String,
     tags: Option<Vec<String>>,
     file_name: Option<String>,
     markup_format: MarkupFormat,
-    readme: bool,
+    toc: bool,
     dir: &Path,
 ) -> CliResult<()> {
     // https://stackoverflow.com/questions/7406102/create-sane-safe-filename-from-any-unsafe-string
@@ -87,15 +87,15 @@ pub(crate) fn new_til(
     fs::create_dir_all(path.parent().unwrap())?;
     fs::write(&path, edited)?;
 
-    if readme {
-        build_til_readme(dir, markup_format.extension())?;
+    if toc {
+        generate_toc(dir, markup_format)?;
     }
 
     Ok(())
 }
 
 // TODO: this should just build_mod the content and return and not write
-pub(crate) fn build_til_readme(dir: &Path, readme_extension: &str) -> CliResult<String> {
+pub(crate) fn generate_toc(dir: &Path, format: MarkupFormat) -> CliResult<String> {
     let mut all_tils: BTreeMap<String, Vec<TilEntry>> = BTreeMap::new();
     for entry in WalkDir::new(&dir)
         .into_iter()
@@ -154,8 +154,9 @@ pub(crate) fn build_til_readme(dir: &Path, readme_extension: &str) -> CliResult<
     let template = get_template_content(
         dir,
         TemplateType::Til(TilTemplateType::ReadMe),
-        readme_extension,
+        format.extension(),
     );
+
     let mut context = TemplateContext::new();
     context.insert("categories_count", &all_tils.keys().len());
     context.insert("til_count", &til_count);
@@ -165,6 +166,7 @@ pub(crate) fn build_til_readme(dir: &Path, readme_extension: &str) -> CliResult<
     Ok(rendered)
 }
 
+// TODO: where to put this
 fn is_hidden(entry: &DirEntry) -> bool {
     entry
         .file_name()
