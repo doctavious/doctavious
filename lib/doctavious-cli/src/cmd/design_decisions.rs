@@ -19,7 +19,6 @@ pub mod rfd;
 #[remain::sorted]
 #[derive(Debug, Error)]
 pub enum DesignDecisionErrors {
-
     #[error("design doc directory already initialized")]
     DesignDocAlreadyInitialized,
 
@@ -40,6 +39,8 @@ pub enum DesignDecisionErrors {
     UnknownDesignDocument(String),
 }
 
+#[remain::sorted]
+#[derive(Debug, Clone)]
 pub enum LinkReference {
     FileName(String),
     Number(u32),
@@ -64,7 +65,7 @@ impl FromStr for LinkReference {
 }
 
 impl LinkReference {
-    pub fn get_path(&self, cwd: &Path) -> Option<PathBuf> {
+    pub fn get_record(&self, cwd: &Path) -> Option<PathBuf> {
         let reference = match self {
             Self::FileName(file) => file.to_string(),
             Self::Number(num) => format_number(num),
@@ -124,7 +125,6 @@ fn get_records(cwd: &Path) -> impl Iterator<Item = DirEntry> {
         .filter(|e| e.file_type().is_file())
         .filter(|e| is_valid_file(&e.path()))
 }
-
 
 pub(crate) fn format_number(number: &u32) -> String {
     format!("{:0>4}", number)

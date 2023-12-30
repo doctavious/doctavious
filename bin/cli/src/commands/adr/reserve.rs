@@ -1,3 +1,5 @@
+use std::path::PathBuf;
+
 use clap::Parser;
 use doctavious_cli::cmd::design_decisions::adr;
 use doctavious_cli::markup_format::MarkupFormat;
@@ -10,9 +12,14 @@ use crate::clap_enum_variants;
 #[derive(Parser, Debug)]
 #[command(name = "reserve")]
 pub(crate) struct ReserveADR {
+    /// Provide a working directory (that can be different from the current directory) when running Doctavius CLI commands.
+    /// Will use the ADR directory in settings if present or fallback to the default ADR directory.
+    #[arg(long, short)]
+    pub cwd: Option<PathBuf>,
+
     /// ADR Number
     #[arg(long, short)]
-    pub number: Option<i32>,
+    pub number: Option<u32>,
 
     // TODO: can we give title index so we dont have to specify --title or -t?
     /// title of ADR
@@ -30,6 +37,7 @@ pub(crate) struct ReserveADR {
 }
 
 pub(crate) fn execute(cmd: ReserveADR) -> CliResult<Option<String>> {
-    // adr::reserve()
+    let cwd = cmd.cwd.unwrap_or(std::env::current_dir()?);
+    let _ = adr::reserve(&cwd, cmd.number, cmd.title, cmd.format)?;
     Ok(Some(String::new()))
 }

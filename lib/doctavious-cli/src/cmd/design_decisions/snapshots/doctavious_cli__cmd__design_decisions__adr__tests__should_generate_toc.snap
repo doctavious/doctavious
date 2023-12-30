@@ -4,6 +4,6 @@ expression: toc
 ---
 # Architecture Decision Records
 
-* [`1. The First Decision`](/[DIR]/0001-the-first-decision.md)
-* [`2. The Second Decision`](/[DIR]/0002-the-second-decision.md)
+* [`1. The First Decision`](/[DIR]/docs/adr/0001-the-first-decision.md)
+* [`2. The Second Decision`](/[DIR]/docs/adr/0002-the-second-decision.md)
 

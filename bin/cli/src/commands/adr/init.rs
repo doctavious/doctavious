@@ -1,11 +1,12 @@
 use std::path::PathBuf;
+
 use clap::Parser;
 use doctavious_cli::cmd::design_decisions::adr;
 use doctavious_cli::file_structure::FileStructure;
 use doctavious_cli::markup_format::MarkupFormat;
+use doctavious_cli::settings::DEFAULT_ADR_DIR;
 use doctavious_cli::CliResult;
 use strum::VariantNames;
-use doctavious_cli::settings::DEFAULT_ADR_DIR;
 
 use crate::clap_enum_variants;
 
@@ -15,7 +16,6 @@ use crate::clap_enum_variants;
 #[derive(Parser, Debug)]
 #[command(name = "init")]
 pub(crate) struct InitADR {
-
     #[arg(long, short)]
     pub cwd: Option<PathBuf>,
 
@@ -48,7 +48,12 @@ pub(crate) struct InitADR {
 
 pub(crate) fn execute(cmd: InitADR) -> CliResult<Option<String>> {
     let cwd = cmd.cwd.unwrap_or(std::env::current_dir()?);
-    let output = adr::init(cwd.as_path(), Some(cmd.directory), cmd.structure, cmd.format)?;
+    let output = adr::init(
+        cwd.as_path(),
+        Some(cmd.directory),
+        cmd.structure,
+        cmd.format,
+    )?;
 
     Ok(Some(output.to_string_lossy().to_string()))
 }

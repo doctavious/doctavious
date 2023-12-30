@@ -1,33 +1,42 @@
-use clap::builder::PossibleValuesParser;
+use std::path::PathBuf;
+use std::str::FromStr;
+
 use clap::Parser;
-use doctavious_cli::cmd::design_decisions::adr;
-use doctavious_cli::file_structure::FileStructure;
-use doctavious_cli::markup_format::MarkupFormat;
+use doctavious_cli::cmd::design_decisions::{adr, LinkReference};
 use doctavious_cli::CliResult;
 
-use crate::commands::adr::init::InitADR;
-
-/// Link ADRs
+/// Creates a link between two ADRs, from SOURCE to TARGET
 #[derive(Parser, Debug)]
 #[command(name = "link")]
 pub(crate) struct LinkADRs {
-    /// Reference number of source ADR
     #[arg(long, short)]
-    pub source: i32,
+    pub cwd: Option<PathBuf>,
+
+    /// Reference number or (partial) filename of source ADR
+    #[arg(long, short)]
+    pub source: String,
 
     /// Description of the link created in the new ADR
     #[arg(long, short)]
     pub link: String,
 
-    #[arg(long, short, help = "Reference number of target ADR")]
-    pub target: i32,
+    /// Reference number or (partial) filename of target ADR
+    #[arg(long, short)]
+    pub target: String,
 
-    /// Description of the link created in the existing ADR that will refer to new ADR
+    /// Description of the link created in the target ADR
     #[arg(long, short)]
     pub reverse_link: String,
 }
 
 pub(crate) fn execute(cmd: LinkADRs) -> CliResult<Option<String>> {
-    // adr::link()
+    let cwd = cmd.cwd.unwrap_or(std::env::current_dir()?);
+    let _ = adr::link(
+        &cwd,
+        LinkReference::from_str(cmd.source.as_str())?,
+        &cmd.link,
+        LinkReference::from_str(cmd.target.as_str())?,
+        &cmd.reverse_link,
+    )?;
     Ok(Some(String::new()))
 }

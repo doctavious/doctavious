@@ -324,21 +324,15 @@ impl Settings {
     }
 }
 
-pub(crate) fn get_settings_file() -> PathBuf {
-    // I dont love having to use env vars here but dont seems like the most convenient way, for the time being,
-    // to get around issues of tests writing to the same settings file. It might be better to just have most of the
-    // functions take in a `cwd` arg but not sure that solves all the issues.
-    match std::env::var_os(DOCTAVIOUS_ENV_SETTINGS_PATH) {
-        None => SETTINGS_FILE.to_path_buf(),
-        Some(path) => PathBuf::from(path).join(SETTINGS_FILE.to_path_buf()),
-    }
+pub(crate) fn get_settings_file(cwd: &Path) -> PathBuf {
+    cwd.join(SETTINGS_FILE.to_path_buf())
 }
 
 #[cfg(not(test))]
-pub(crate) fn load_settings<'a>() -> CliResult<Cow<'a, Settings>> {
+pub(crate) fn load_settings<'a>(cwd: &Path) -> CliResult<Cow<'a, Settings>> {
     let settings = SETTINGS
         .get_or_init(|| {
-            let settings_path = get_settings_file();
+            let settings_path = get_settings_file(cwd);
             if settings_path.is_file() {
                 let contents = fs::read_to_string(settings_path).unwrap();
                 match toml::from_str(contents.as_str()) {
@@ -356,8 +350,8 @@ pub(crate) fn load_settings<'a>() -> CliResult<Cow<'a, Settings>> {
 }
 
 #[cfg(test)]
-pub(crate) fn load_settings<'a>() -> CliResult<Cow<'a, Settings>> {
-    let settings_path = get_settings_file();
+pub(crate) fn load_settings<'a>(cwd: &Path) -> CliResult<Cow<'a, Settings>> {
+    let settings_path = get_settings_file(cwd);
     let settings = if settings_path.is_file() {
         let contents = fs::read_to_string(settings_path).unwrap();
         toml::from_str(contents.as_str())?
@@ -372,14 +366,14 @@ pub(crate) fn load_settings<'a>() -> CliResult<Cow<'a, Settings>> {
 // TODO: should this take in a mut writer, i.e., a mutable thing we call “writer”.
 // Its type is impl std::io::Write
 // so that its a bit easier to test?
-pub(crate) fn persist_settings(settings: &Settings) -> CliResult<()> {
+pub(crate) fn persist_settings(cwd: &Path, settings: &Settings) -> CliResult<()> {
     let content = toml::to_string(&settings)?;
-    let settings_file = get_settings_file();
+    let settings_file = get_settings_file(cwd);
     println!(
         "persisting settings file: {:?} with content {content}",
         settings_file
     );
-    fs::write(get_settings_file(), content)?;
+    fs::write(settings_file, content)?;
     Ok(())
 }
 

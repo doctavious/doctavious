@@ -77,8 +77,9 @@ pub(crate) fn execute(command: GenerateADRs) -> CliResult<Option<String>> {
 }
 
 fn execute_generate_toc(cmd: AdrToc) -> CliResult<Option<String>> {
+    let cwd = cmd.cwd.unwrap_or(std::env::current_dir()?);
     let output = generate_toc(
-        cmd.cwd.as_deref(),
+        &cwd,
         cmd.format,
         cmd.intro.as_deref(),
         cmd.outro.as_deref(),

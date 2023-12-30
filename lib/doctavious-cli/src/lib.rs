@@ -7,7 +7,7 @@ mod git;
 pub mod markup_format;
 pub mod settings;
 mod templates;
-mod templating;
+pub mod templating;
 
 use thiserror::Error;
 

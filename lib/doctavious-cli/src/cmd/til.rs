@@ -25,8 +25,8 @@ struct TilEntry {
     date: DateTime<Utc>,
 }
 
-pub(crate) fn init(directory: Option<PathBuf>, extension: MarkupFormat) -> CliResult<()> {
-    let mut settings = load_settings()?.into_owned();
+pub(crate) fn init(cwd: &Path, directory: Option<PathBuf>, extension: MarkupFormat) -> CliResult<()> {
+    let mut settings = load_settings(cwd)?.into_owned();
     let dir = directory.unwrap_or_else(|| PathBuf::from(DEFAULT_TIL_DIR));
     let directory_string = dir.to_string_lossy().to_string();
 
@@ -36,7 +36,7 @@ pub(crate) fn init(directory: Option<PathBuf>, extension: MarkupFormat) -> CliRe
     };
     settings.til_settings = Some(til_settings);
 
-    persist_settings(&settings)?;
+    persist_settings(cwd, &settings)?;
     init_dir(&dir)?;
 
     Ok(())

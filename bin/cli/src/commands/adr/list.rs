@@ -15,8 +15,8 @@ pub(crate) struct ListADRs {
     pub cwd: Option<PathBuf>,
 }
 
-pub(crate) fn execute(command: ListADRs) -> CliResult<Option<String>> {
-    list(command.cwd.as_deref(), MarkupFormat::Markdown)?;
-
-    Ok(Some(String::new()))
+pub(crate) fn execute(cmd: ListADRs) -> CliResult<Option<String>> {
+    let cwd = cmd.cwd.unwrap_or(std::env::current_dir()?);
+    let output = list(&cwd, MarkupFormat::Markdown)?;
+    Ok(Some(output.iter().map(|p| p.to_string_lossy()).collect::<Vec<_>>().join("\n")))
 }

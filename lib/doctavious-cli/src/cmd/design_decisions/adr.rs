@@ -1,4 +1,3 @@
-use std::borrow::Cow;
 use std::fmt::Display;
 use std::fs;
 use std::io::{BufRead, BufReader, Write};
@@ -17,7 +16,11 @@ use crate::cmd::design_decisions::{
 use crate::file_structure::FileStructure;
 use crate::files::ensure_path;
 use crate::markup_format::MarkupFormat;
-use crate::settings::{init_dir, load_settings, persist_settings, AdrSettings, DEFAULT_ADR_DIR, DEFAULT_ADR_INIT_TEMPLATE_PATH, DEFAULT_ADR_RECORD_TEMPLATE_PATH, DEFAULT_ADR_TOC_TEMPLATE_PATH, Settings};
+use crate::settings::{
+    init_dir, load_settings, persist_settings, AdrSettings, Settings, DEFAULT_ADR_DIR,
+    DEFAULT_ADR_INIT_TEMPLATE_PATH, DEFAULT_ADR_RECORD_TEMPLATE_PATH,
+    DEFAULT_ADR_TOC_TEMPLATE_PATH,
+};
 use crate::templates::{get_template, get_title};
 use crate::templating::{AdrTemplateType, TemplateContext, TemplateType, Templates};
 use crate::{edit, git, CliResult, DoctaviousCliError};
@@ -35,14 +38,14 @@ pub fn init(
     structure: FileStructure,
     format: MarkupFormat,
 ) -> CliResult<PathBuf> {
-    let mut settings: Settings = load_settings()?.into_owned();
+    let mut settings: Settings = load_settings(cwd)?.into_owned();
     if settings.adr_settings.is_some() {
         return Err(DoctaviousCliError::DesignDecisionErrors(
             DesignDecisionErrors::DesignDocAlreadyInitialized,
         ));
     }
 
-    let dir = cwd.join( path.unwrap_or_else(|| PathBuf::from(DEFAULT_ADR_DIR)));
+    let dir = cwd.join(path.unwrap_or_else(|| PathBuf::from(DEFAULT_ADR_DIR)));
     if dir.exists() {
         return Err(DoctaviousCliError::DesignDecisionErrors(
             DesignDecisionErrors::DesignDocDirectoryAlreadyExists,
@@ -56,11 +59,11 @@ pub fn init(
         template_format: format,
     });
 
-    persist_settings(&settings)?;
+    persist_settings(cwd, &settings)?;
     init_dir(&dir)?;
 
     return new(
-        Some(&dir),
+        &dir,
         Some(1),
         "Record Architecture Decisions",
         AdrTemplateType::Init,
@@ -74,7 +77,7 @@ pub fn init(
 ///
 /// This does not require `init` to be called prior as it will use appropriate defaults
 pub fn new(
-    cwd: Option<&Path>,
+    cwd: &Path,
     number: Option<u32>,
     title: &str,
     template_type: AdrTemplateType,
@@ -82,18 +85,18 @@ pub fn new(
     supersedes: Option<Vec<String>>,
     links: Option<Vec<String>>,
 ) -> CliResult<PathBuf> {
-    let settings = load_settings()?.into_owned();
-    let dir = get_adr_dir(cwd)?;
+    let settings = load_settings(cwd)?.into_owned();
+    let dir = get_adr_dir(cwd, true)?;
 
     let template = get_template(
-        dir.as_ref(),
+        &dir,
         TemplateType::Adr(template_type),
         &format.extension(),
     );
-    let reserve_number = reserve_number(dir.as_ref(), number, settings.get_adr_structure())?;
+    let reserve_number = reserve_number(&dir, number, settings.get_adr_structure())?;
     let formatted_reserved_number = format_number(&reserve_number);
     let output_path = build_path(
-        dir.as_ref(),
+        &dir,
         title,
         &formatted_reserved_number,
         format,
@@ -121,7 +124,7 @@ pub fn new(
         for target in targets {
             let target_reference = LinkReference::from_str(target.as_str())?;
             // TODO: clean this up
-            let target_path = target_reference.get_path(dir.as_ref()).ok_or(
+            let target_path = target_reference.get_record(&dir).ok_or(
                 DesignDecisionErrors::UnknownDesignDocument(target.to_string()),
             )?;
             add_link(
@@ -150,8 +153,8 @@ pub fn new(
 
             let target_reference = LinkReference::from_str(parts[0])?;
 
-            add_link(dir.as_ref(), &dest_reference, parts[1], &target_reference)?;
-            add_link(dir.as_ref(), &target_reference, parts[2], &dest_reference)?;
+            add_link(&dir, &dest_reference, parts[1], &target_reference)?;
+            add_link(&dir, &target_reference, parts[2], &dest_reference)?;
         }
     }
 
@@ -161,10 +164,10 @@ pub fn new(
 }
 
 // TODO: format should be optional? Try and determine from settings otherwise either default or look for both
-pub fn list(cwd: Option<&Path>, format: MarkupFormat) -> CliResult<Vec<PathBuf>> {
-    let dir = get_adr_dir(cwd)?;
+pub fn list(cwd: &Path, format: MarkupFormat) -> CliResult<Vec<PathBuf>> {
+    let dir = get_adr_dir(cwd, false)?;
 
-    Ok(design_decisions::list(dir.as_ref(), format)?)
+    Ok(design_decisions::list(&dir, format)?)
 }
 
 // implement ADR / RFD reserve command
@@ -186,16 +189,16 @@ pub fn list(cwd: Option<&Path>, format: MarkupFormat) -> CliResult<Vec<PathBuf>>
 // from the RFD in the branch until it is merged.
 // I think this would be implemented as a    git hook
 pub fn reserve(
-    cwd: Option<&Path>,
+    cwd: &Path,
     number: Option<u32>,
     title: String,
     format: MarkupFormat,
 ) -> CliResult<()> {
-    let settings = load_settings()?;
-    let dir = get_adr_dir(cwd)?;
-    let reserve_number = reserve_number(dir.as_ref(), number, settings.get_adr_structure())?;
+    let settings = load_settings(cwd)?;
+    let dir = get_adr_dir(cwd, false)?;
+    let reserve_number = reserve_number(&dir, number, settings.get_adr_structure())?;
 
-    let repo = Repository::open(dir.as_ref())?;
+    let repo = Repository::open(&dir)?;
     if git::branch_exists(&repo, reserve_number).is_err() {
         // TODO: use a different error than git2
         return Err(git2::Error::from_str("branch already exists in remote. Please pull.").into());
@@ -204,7 +207,7 @@ pub fn reserve(
     git::checkout_branch(&repo, reserve_number.to_string().as_str())?;
 
     let new_adr = new(
-        Some(dir.as_ref()),
+        &dir,
         number,
         title.as_str(),
         AdrTemplateType::Record,
@@ -227,25 +230,25 @@ pub fn reserve(
 /// REVERSE-LINK is the description of the link created in the TARGET
 pub fn link(
     cwd: &Path,
-    source: &LinkReference,
+    source: LinkReference,
     forward_link: &str,
-    target: &LinkReference,
+    target: LinkReference,
     reverse_link: &str,
 ) -> CliResult<()> {
-    // let dir = get_adr_dir(cwd);
-    add_link(cwd, source, forward_link, target)?;
-    add_link(cwd, target, reverse_link, source)?;
+    let dir = get_adr_dir(cwd, false)?;
+    add_link(&dir, &source, forward_link, &target)?;
+    add_link(&dir, &target, reverse_link, &source)?;
     Ok(())
 }
 
 fn add_link(
-    cwd: &Path,
+    adr_dir: &Path,
     source: &LinkReference,
     link: &str,
     target: &LinkReference,
 ) -> CliResult<()> {
     let target_path = target
-        .get_path(cwd)
+        .get_record(adr_dir)
         .ok_or(DesignDecisionErrors::UnknownDesignDocument(
             target.to_string(),
         ))?;
@@ -257,7 +260,7 @@ fn add_link(
     );
 
     let source_path = source
-        .get_path(cwd)
+        .get_record(adr_dir)
         .ok_or(DesignDecisionErrors::UnknownDesignDocument(
             source.to_string(),
         ))?;
@@ -265,6 +268,13 @@ fn add_link(
 
     let mut in_status_section = false;
     let mut new_lines = vec![];
+
+    let formatted_link = if let Ok(stripped) = target_path.strip_prefix(adr_dir) {
+        stripped.to_string_lossy()
+    } else {
+        target_path.to_string_lossy()
+    };
+
 
     // TODO(Sean): while this logic is straight forward I might, some day, want to swap for
     // modifying an AST to make changes.
@@ -276,7 +286,7 @@ fn add_link(
                 new_lines.push(format!(
                     "{link} [{}]({})",
                     target_title.clone(), // TODO: not sure how to avoid the clone
-                    target_path.to_string_lossy()
+                    formatted_link
                 ));
                 new_lines.push(String::new());
             }
@@ -338,13 +348,13 @@ fn remove_status(path: &Path, current_status: &str) -> CliResult<()> {
 pub fn generate_csv() {}
 
 pub fn generate_toc(
-    cwd: Option<&Path>,
+    cwd: &Path,
     format: MarkupFormat,
     intro: Option<&str>,
     outro: Option<&str>,
     link_prefix: Option<&str>,
 ) -> CliResult<String> {
-    let dir = get_adr_dir(cwd)?;
+    let dir = get_adr_dir(cwd, false)?;
 
     #[derive(Clone, Debug, Serialize)]
     struct AdrEntry {
@@ -401,12 +411,12 @@ pub fn generate_toc(
 
 // TODO: option for global template
 pub(crate) fn add_custom_template(
-    cwd: Option<&Path>,
+    cwd: &Path,
     template: AdrTemplateType,
     format: MarkupFormat,
     content: &str,
 ) -> CliResult<()> {
-    let dir = get_adr_dir(cwd)?;
+    let dir = get_adr_dir(cwd, false)?;
 
     let template_path = match template {
         AdrTemplateType::Init => DEFAULT_ADR_INIT_TEMPLATE_PATH,
@@ -422,19 +432,18 @@ pub(crate) fn add_custom_template(
     Ok(())
 }
 
-fn get_adr_dir(cwd: Option<&Path>) -> CliResult<Cow<Path>> {
-    // TODO: do we need this into_owned?
-    let settings = load_settings()?.into_owned();
-    let path = if let Some(cwd) = cwd {
-        Cow::Borrowed(cwd)
-    } else {
-        Cow::Owned(PathBuf::from(settings.get_adr_dir()))
-    };
+fn get_adr_dir(cwd: &Path, create_if_missing: bool) -> CliResult<PathBuf> {
+    let settings = load_settings(cwd)?;
+    let path = cwd.join(settings.get_adr_dir());
 
     if !path.is_dir() {
-        return Err(DoctaviousCliError::DesignDecisionErrors(
-            DesignDecisionErrors::DesignDocDirectoryInvalid,
-        ));
+        if create_if_missing {
+            fs::create_dir_all(&path)?;
+        } else {
+            return Err(DoctaviousCliError::DesignDecisionErrors(
+                DesignDecisionErrors::DesignDocDirectoryInvalid,
+            ));
+        }
     }
 
     Ok(path)
@@ -462,12 +471,11 @@ mod tests {
 
         temp_env::with_vars(
             [
-                (DOCTAVIOUS_ENV_SETTINGS_PATH, Some(dir.path())),
                 ("EDITOR", Some(Path::new("./tests/fixtures/noop-editor"))),
             ],
             || {
                 let path = new(
-                    Some(dir.path()),
+                    dir.path(),
                     None,
                     "The First Decision",
                     AdrTemplateType::Record,
@@ -495,12 +503,11 @@ mod tests {
 
         temp_env::with_vars(
             [
-                (DOCTAVIOUS_ENV_SETTINGS_PATH, Some(dir.path())),
                 ("EDITOR", Some(Path::new("./tests/fixtures/noop-editor"))),
             ],
             || {
                 let first = new(
-                    Some(dir.path()),
+                    dir.path(),
                     None,
                     "The First Decision",
                     AdrTemplateType::Record,
@@ -511,7 +518,7 @@ mod tests {
                 .unwrap();
 
                 let second = new(
-                    Some(dir.path()),
+                    dir.path(),
                     None,
                     "The Second Decision",
                     AdrTemplateType::Record,
@@ -522,7 +529,7 @@ mod tests {
                 .unwrap();
 
                 let third = new(
-                    Some(dir.path()),
+                    dir.path(),
                     None,
                     "The Third Decision",
                     AdrTemplateType::Record,
@@ -552,12 +559,11 @@ mod tests {
 
         temp_env::with_vars(
             [
-                (DOCTAVIOUS_ENV_SETTINGS_PATH, Some(dir.path())),
                 ("EDITOR", Some(Path::new("./tests/fixtures/fake-editor"))),
             ],
             || {
                 let path = new(
-                    Some(dir.path()),
+                    dir.path(),
                     None,
                     "The First Decision",
                     AdrTemplateType::Record,
@@ -581,12 +587,11 @@ mod tests {
 
         temp_env::with_vars(
             [
-                (DOCTAVIOUS_ENV_SETTINGS_PATH, Some(dir.path())),
                 ("VISUAL", Some(Path::new("./tests/fixtures/fake-visual"))),
             ],
             || {
                 let path = new(
-                    Some(dir.path()),
+                    dir.path(),
                     None,
                     "The First Decision",
                     AdrTemplateType::Record,
@@ -610,12 +615,11 @@ mod tests {
 
         temp_env::with_vars(
             [
-                (DOCTAVIOUS_ENV_SETTINGS_PATH, Some(dir.path())),
                 ("EDITOR", Some(Path::new("./tests/fixtures/noop-editor"))),
             ],
             || {
                 let first = new(
-                    Some(dir.path()),
+                    dir.path(),
                     None,
                     "The First Decision",
                     AdrTemplateType::Record,
@@ -626,7 +630,7 @@ mod tests {
                 .unwrap();
 
                 let second = new(
-                    Some(dir.path()),
+                    dir.path(),
                     None,
                     "The Second Decision",
                     AdrTemplateType::Record,
@@ -636,7 +640,7 @@ mod tests {
                 )
                 .unwrap();
 
-                let toc = generate_toc(Some(dir.path()), MarkupFormat::Markdown, None, None, None)
+                let toc = generate_toc(dir.path(), MarkupFormat::Markdown, None, None, None)
                     .unwrap();
 
                 insta::with_settings!({filters => vec![
@@ -656,12 +660,11 @@ mod tests {
 
         temp_env::with_vars(
             [
-                (DOCTAVIOUS_ENV_SETTINGS_PATH, Some(dir.path())),
                 ("EDITOR", Some(Path::new("./tests/fixtures/noop-editor"))),
             ],
             || {
                 let first = new(
-                    Some(dir.path()),
+                    dir.path(),
                     None,
                     "The First Decision",
                     AdrTemplateType::Record,
@@ -672,7 +675,7 @@ mod tests {
                 .unwrap();
 
                 let second = new(
-                    Some(dir.path()),
+                    dir.path(),
                     None,
                     "The Second Decision",
                     AdrTemplateType::Record,
@@ -683,7 +686,7 @@ mod tests {
                 .unwrap();
 
                 let toc = generate_toc(
-                    Some(dir.path()),
+                    dir.path(),
                     MarkupFormat::Markdown,
                     Some(
                         r#"An intro.
@@ -712,12 +715,11 @@ Multiple paragraphs."#,
 
         temp_env::with_vars(
             [
-                (DOCTAVIOUS_ENV_SETTINGS_PATH, Some(dir.path())),
                 ("EDITOR", Some(Path::new("./tests/fixtures/noop-editor"))),
             ],
             || {
                 let first = new(
-                    Some(dir.path()),
+                    dir.path(),
                     None,
                     "The First Decision",
                     AdrTemplateType::Record,
@@ -728,7 +730,7 @@ Multiple paragraphs."#,
                 .unwrap();
 
                 let second = new(
-                    Some(dir.path()),
+                    dir.path(),
                     None,
                     "The Second Decision",
                     AdrTemplateType::Record,
@@ -739,7 +741,7 @@ Multiple paragraphs."#,
                 .unwrap();
 
                 let toc = generate_toc(
-                    Some(dir.path()),
+                    dir.path(),
                     MarkupFormat::Markdown,
                     None,
                     None,
@@ -764,12 +766,11 @@ Multiple paragraphs."#,
 
         temp_env::with_vars(
             [
-                (DOCTAVIOUS_ENV_SETTINGS_PATH, Some(dir.path())),
                 ("EDITOR", Some(Path::new("./tests/fixtures/noop-editor"))),
             ],
             || {
                 let first = new(
-                    Some(dir.path()),
+                    dir.path(),
                     None,
                     "First Record",
                     AdrTemplateType::Record,
@@ -780,7 +781,7 @@ Multiple paragraphs."#,
                 .unwrap();
 
                 let second = new(
-                    Some(dir.path()),
+                    dir.path(),
                     None,
                     "Second Record",
                     AdrTemplateType::Record,
@@ -791,7 +792,7 @@ Multiple paragraphs."#,
                 .unwrap();
 
                 let third = new(
-                    Some(dir.path()),
+                    dir.path(),
                     None,
                     "Third Record",
                     AdrTemplateType::Record,
@@ -803,18 +804,18 @@ Multiple paragraphs."#,
 
                 link(
                     dir.path(),
-                    &LinkReference::Number(3),
+                    LinkReference::Number(3),
                     "Amends",
-                    &LinkReference::Number(1),
+                    LinkReference::Number(1),
                     "Amended by",
                 )
                 .unwrap();
 
                 link(
                     dir.path(),
-                    &LinkReference::Number(3),
+                    LinkReference::Number(3),
                     "Clarifies",
-                    &LinkReference::Number(2),
+                    LinkReference::Number(2),
                     "Clarified by",
                 )
                 .unwrap();
@@ -839,12 +840,11 @@ Multiple paragraphs."#,
 
         temp_env::with_vars(
             [
-                (DOCTAVIOUS_ENV_SETTINGS_PATH, Some(dir.path())),
                 ("EDITOR", Some(Path::new("./tests/fixtures/noop-editor"))),
             ],
             || {
                 let first = new(
-                    Some(dir.path()),
+                    dir.path(),
                     None,
                     "First Record",
                     AdrTemplateType::Record,
@@ -855,7 +855,7 @@ Multiple paragraphs."#,
                 .unwrap();
 
                 let second = new(
-                    Some(dir.path()),
+                    dir.path(),
                     None,
                     "Second Record",
                     AdrTemplateType::Record,
@@ -866,7 +866,7 @@ Multiple paragraphs."#,
                 .unwrap();
 
                 let third = new(
-                    Some(dir.path()),
+                    dir.path(),
                     None,
                     "Third Record",
                     AdrTemplateType::Record,
@@ -880,7 +880,6 @@ Multiple paragraphs."#,
                 .unwrap();
 
                 insta::with_settings!({filters => vec![
-                    (dir.path().to_str().unwrap(), "[DIR]"),
                     (r"\d{4}-\d{2}-\d{2}", "[DATE]")
                 ]}, {
                     insta::assert_snapshot!(fs::read_to_string(first).unwrap());
@@ -899,12 +898,11 @@ Multiple paragraphs."#,
 
         temp_env::with_vars(
             [
-                (DOCTAVIOUS_ENV_SETTINGS_PATH, Some(dir.path())),
                 ("EDITOR", Some(Path::new("./tests/fixtures/noop-editor"))),
             ],
             || {
                 let first = new(
-                    Some(dir.path()),
+                    dir.path(),
                     None,
                     "First Record",
                     AdrTemplateType::Record,
@@ -915,7 +913,7 @@ Multiple paragraphs."#,
                 .unwrap();
 
                 let second = new(
-                    Some(dir.path()),
+                    dir.path(),
                     None,
                     "Second Record",
                     AdrTemplateType::Record,
@@ -926,7 +924,6 @@ Multiple paragraphs."#,
                 .unwrap();
 
                 insta::with_settings!({filters => vec![
-                    (dir.path().to_str().unwrap(), "[DIR]"),
                     (r"\d{4}-\d{2}-\d{2}", "[DATE]")
                 ]}, {
                     insta::assert_snapshot!(fs::read_to_string(first).unwrap());
@@ -944,12 +941,11 @@ Multiple paragraphs."#,
 
         temp_env::with_vars(
             [
-                (DOCTAVIOUS_ENV_SETTINGS_PATH, Some(dir.path())),
                 ("EDITOR", Some(Path::new("./tests/fixtures/noop-editor"))),
             ],
             || {
                 let first = new(
-                    Some(dir.path()),
+                    dir.path(),
                     None,
                     "First Record",
                     AdrTemplateType::Record,
@@ -960,7 +956,7 @@ Multiple paragraphs."#,
                 .unwrap();
 
                 let second = new(
-                    Some(dir.path()),
+                    dir.path(),
                     None,
                     "Second Record",
                     AdrTemplateType::Record,
@@ -971,7 +967,7 @@ Multiple paragraphs."#,
                 .unwrap();
 
                 let third = new(
-                    Some(dir.path()),
+                    dir.path(),
                     None,
                     "Third Record",
                     AdrTemplateType::Record,
@@ -982,7 +978,6 @@ Multiple paragraphs."#,
                 .unwrap();
 
                 insta::with_settings!({filters => vec![
-                    (dir.path().to_str().unwrap(), "[DIR]"),
                     (r"\d{4}-\d{2}-\d{2}", "[DATE]")
                 ]}, {
                     insta::assert_snapshot!(fs::read_to_string(first).unwrap());
@@ -1001,12 +996,11 @@ Multiple paragraphs."#,
 
         temp_env::with_vars(
             [
-                (DOCTAVIOUS_ENV_SETTINGS_PATH, Some(dir.path())),
                 ("EDITOR", Some(Path::new("./tests/fixtures/noop-editor"))),
             ],
             || {
                 let first = new(
-                    Some(dir.path()),
+                    dir.path(),
                     None,
                     "The First Decision",
                     AdrTemplateType::Record,
@@ -1017,7 +1011,7 @@ Multiple paragraphs."#,
                 .unwrap();
 
                 let second = new(
-                    Some(dir.path()),
+                    dir.path(),
                     None,
                     "The Second Decision",
                     AdrTemplateType::Record,
@@ -1027,11 +1021,10 @@ Multiple paragraphs."#,
                 )
                 .unwrap();
 
-                let adrs = list(Some(dir.path()), MarkupFormat::Markdown).unwrap();
+                let adrs = list(dir.path(), MarkupFormat::Markdown).unwrap();
 
                 assert_eq!(2, adrs.len());
                 insta::with_settings!({filters => vec![
-                    (dir.path().to_str().unwrap(), "[DIR]"),
                     (r"\d{4}-\d{2}-\d{2}", "[DATE]")
                 ]}, {
                     insta::assert_snapshot!(fs::read_to_string(&adrs[0]).unwrap());
@@ -1049,7 +1042,6 @@ Multiple paragraphs."#,
 
         temp_env::with_vars(
             [
-                (DOCTAVIOUS_ENV_SETTINGS_PATH, Some(dir.path())),
                 ("EDITOR", Some(Path::new("./tests/fixtures/noop-editor"))),
             ],
             || {
@@ -1062,7 +1054,7 @@ Multiple paragraphs."#,
                 .expect("should init adr");
 
                 add_custom_template(
-                    Some(dir.path()),
+                    dir.path(),
                     AdrTemplateType::Record,
                     MarkupFormat::Markdown,
                     r#"# TITLE
@@ -1083,7 +1075,7 @@ Date: {{ date }}
                 .unwrap();
 
                 let custom_template = new(
-                    Some(dir.path()),
+                    dir.path(),
                     None,
                     "Custom Template Record",
                     AdrTemplateType::Record,
@@ -1094,7 +1086,6 @@ Date: {{ date }}
                 .unwrap();
 
                 insta::with_settings!({filters => vec![
-                    (dir.path().to_str().unwrap(), "[DIR]"),
                     (r"\d{4}-\d{2}-\d{2}", "[DATE]")
                 ]}, {
                     insta::assert_snapshot!(fs::read_to_string(custom_template).unwrap());
@@ -1111,7 +1102,6 @@ Date: {{ date }}
 
         temp_env::with_vars(
             [
-                (DOCTAVIOUS_ENV_SETTINGS_PATH, Some(dir.path())),
                 ("EDITOR", Some(Path::new("./tests/fixtures/noop-editor"))),
             ],
             || {
@@ -1126,7 +1116,6 @@ Date: {{ date }}
                 let content = fs::read_to_string(path).unwrap();
 
                 insta::with_settings!({filters => vec![
-                    (dir.path().to_str().unwrap(), "[DIR]"),
                     (r"\d{4}-\d{2}-\d{2}", "[DATE]")
                 ]}, {
                     insta::assert_snapshot!(content);
@@ -1143,7 +1132,6 @@ Date: {{ date }}
 
         temp_env::with_vars(
             [
-                (DOCTAVIOUS_ENV_SETTINGS_PATH, Some(dir.path())),
                 ("EDITOR", Some(Path::new("./tests/fixtures/fake-editor"))),
             ],
             || {
@@ -1170,7 +1158,6 @@ Date: {{ date }}
         let dir = TempDir::new().unwrap();
         temp_env::with_vars(
             [
-                (DOCTAVIOUS_ENV_SETTINGS_PATH, Some(dir.path())),
                 ("EDITOR", Some(Path::new("./tests/fixtures/fake-editor"))),
             ],
             || {
