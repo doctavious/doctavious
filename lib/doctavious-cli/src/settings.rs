@@ -110,8 +110,12 @@ pub struct AdrSettings {
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RFDSettings {
     pub dir: Option<String>,
-    pub structure: Option<FileStructure>,
-    pub template_format: Option<MarkupFormat>,
+
+    #[serde(default)]
+    pub structure: FileStructure,
+
+    #[serde(default)]
+    pub template_format: MarkupFormat,
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
@@ -237,7 +241,7 @@ impl Settings {
             }
         }
 
-        return DEFAULT_ADR_DIR;
+        DEFAULT_RFD_DIR
     }
 
     #[cfg(test)]
@@ -257,12 +261,10 @@ impl Settings {
 
     pub fn get_rfd_structure(&self) -> FileStructure {
         if let Some(settings) = &self.rfd_settings {
-            if let Some(structure) = settings.structure {
-                return structure;
-            }
+            settings.structure
+        } else {
+            FileStructure::default()
         }
-
-        return FileStructure::default();
     }
 
     pub fn get_rfd_template_extension(&self, extension: Option<MarkupFormat>) -> MarkupFormat {
@@ -271,16 +273,14 @@ impl Settings {
         }
 
         if let Some(settings) = &self.rfd_settings {
-            if let Some(template_extension) = settings.template_format {
-                return template_extension;
-            }
+            return settings.template_format;
         }
 
         if let Some(template_extension) = self.template_format {
             return template_extension;
         }
 
-        return MarkupFormat::default();
+        MarkupFormat::default()
     }
 
     pub fn get_til_dir(&self) -> &str {
@@ -290,7 +290,7 @@ impl Settings {
             }
         }
 
-        return DEFAULT_TIL_DIR;
+        DEFAULT_TIL_DIR
     }
 
     // TODO: I might revert having this take in an extension and rather just have a function in til

@@ -3,8 +3,7 @@ use doctavious_cli::cmd::{build, deploy, frameworks};
 use tracing::error;
 
 use crate::commands::frameworks::FrameworkSubCommand;
-use crate::commands::rfd::RFDSubCommand;
-use crate::commands::{adr, Command, Opt};
+use crate::commands::{adr, Command, Opt, rfd};
 
 mod commands;
 mod config;
@@ -45,13 +44,7 @@ fn main() {
         },
         Command::Init(..) => unimplemented!(),
         Command::Link(..) => unimplemented!(),
-        Command::Rfd(cmd) => match cmd.rfd_command {
-            RFDSubCommand::Init(_) => unimplemented!(),
-            RFDSubCommand::New(_) => unimplemented!(),
-            RFDSubCommand::List(_) => unimplemented!(),
-            RFDSubCommand::Generate(_) => unimplemented!(),
-            RFDSubCommand::Reserve(_) => unimplemented!(),
-        },
+        Command::Rfd(cmd) => rfd::execute(cmd),
         Command::Til(..) => unimplemented!(),
         Command::WhoAmI(..) => unimplemented!(),
     };

@@ -1,4 +1,4 @@
-use std::borrow::{Borrow};
+use std::borrow::Borrow;
 use std::fs;
 use std::io::BufReader;
 use std::path::{Path, PathBuf};
@@ -25,11 +25,11 @@ use crate::{edit, git, CliResult, DoctaviousCliError};
 // RFD parsing: https://github.com/oxidecomputer/cio/blob/master/parse-rfd/src/lib.rs
 // https://github.com/oxidecomputer/cio/tree/master/parse-rfd/parser
 
-pub(crate) fn init(
+pub fn init(
     cwd: &Path,
     path: Option<PathBuf>,
     structure: FileStructure,
-    extension: Option<MarkupFormat>,
+    format: MarkupFormat,
 ) -> CliResult<PathBuf> {
     let mut settings = load_settings(cwd)?.into_owned();
     let path = path.unwrap_or_else(|| PathBuf::from(DEFAULT_RFD_DIR));
@@ -43,22 +43,20 @@ pub(crate) fn init(
     let directory_string = dir.to_string_lossy().to_string();
     let rfd_settings = RFDSettings {
         dir: Some(directory_string),
-        structure: Some(structure),
-        template_format: extension,
+        structure,
+        template_format: format,
     };
     settings.rfd_settings = Some(rfd_settings);
 
     persist_settings(cwd, &settings)?;
     init_dir(&dir)?;
 
-    let rfd_extension = settings.get_rfd_template_extension(extension);
-
     // TODO: fix
     // https://github.com/gravitational/teleport/blob/master/rfd/0000-rfds.md
-    new(cwd, Some(1), "Use RFDs ...", rfd_extension)
+    new(cwd, Some(1), "Use RFDs ...", format)
 }
 
-pub(crate) fn new(
+pub fn new(
     cwd: &Path,
     number: Option<u32>,
     title: &str,
@@ -104,7 +102,7 @@ pub(crate) fn new(
 
 // https://oxide.computer/blog/rfd-1-requests-for-discussion
 // https://oxide.computer/blog/a-tool-for-discussion
-pub(crate) fn reserve(
+pub fn reserve(
     cwd: &Path,
     number: Option<u32>,
     title: String,
@@ -113,11 +111,7 @@ pub(crate) fn reserve(
     let settings = load_settings(cwd)?;
     let dir = get_rfd_dir(cwd, false)?;
 
-    let reserve_number = reserve_number(
-        &dir,
-        number,
-        settings.get_rfd_structure(),
-    )?;
+    let reserve_number = reserve_number(&dir, number, settings.get_rfd_structure())?;
 
     let repo = Repository::open(&dir)?;
     if git::branch_exists(&repo, reserve_number).is_err() {
@@ -188,7 +182,7 @@ pub(crate) fn generate_toc(
     context.insert("entries", &toc_entry);
 
     let template = get_template(
-        dir.as_ref(),
+        &dir,
         TemplateType::Rfd(RfdTemplateType::ToC),
         &format.extension(),
     );
@@ -251,7 +245,6 @@ mod tests {
     use crate::cmd::design_decisions::rfd::{add_custom_template, init, list, new};
     use crate::file_structure::FileStructure;
     use crate::markup_format::MarkupFormat;
-    use crate::settings::DOCTAVIOUS_ENV_SETTINGS_PATH;
     use crate::templating::RfdTemplateType;
 
     #[test]
@@ -259,10 +252,7 @@ mod tests {
         let dir = TempDir::new().unwrap();
 
         temp_env::with_vars(
-            [
-                (DOCTAVIOUS_ENV_SETTINGS_PATH, Some(dir.path())),
-                ("EDITOR", Some(Path::new("./tests/fixtures/noop-editor"))),
-            ],
+            [("EDITOR", Some(Path::new("./tests/fixtures/noop-editor")))],
             || {
                 let path = new(
                     dir.path(),
@@ -273,7 +263,6 @@ mod tests {
                 .expect("Should be able to create first new record");
 
                 insta::with_settings!({filters => vec![
-                    (dir.path().to_str().unwrap(), "[DIR]"),
                     (r"\d{4}-\d{2}-\d{2}", "[DATE]")
                 ]}, {
                     insta::assert_snapshot!(fs::read_to_string(path).unwrap());
@@ -289,10 +278,7 @@ mod tests {
         let dir = TempDir::new().unwrap();
 
         temp_env::with_vars(
-            [
-                (DOCTAVIOUS_ENV_SETTINGS_PATH, Some(dir.path())),
-                ("EDITOR", Some(Path::new("./tests/fixtures/noop-editor"))),
-            ],
+            [("EDITOR", Some(Path::new("./tests/fixtures/noop-editor")))],
             || {
                 let first = new(
                     dir.path(),
@@ -319,7 +305,6 @@ mod tests {
                 .unwrap();
 
                 insta::with_settings!({filters => vec![
-                    (dir.path().to_str().unwrap(), "[DIR]"),
                     (r"\d{4}-\d{2}-\d{2}", "[DATE]")
                 ]}, {
                     insta::assert_snapshot!(fs::read_to_string(first).unwrap());
@@ -337,10 +322,7 @@ mod tests {
         let dir = TempDir::new().unwrap();
 
         temp_env::with_vars(
-            [
-                (DOCTAVIOUS_ENV_SETTINGS_PATH, Some(dir.path())),
-                ("EDITOR", Some(Path::new("./tests/fixtures/fake-editor"))),
-            ],
+            [("EDITOR", Some(Path::new("./tests/fixtures/fake-editor")))],
             || {
                 let path = new(
                     dir.path(),
@@ -363,10 +345,7 @@ mod tests {
         let dir = TempDir::new().unwrap();
 
         temp_env::with_vars(
-            [
-                (DOCTAVIOUS_ENV_SETTINGS_PATH, Some(dir.path())),
-                ("VISUAL", Some(Path::new("./tests/fixtures/fake-visual"))),
-            ],
+            [("VISUAL", Some(Path::new("./tests/fixtures/fake-visual")))],
             || {
                 let path = new(
                     dir.path(),
@@ -389,10 +368,7 @@ mod tests {
         let dir = TempDir::new().unwrap();
 
         temp_env::with_vars(
-            [
-                (DOCTAVIOUS_ENV_SETTINGS_PATH, Some(dir.path())),
-                ("EDITOR", Some(Path::new("./tests/fixtures/noop-editor"))),
-            ],
+            [("EDITOR", Some(Path::new("./tests/fixtures/noop-editor")))],
             || {
                 let first = new(
                     dir.path(),
@@ -414,7 +390,6 @@ mod tests {
 
                 assert_eq!(2, rfds.len());
                 insta::with_settings!({filters => vec![
-                    (dir.path().to_str().unwrap(), "[DIR]"),
                     (r"\d{4}-\d{2}-\d{2}", "[DATE]")
                 ]}, {
                     insta::assert_snapshot!(fs::read_to_string(&rfds[0]).unwrap());
@@ -431,16 +406,13 @@ mod tests {
         let dir = TempDir::new().unwrap();
 
         temp_env::with_vars(
-            [
-                (DOCTAVIOUS_ENV_SETTINGS_PATH, Some(dir.path())),
-                ("EDITOR", Some(Path::new("./tests/fixtures/noop-editor"))),
-            ],
+            [("EDITOR", Some(Path::new("./tests/fixtures/noop-editor")))],
             || {
                 init(
                     dir.path(),
                     None,
                     FileStructure::default(),
-                    Some(MarkupFormat::default()),
+                    MarkupFormat::default(),
                 )
                 .expect("should init adr");
 
@@ -474,7 +446,6 @@ Date: {{ date }}
                 .unwrap();
 
                 insta::with_settings!({filters => vec![
-                    (dir.path().to_str().unwrap(), "[DIR]"),
                     (r"\d{4}-\d{2}-\d{2}", "[DATE]")
                 ]}, {
                     insta::assert_snapshot!(fs::read_to_string(custom_template).unwrap());
@@ -490,16 +461,13 @@ Date: {{ date }}
         let dir = TempDir::new().unwrap();
 
         temp_env::with_vars(
-            [
-                (DOCTAVIOUS_ENV_SETTINGS_PATH, Some(dir.path())),
-                ("EDITOR", Some(Path::new("./tests/fixtures/fake-editor"))),
-            ],
+            [("EDITOR", Some(Path::new("./tests/fixtures/fake-editor")))],
             || {
                 let path = init(
                     dir.path(),
                     Some(PathBuf::from("test/rfds")),
                     FileStructure::default(),
-                    Some(MarkupFormat::default()),
+                    MarkupFormat::default(),
                 )
                 .expect("should init RFDs");
 
@@ -516,16 +484,13 @@ Date: {{ date }}
     fn init_should_fail_on_non_empty_directory() {
         let dir = TempDir::new().unwrap();
         temp_env::with_vars(
-            [
-                (DOCTAVIOUS_ENV_SETTINGS_PATH, Some(dir.path())),
-                ("EDITOR", Some(Path::new("./tests/fixtures/fake-editor"))),
-            ],
+            [("EDITOR", Some(Path::new("./tests/fixtures/fake-editor")))],
             || {
                 init(
                     dir.path(),
                     None,
                     FileStructure::default(),
-                    Some(MarkupFormat::default()),
+                    MarkupFormat::default(),
                 )
                 .expect("should init rfd");
 
@@ -533,7 +498,7 @@ Date: {{ date }}
                     dir.path(),
                     None,
                     FileStructure::default(),
-                    Some(MarkupFormat::default()),
+                    MarkupFormat::default(),
                 );
 
                 assert!(dir.is_err());
