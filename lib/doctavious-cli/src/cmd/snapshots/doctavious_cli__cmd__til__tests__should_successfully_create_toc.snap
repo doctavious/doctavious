@@ -1,0 +1,16 @@
+---
+source: lib/doctavious-cli/src/cmd/til.rs
+expression: "fs::read_to_string(dir.path().join(\"README.md\")).unwrap()"
+---
+# TIL
+> Today I Learned
+
+* TILs: 1
+* Topics: 1
+
+## rust
+  
+* [`testing`](rust/testing.md) testing ([DATE])
+
+
+

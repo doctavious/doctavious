@@ -2,11 +2,12 @@
 // TODO: I think I might put this in `files` to house file related helper functions
 
 use std::io::Write;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::{fs, io};
 
 use lazy_static::lazy_static;
 use regex::{Regex, RegexBuilder};
+use walkdir::WalkDir;
 
 use crate::{CliResult, DoctaviousCliError};
 
@@ -106,6 +107,15 @@ pub(crate) fn ensure_path(path: &PathBuf) -> CliResult<()> {
         }
         Ok(())
     }
+}
+
+pub(crate) fn get_all_files(path: &Path) -> Vec<PathBuf> {
+    WalkDir::new(path)
+        .into_iter()
+        .filter_map(Result::ok)
+        .filter(|e| e.file_type().is_file())
+        .map(|r| r.path().to_path_buf())
+        .collect::<Vec<PathBuf>>()
 }
 
 // # Strip out the non-ascii character

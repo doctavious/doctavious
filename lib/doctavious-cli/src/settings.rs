@@ -3,7 +3,9 @@ use std::collections::HashMap;
 use std::fs;
 use std::io::ErrorKind;
 use std::path::{Path, PathBuf};
+use std::sync::OnceLock;
 
+use directories::ProjectDirs;
 use lazy_static::lazy_static;
 use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
@@ -13,13 +15,17 @@ use crate::file_structure::FileStructure;
 use crate::markup_format::MarkupFormat;
 use crate::{CliResult, DoctaviousCliError};
 
+// TODO: should be .doctavious.toml or put in .doctavious/ directory
 // TODO: better way to do this? Do we want to keep a default settings file in doctavious dir?
+pub const DEFAULT_CONFIG_DIR: &str = ".doctavious";
+
 pub const DEFAULT_CONFIG_NAME: &str = "doctavious.toml";
 
 pub const DOCTAVIOUS_ENV_SETTINGS_PATH: &str = "DOCTAVIOUS_CONFIG_PATH";
 
 pub const DEFAULT_ADR_DIR: &str = "docs/adr";
 
+// TODO:
 // TODO: could use const_format formatcp
 pub const DEFAULT_TEMPLATE_DIR: &str = "templates";
 
@@ -30,43 +36,93 @@ pub const DEFAULT_ADR_TOC_TEMPLATE_PATH: &str = "templates/adr/toc";
 pub const DEFAULT_RFD_DIR: &str = "docs/rfd";
 pub const DEFAULT_RFD_RECORD_TEMPLATE_PATH: &str = "templates/rfd/record";
 pub const DEFAULT_RFD_TOC_TEMPLATE_PATH: &str = "templates/rfd/toc";
-// TODO: do we want this to default to the current directory?
-pub const DEFAULT_TIL_DIR: &str = "til";
 
-pub const DEFAULT_TIL_README_TEMPLATE_PATH: &str = "templates/til/readme";
+pub const DEFAULT_TIL_DIR: &str = ".til";
+
+pub const DEFAULT_TIL_TOC_TEMPLATE_PATH: &str = "templates/til/toc";
 pub const DEFAULT_TIL_POST_TEMPLATE_PATH: &str = "templates/til/post";
-
-use std::sync::OnceLock;
 
 #[cfg(not(test))]
 static SETTINGS: OnceLock<Option<Settings>> = OnceLock::new();
 
-// This is primary went to avoid having to re-parse settings but an alternative might be to have
-// a context object that gets passed around. We might do down that route anyway when we introduce
-// an HTTP client to talk to doctavious API
-lazy_static! {
-    pub static ref SETTINGS_FILE: PathBuf = PathBuf::from(DEFAULT_CONFIG_NAME);
+// lazy_static! {
+//     pub static ref SETTINGS_FILE: PathBuf = PathBuf::from(DEFAULT_CONFIG_NAME);
+// }
 
-    // TODO: not sure this buys us anything.
-    // just have a parse method on Settings that takes in a string/pathbuf?
-    // pub static ref SETTINGS: Settings = {
-    //     load_settings().unwrap_or_else(|e| {
-    //             if Path::new(SETTINGS_FILE.as_path()).exists() {
-    //                 eprintln!(
-    //                     "Error when parsing {}, fallback to default settings. Error: {:?}\n",
-    //                     SETTINGS_FILE.as_path().display(),
-    //                     e
-    //                 );
-    //             }
-    //             Default::default()
-    //         })
-    // };
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub struct Config {
+    pub path: PathBuf,
+    pub settings: Settings,
+    pub is_default_settings: bool,
+    // is_loaded: bool,
+    // local / global
+}
+
+impl Config {
+    pub fn from_path(path: &Path) -> CliResult<Self> {
+        let settings = get_settings(path)?;
+        Ok(Self {
+            path: path.join(Self::config_file_path()),
+            settings,
+            is_default_settings: false,
+        })
+    }
+
+    pub fn from_path_or_default(path: &Path) -> Self {
+        let mut is_default_settings = false;
+        let settings = get_settings(path).unwrap_or_else(|_| {
+            is_default_settings = true;
+            Settings::default()
+        });
+
+        Self {
+            path: path.join(Self::config_file_path()),
+            settings,
+            is_default_settings,
+        }
+    }
+
+    pub fn get_global() -> CliResult<Self> {
+        let path = get_global_settings_dir().join(DEFAULT_CONFIG_NAME);
+        let settings = get_settings(&path)?;
+
+        Ok(Self {
+            path,
+            settings,
+            is_default_settings: false,
+        })
+    }
+
+    pub fn get_global_or_default() -> Self {
+        let mut is_default_settings = false;
+        let path = get_global_settings_dir().join(DEFAULT_CONFIG_NAME);
+        let settings = get_settings(&path).unwrap_or_else(|_| {
+            is_default_settings = true;
+            Settings::default()
+        });
+
+        Self {
+            path,
+            settings,
+            is_default_settings,
+        }
+    }
+
+    pub fn save(&self) -> CliResult<()> {
+        fs::create_dir_all(&self.path.parent().expect("Unable to get config directory"))?;
+        fs::write(&self.path, toml::to_string(&self.settings)?)?;
+        Ok(())
+    }
+
+    fn config_file_path() -> PathBuf {
+        PathBuf::from(DEFAULT_CONFIG_DIR).join(DEFAULT_CONFIG_NAME)
+    }
 }
 
 // TODO: should this include output?
 // TODO: should this be aware of CWD?
-#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 #[skip_serializing_none]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct Settings {
     // TODO: I dont think this is needed
     pub template_format: Option<MarkupFormat>,
@@ -96,7 +152,6 @@ pub struct Settings {
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct AdrSettings {
-    // #[serde(default = "DEFAULT_ADR_DIR")]
     pub dir: Option<String>,
 
     #[serde(default)]
@@ -120,10 +175,11 @@ pub struct RFDSettings {
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct TilSettings {
-    pub dir: Option<String>,
-    pub template_format: Option<MarkupFormat>,
-    // TODO: custom template either as a string here or file
-    // output_directory
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub dir: Option<PathBuf>,
+
+    #[serde(default)]
+    pub template_format: MarkupFormat,
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
@@ -152,7 +208,7 @@ impl Settings {
             }
         }
 
-        return DEFAULT_ADR_DIR;
+        DEFAULT_ADR_DIR
     }
 
     pub fn get_adr_record_template(&self) -> PathBuf {
@@ -249,7 +305,7 @@ impl Settings {
         PathBuf::from(format!(
             "{}.{}",
             DEFAULT_RFD_RECORD_TEMPLATE_PATH,
-            self.get_rfd_template_extension(None)
+            self.get_rfd_template_format(None)
         ))
     }
 
@@ -267,9 +323,9 @@ impl Settings {
         }
     }
 
-    pub fn get_rfd_template_extension(&self, extension: Option<MarkupFormat>) -> MarkupFormat {
-        if extension.is_some() {
-            return extension.unwrap();
+    pub fn get_rfd_template_format(&self, format: Option<MarkupFormat>) -> MarkupFormat {
+        if let Some(format) = format {
+            return format;
         }
 
         if let Some(settings) = &self.rfd_settings {
@@ -283,49 +339,44 @@ impl Settings {
         MarkupFormat::default()
     }
 
-    pub fn get_til_dir(&self) -> &str {
-        if let Some(settings) = &self.til_settings {
-            if let Some(dir) = &settings.dir {
-                return dir;
-            }
-        }
-
-        DEFAULT_TIL_DIR
+    pub fn get_til_dir(&self) -> Option<PathBuf> {
+        self.til_settings.as_ref().and_then(|s| s.dir.to_owned())
+        // if let Some(settings) = &self.til_settings {
+        //     return settings.dir.as_ref();
+        // }
+        //
+        // None
     }
 
     // TODO: I might revert having this take in an extension and rather just have a function in til
     // that does and defers to settings
-    pub fn get_til_template_extension(&self, extension: Option<MarkupFormat>) -> MarkupFormat {
-        if extension.is_some() {
-            return extension.unwrap();
+    pub fn get_til_template_format(&self, format: Option<MarkupFormat>) -> MarkupFormat {
+        if let Some(format) = format {
+            return format;
         }
 
         if let Some(settings) = &self.til_settings {
-            if let Some(template_extension) = settings.template_format {
-                return template_extension;
-            }
+            return settings.template_format;
         }
 
         if let Some(template_extension) = self.template_format {
             return template_extension;
         }
 
-        return MarkupFormat::default();
+        MarkupFormat::default()
     }
 
+    // TODO: fix this
     // TODO: might need a test / not(test) versions of this
-    pub fn get_til_default_template(&self) -> PathBuf {
-        PathBuf::from(format!(
-            "{}/{}.{}",
-            self.get_til_dir(),
-            DEFAULT_TIL_POST_TEMPLATE_PATH,
-            self.get_til_template_extension(None)
-        ))
-    }
+    // pub fn get_til_default_template(&self) -> PathBuf {
+    //     self.get_til_dir().unwrap_or(&env::current_dir().expect("Unable to get current directory"))
+    //         .join(DEFAULT_TIL_POST_TEMPLATE_PATH)
+    //         .with_extension(self.get_til_template_format(None).extension())
+    // }
 }
 
 pub(crate) fn get_settings_file(cwd: &Path) -> PathBuf {
-    cwd.join(SETTINGS_FILE.to_path_buf())
+    cwd.join(DEFAULT_CONFIG_NAME)
 }
 
 #[cfg(not(test))]
@@ -334,11 +385,7 @@ pub(crate) fn load_settings<'a>(cwd: &Path) -> CliResult<Cow<'a, Settings>> {
         .get_or_init(|| {
             let settings_path = get_settings_file(cwd);
             if settings_path.is_file() {
-                let contents = fs::read_to_string(settings_path).unwrap();
-                match toml::from_str(contents.as_str()) {
-                    Ok(s) => Some(s),
-                    Err(_) => None,
-                }
+                get_settings(&settings_path).ok()
             } else {
                 Some(Settings::default())
             }
@@ -353,13 +400,17 @@ pub(crate) fn load_settings<'a>(cwd: &Path) -> CliResult<Cow<'a, Settings>> {
 pub(crate) fn load_settings<'a>(cwd: &Path) -> CliResult<Cow<'a, Settings>> {
     let settings_path = get_settings_file(cwd);
     let settings = if settings_path.is_file() {
-        let contents = fs::read_to_string(settings_path).unwrap();
-        toml::from_str(contents.as_str())?
+        get_settings(&settings_path)?
     } else {
         Settings::default()
     };
 
     Ok(Cow::Owned(settings))
+}
+
+pub(crate) fn get_settings(path: &Path) -> CliResult<Settings> {
+    let contents = fs::read_to_string(path)?;
+    Ok(toml::from_str(contents.as_str())?)
 }
 
 // outside of Settings because we dont want to initialize load given we are using lazy_static
@@ -369,12 +420,24 @@ pub(crate) fn load_settings<'a>(cwd: &Path) -> CliResult<Cow<'a, Settings>> {
 pub(crate) fn persist_settings(cwd: &Path, settings: &Settings) -> CliResult<()> {
     let content = toml::to_string(&settings)?;
     let settings_file = get_settings_file(cwd);
-    println!(
-        "persisting settings file: {:?} with content {content}",
-        settings_file
-    );
     fs::write(settings_file, content)?;
     Ok(())
+}
+
+pub fn get_global_settings_dir() -> PathBuf {
+    ProjectDirs::from("com", "doctavious", "cli")
+        .expect("Unable to get valid Doctaious global config directory")
+        .config_dir()
+        .to_path_buf()
+}
+
+pub(crate) fn get_global_settings_file() -> PathBuf {
+    get_global_settings_dir().join(DEFAULT_CONFIG_NAME)
+}
+
+pub fn get_global_settings() -> CliResult<Settings> {
+    let settings_dir = get_global_settings_dir();
+    Ok(get_settings(&settings_dir)?)
 }
 
 pub fn init_dir(dir: &Path) -> CliResult<()> {

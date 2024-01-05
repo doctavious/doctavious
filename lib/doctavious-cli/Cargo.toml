@@ -10,6 +10,7 @@ cifrs = { path = "../../lib/cifrs" }
 
 chrono = { workspace = true }
 comfy-table = { workspace = true }
+directories = { workspace = true }
 dotavious = { workspace = true }
 git2 = { workspace = true }
 glob = { workspace = true }

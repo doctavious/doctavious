@@ -1,0 +1,8 @@
+---
+source: lib/doctavious-cli/src/cmd/til.rs
+expression: "fs::read_to_string(&config.path).unwrap()"
+---
+[til]
+dir = "[DIR]"
+template_format = "md"
+
