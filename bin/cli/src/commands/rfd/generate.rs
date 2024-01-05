@@ -91,23 +91,20 @@ pub(crate) struct RFDToc {
     #[arg(long, short, value_parser)]
     pub output_path: PathBuf, // where to write file to. required
 
-    #[arg(long, short, help = "")]
+    #[arg(long, short)]
     pub intro: Option<String>,
 
-    #[arg(long, help = "")]
+    #[arg(long)]
     pub outro: Option<String>,
 
-    #[arg(long, short, help = "")]
+    #[arg(long, short)]
     pub link_prefix: Option<String>,
 
     /// Output format
     #[arg(
-    long,
-    short,
-    // possible_values = MARKUP_FORMAT_EXTENSIONS.keys(),
-    // parse(try_from_str = parse_markup_format_extension),
-    // value_parser,
-    value_parser = PossibleValuesParser::new(MarkupFormat::variants()),
+        long,
+        short,
+        value_parser = PossibleValuesParser::new(MarkupFormat::variants()),
     )]
     pub format: Option<MarkupFormat>,
 }
@@ -121,10 +118,10 @@ pub(crate) struct RFDGraph {
     pub directory: Option<String>,
 
     // TODO: what to default to?
-    #[arg(long, short, help = "")]
+    #[arg(long, short)]
     pub link_extension: Option<String>,
 
-    #[arg(long, short, help = "")]
+    #[arg(long, short)]
     pub link_prefix: Option<String>,
 }
 

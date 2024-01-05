@@ -1,6 +1,5 @@
 use std::path::PathBuf;
 
-use clap::builder::PossibleValuesParser;
 use clap::Parser;
 use doctavious_cli::cmd::design_decisions::rfd;
 use doctavious_cli::markup_format::MarkupFormat;
@@ -30,10 +29,9 @@ pub(crate) struct NewRFD {
     #[arg(
         long,
         short,
-        default_value_t = MarkupFormat::default(),
         value_parser = clap_enum_variants!(MarkupFormat)
     )]
-    pub format: MarkupFormat,
+    pub format: Option<MarkupFormat>,
 }
 
 pub(crate) fn execute(cmd: NewRFD) -> CliResult<Option<String>> {

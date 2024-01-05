@@ -1,5 +1,4 @@
 use std::collections::HashMap;
-use std::fmt::Display;
 use std::str::FromStr;
 
 use lazy_static::lazy_static;
@@ -25,10 +24,6 @@ pub enum FileStructure {
 }
 
 impl FileStructure {
-    // pub(crate) fn iterator() -> Iter<'static, FileStructure> {
-    //     return [Self::Flat, Self::Nested].iter();
-    // }
-
     pub(crate) fn value(&self) -> &'static str {
         match self {
             Self::Flat => "flat",
@@ -47,15 +42,6 @@ impl Default for FileStructure {
         Self::Flat
     }
 }
-
-// impl Display for FileStructure {
-//     fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
-//         match *self {
-//             Self::Flat => write!(f, "flat"),
-//             Self::Nested => write!(f, "nested"),
-//         }
-//     }
-// }
 
 impl Serialize for FileStructure {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>

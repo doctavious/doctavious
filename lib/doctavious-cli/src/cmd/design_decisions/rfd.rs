@@ -1,9 +1,8 @@
-use std::borrow::Borrow;
 use std::fs;
 use std::io::BufReader;
 use std::path::{Path, PathBuf};
 
-use chrono::Utc;
+use chrono::{Local, Utc};
 use git2::Repository;
 use serde::Serialize;
 
@@ -53,18 +52,18 @@ pub fn init(
 
     // TODO: fix
     // https://github.com/gravitational/teleport/blob/master/rfd/0000-rfds.md
-    new(cwd, Some(1), "Use RFDs ...", format)
+    new(cwd, Some(1), "Use RFDs ...", Some(format))
 }
 
 pub fn new(
     cwd: &Path,
     number: Option<u32>,
     title: &str,
-    format: MarkupFormat,
+    format: Option<MarkupFormat>,
 ) -> CliResult<PathBuf> {
     let settings = load_settings(cwd)?;
     let dir = get_rfd_dir(cwd, true)?;
-
+    let format = settings.get_rfd_template_format(format);
     let template = get_template(
         &dir,
         TemplateType::Rfd(RfdTemplateType::Record),
@@ -90,7 +89,7 @@ pub fn new(
     let mut context = TemplateContext::new();
     context.insert("number", &reserve_number);
     context.insert("title", &title);
-    context.insert("date", &Utc::now().format("%Y-%m-%d").to_string());
+    context.insert("date", &Local::now().format("%Y-%m-%d").to_string());
 
     let rendered = Templates::one_off(starting_content.as_str(), context, false)?;
 
@@ -106,10 +105,11 @@ pub fn reserve(
     cwd: &Path,
     number: Option<u32>,
     title: String,
-    format: MarkupFormat,
+    format: Option<MarkupFormat>,
 ) -> CliResult<()> {
     let settings = load_settings(cwd)?;
     let dir = get_rfd_dir(cwd, false)?;
+    let format = settings.get_rfd_template_format(format);
 
     let reserve_number = reserve_number(&dir, number, settings.get_rfd_structure())?;
 
@@ -121,7 +121,7 @@ pub fn reserve(
 
     git::checkout_branch(&repo, reserve_number.to_string().as_str())?;
 
-    let new_rfd = new(cwd, number, title.as_str(), format)?;
+    let new_rfd = new(cwd, number, title.as_str(), Some(format))?;
 
     let message = format!("{}: Adding placeholder for RFD {}", reserve_number, title);
     git::add_and_commit(&repo, new_rfd.as_path(), message.as_str())?;
@@ -254,13 +254,8 @@ mod tests {
         temp_env::with_vars(
             [("EDITOR", Some(Path::new("./tests/fixtures/noop-editor")))],
             || {
-                let path = new(
-                    dir.path(),
-                    None,
-                    "The First Decision",
-                    MarkupFormat::Markdown,
-                )
-                .expect("Should be able to create first new record");
+                let path = new(dir.path(), None, "The First Decision", None)
+                    .expect("Should be able to create first new record");
 
                 insta::with_settings!({filters => vec![
                     (r"\d{4}-\d{2}-\d{2}", "[DATE]")
@@ -280,29 +275,11 @@ mod tests {
         temp_env::with_vars(
             [("EDITOR", Some(Path::new("./tests/fixtures/noop-editor")))],
             || {
-                let first = new(
-                    dir.path(),
-                    None,
-                    "The First Decision",
-                    MarkupFormat::Markdown,
-                )
-                .unwrap();
+                let first = new(dir.path(), None, "The First Decision", None).unwrap();
 
-                let second = new(
-                    dir.path(),
-                    None,
-                    "The Second Decision",
-                    MarkupFormat::Markdown,
-                )
-                .unwrap();
+                let second = new(dir.path(), None, "The Second Decision", None).unwrap();
 
-                let third = new(
-                    dir.path(),
-                    None,
-                    "The Third Decision",
-                    MarkupFormat::Markdown,
-                )
-                .unwrap();
+                let third = new(dir.path(), None, "The Third Decision", None).unwrap();
 
                 insta::with_settings!({filters => vec![
                     (r"\d{4}-\d{2}-\d{2}", "[DATE]")
@@ -324,13 +301,8 @@ mod tests {
         temp_env::with_vars(
             [("EDITOR", Some(Path::new("./tests/fixtures/fake-editor")))],
             || {
-                let path = new(
-                    dir.path(),
-                    None,
-                    "The First Decision",
-                    MarkupFormat::Markdown,
-                )
-                .expect("Should be able to create first new record");
+                let path = new(dir.path(), None, "The First Decision", None)
+                    .expect("Should be able to create first new record");
 
                 let content = fs::read_to_string(&path).unwrap();
                 assert!(content.starts_with("EDITOR"));
@@ -347,13 +319,8 @@ mod tests {
         temp_env::with_vars(
             [("VISUAL", Some(Path::new("./tests/fixtures/fake-visual")))],
             || {
-                let path = new(
-                    dir.path(),
-                    None,
-                    "The First Decision",
-                    MarkupFormat::Markdown,
-                )
-                .expect("Should be able to create first new record");
+                let path = new(dir.path(), None, "The First Decision", None)
+                    .expect("Should be able to create first new record");
 
                 let content = fs::read_to_string(&path).unwrap();
                 assert!(content.starts_with("VISUAL"));
@@ -370,21 +337,9 @@ mod tests {
         temp_env::with_vars(
             [("EDITOR", Some(Path::new("./tests/fixtures/noop-editor")))],
             || {
-                let first = new(
-                    dir.path(),
-                    None,
-                    "The First Decision",
-                    MarkupFormat::Markdown,
-                )
-                .unwrap();
+                let first = new(dir.path(), None, "The First Decision", None).unwrap();
 
-                let second = new(
-                    dir.path(),
-                    None,
-                    "The Second Decision",
-                    MarkupFormat::Markdown,
-                )
-                .unwrap();
+                let second = new(dir.path(), None, "The Second Decision", None).unwrap();
 
                 let rfds = list(dir.path(), MarkupFormat::Markdown).unwrap();
 
@@ -437,13 +392,8 @@ Date: {{ date }}
                 )
                 .unwrap();
 
-                let custom_template = new(
-                    dir.path(),
-                    None,
-                    "Custom Template Record",
-                    MarkupFormat::Markdown,
-                )
-                .unwrap();
+                let custom_template =
+                    new(dir.path(), None, "Custom Template Record", None).unwrap();
 
                 insta::with_settings!({filters => vec![
                     (r"\d{4}-\d{2}-\d{2}", "[DATE]")

@@ -37,10 +37,10 @@ pub(crate) struct NewADR {
     #[arg(
         long,
         short,
-        default_value_t = MarkupFormat::default(),
+        // default_value_t = MarkupFormat::default(),
         value_parser = clap_enum_variants!(MarkupFormat)
     )]
-    pub format: MarkupFormat,
+    pub format: Option<MarkupFormat>,
 
     /// A reference (number or partial filename) of a previous decision that the new decision supersedes.
     /// A Markdown link to the superseded ADR is inserted into the Status section.

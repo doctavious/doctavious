@@ -18,5 +18,11 @@ pub(crate) struct ListADRs {
 pub(crate) fn execute(cmd: ListADRs) -> CliResult<Option<String>> {
     let cwd = cmd.cwd.unwrap_or(std::env::current_dir()?);
     let output = list(&cwd, MarkupFormat::Markdown)?;
-    Ok(Some(output.iter().map(|p| p.to_string_lossy()).collect::<Vec<_>>().join("\n")))
+    Ok(Some(
+        output
+            .iter()
+            .map(|p| p.to_string_lossy())
+            .collect::<Vec<_>>()
+            .join("\n"),
+    ))
 }

@@ -1,5 +1,4 @@
 use std::collections::HashMap;
-use std::fmt::Display;
 use std::path::Path;
 use std::str::FromStr;
 
@@ -65,48 +64,11 @@ impl MarkupFormat {
     }
 }
 
-// TODO: whats a replacement for this that doesnt use clap?
-// impl ValueEnum for MarkupFormat {
-//     fn value_variants<'a>() -> &'a [Self] {
-//         &[Asciidoc, Markdown]
-//     }
-//
-//     fn to_possible_value(&self) -> Option<PossibleValue> {
-//         Some(match self {
-//             Asciidoc => PossibleValue::new("adoc"),
-//             Markdown => PossibleValue::new("md"),
-//         })
-//     }
-// }
-
-// impl FromStr for MarkupFormat {
-//     type Err = DoctaviousError;
-//
-//     fn from_str(input: &str) -> DoctaviousResult<MarkupFormat> {
-//         parse_enum(&MARKUP_FORMAT_EXTENSIONS, input)
-//     }
-// }
-
-// part of valueEnum
-// impl FromStr for MarkupFormat {
-//     type Err = EnumError;
-//
-//     fn from_str(input: &str) -> Result<MarkupFormat, Self::Err> {
-//         parse_enum(&MARKUP_FORMAT_EXTENSIONS, input)
-//     }
-// }
-
 impl Default for MarkupFormat {
     fn default() -> Self {
         Self::Markdown
     }
 }
-
-// impl Display for MarkupFormat {
-//     fn fmt(&self, f: &mut Formatter) -> std::fmt::Result {
-//         write!(f, "{}", self.extension())
-//     }
-// }
 
 impl Serialize for MarkupFormat {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>

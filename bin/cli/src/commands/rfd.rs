@@ -13,8 +13,9 @@ use crate::commands::rfd::list::ListRFDs;
 use crate::commands::rfd::new::NewRFD;
 use crate::commands::rfd::reserve::ReserveRFD;
 
+/// Manage RFDs
 #[derive(Parser, Debug)]
-#[command(about = "Gathers RFD management commands")]
+#[command()]
 pub(crate) struct RFDCommand {
     #[command(subcommand)]
     pub sub_command: RFDSubCommand,
@@ -27,8 +28,9 @@ pub(crate) enum RFDSubCommand {
     Init(InitRFD),
     List(ListRFDs),
     New(NewRFD),
+    // TODO: render
     Reserve(ReserveRFD),
-    // Templates (add/delete. global vs local)
+    // TODO: Templates (add/delete. global vs local)
 }
 
 pub(crate) fn execute(command: RFDCommand) -> CliResult<Option<String>> {

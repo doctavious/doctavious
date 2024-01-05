@@ -30,10 +30,9 @@ pub(crate) struct ReserveRFD {
     #[arg(
         long,
         short,
-        default_value_t = MarkupFormat::default(),
         value_parser = clap_enum_variants!(MarkupFormat)
     )]
-    pub format: MarkupFormat,
+    pub format: Option<MarkupFormat>,
 }
 
 pub(crate) fn execute(cmd: ReserveRFD) -> CliResult<Option<String>> {

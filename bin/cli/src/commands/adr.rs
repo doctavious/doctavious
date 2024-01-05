@@ -15,7 +15,7 @@ use crate::commands::adr::list::ListADRs;
 use crate::commands::adr::new::NewADR;
 use crate::commands::adr::reserve::ReserveADR;
 
-/// Gathers ADR management commands
+/// Manage ADRs
 #[derive(Parser, Debug)]
 #[command()]
 pub(crate) struct ADRCommand {
@@ -31,8 +31,9 @@ pub(crate) enum ADRSubCommand {
     Link(LinkADRs),
     List(ListADRs),
     New(NewADR),
+    // TODO: Render
     Reserve(ReserveADR),
-    // Templates (add/delete. global vs local)
+    // TODO: Templates (add/delete. global vs local)
 }
 
 pub(crate) fn execute(command: ADRCommand) -> CliResult<Option<String>> {

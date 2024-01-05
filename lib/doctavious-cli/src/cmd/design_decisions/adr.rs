@@ -1,10 +1,10 @@
 use std::fmt::Display;
 use std::fs;
-use std::io::{BufRead, BufReader, Write};
+use std::io::{BufRead, BufReader};
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
 
-use chrono::Utc;
+use chrono::{Local, Utc};
 use git2::Repository;
 use regex::RegexBuilder;
 use serde::Serialize;
@@ -67,7 +67,7 @@ pub fn init(
         Some(1),
         "Record Architecture Decisions",
         AdrTemplateType::Init,
-        format,
+        Some(format),
         None,
         None,
     );
@@ -81,18 +81,15 @@ pub fn new(
     number: Option<u32>,
     title: &str,
     template_type: AdrTemplateType,
-    format: MarkupFormat,
+    format: Option<MarkupFormat>,
     supersedes: Option<Vec<String>>,
     links: Option<Vec<String>>,
 ) -> CliResult<PathBuf> {
     let settings = load_settings(cwd)?.into_owned();
     let dir = get_adr_dir(cwd, true)?;
 
-    let template = get_template(
-        &dir,
-        TemplateType::Adr(template_type),
-        &format.extension(),
-    );
+    let format = settings.get_adr_template_format(format);
+    let template = get_template(&dir, TemplateType::Adr(template_type), &format.extension());
     let reserve_number = reserve_number(&dir, number, settings.get_adr_structure())?;
     let formatted_reserved_number = format_number(&reserve_number);
     let output_path = build_path(
@@ -114,7 +111,7 @@ pub fn new(
     context.insert("number", &reserve_number);
     context.insert("title", &title);
     // TODO: allow date to be customized
-    context.insert("date", &Utc::now().format("%Y-%m-%d").to_string());
+    context.insert("date", &Local::now().format("%Y-%m-%d").to_string());
 
     let rendered = Templates::one_off(starting_content.as_str(), context, false)?;
     fs::write(&output_path, rendered.as_bytes())?;
@@ -192,12 +189,13 @@ pub fn reserve(
     cwd: &Path,
     number: Option<u32>,
     title: String,
-    format: MarkupFormat,
+    format: Option<MarkupFormat>,
 ) -> CliResult<()> {
     let settings = load_settings(cwd)?;
     let dir = get_adr_dir(cwd, false)?;
     let reserve_number = reserve_number(&dir, number, settings.get_adr_structure())?;
 
+    let format = settings.get_adr_template_format(format);
     let repo = Repository::open(&dir)?;
     if git::branch_exists(&repo, reserve_number).is_err() {
         // TODO: use a different error than git2
@@ -211,7 +209,7 @@ pub fn reserve(
         number,
         title.as_str(),
         AdrTemplateType::Record,
-        format,
+        Some(format),
         None,
         None,
     )?;
@@ -247,11 +245,12 @@ fn add_link(
     link: &str,
     target: &LinkReference,
 ) -> CliResult<()> {
-    let target_path = target
-        .get_record(adr_dir)
-        .ok_or(DesignDecisionErrors::UnknownDesignDocument(
-            target.to_string(),
-        ))?;
+    let target_path =
+        target
+            .get_record(adr_dir)
+            .ok_or(DesignDecisionErrors::UnknownDesignDocument(
+                target.to_string(),
+            ))?;
 
     let target_file = fs::File::open(&target_path)?;
     let target_title = get_title(
@@ -259,11 +258,12 @@ fn add_link(
         MarkupFormat::from_path(&target_path)?,
     );
 
-    let source_path = source
-        .get_record(adr_dir)
-        .ok_or(DesignDecisionErrors::UnknownDesignDocument(
-            source.to_string(),
-        ))?;
+    let source_path =
+        source
+            .get_record(adr_dir)
+            .ok_or(DesignDecisionErrors::UnknownDesignDocument(
+                source.to_string(),
+            ))?;
     let source_content = fs::read_to_string(&source_path)?;
 
     let mut in_status_section = false;
@@ -274,7 +274,6 @@ fn add_link(
     } else {
         target_path.to_string_lossy()
     };
-
 
     // TODO(Sean): while this logic is straight forward I might, some day, want to swap for
     // modifying an AST to make changes.
@@ -470,16 +469,14 @@ mod tests {
         let dir = TempDir::new().unwrap();
 
         temp_env::with_vars(
-            [
-                ("EDITOR", Some(Path::new("./tests/fixtures/noop-editor"))),
-            ],
+            [("EDITOR", Some(Path::new("./tests/fixtures/noop-editor")))],
             || {
                 let path = new(
                     dir.path(),
                     None,
                     "The First Decision",
                     AdrTemplateType::Record,
-                    MarkupFormat::Markdown,
+                    Some(MarkupFormat::Markdown),
                     None,
                     None,
                 )
@@ -502,16 +499,14 @@ mod tests {
         let dir = TempDir::new().unwrap();
 
         temp_env::with_vars(
-            [
-                ("EDITOR", Some(Path::new("./tests/fixtures/noop-editor"))),
-            ],
+            [("EDITOR", Some(Path::new("./tests/fixtures/noop-editor")))],
             || {
                 let first = new(
                     dir.path(),
                     None,
                     "The First Decision",
                     AdrTemplateType::Record,
-                    MarkupFormat::Markdown,
+                    Some(MarkupFormat::Markdown),
                     None,
                     None,
                 )
@@ -522,7 +517,7 @@ mod tests {
                     None,
                     "The Second Decision",
                     AdrTemplateType::Record,
-                    MarkupFormat::Markdown,
+                    Some(MarkupFormat::Markdown),
                     None,
                     None,
                 )
@@ -533,7 +528,7 @@ mod tests {
                     None,
                     "The Third Decision",
                     AdrTemplateType::Record,
-                    MarkupFormat::Markdown,
+                    Some(MarkupFormat::Markdown),
                     None,
                     None,
                 )
@@ -558,16 +553,14 @@ mod tests {
         let dir = TempDir::new().unwrap();
 
         temp_env::with_vars(
-            [
-                ("EDITOR", Some(Path::new("./tests/fixtures/fake-editor"))),
-            ],
+            [("EDITOR", Some(Path::new("./tests/fixtures/fake-editor")))],
             || {
                 let path = new(
                     dir.path(),
                     None,
                     "The First Decision",
                     AdrTemplateType::Record,
-                    MarkupFormat::Markdown,
+                    Some(MarkupFormat::Markdown),
                     None,
                     None,
                 )
@@ -586,16 +579,14 @@ mod tests {
         let dir = TempDir::new().unwrap();
 
         temp_env::with_vars(
-            [
-                ("VISUAL", Some(Path::new("./tests/fixtures/fake-visual"))),
-            ],
+            [("VISUAL", Some(Path::new("./tests/fixtures/fake-visual")))],
             || {
                 let path = new(
                     dir.path(),
                     None,
                     "The First Decision",
                     AdrTemplateType::Record,
-                    MarkupFormat::Markdown,
+                    Some(MarkupFormat::Markdown),
                     None,
                     None,
                 )
@@ -614,16 +605,14 @@ mod tests {
         let dir = TempDir::new().unwrap();
 
         temp_env::with_vars(
-            [
-                ("EDITOR", Some(Path::new("./tests/fixtures/noop-editor"))),
-            ],
+            [("EDITOR", Some(Path::new("./tests/fixtures/noop-editor")))],
             || {
                 let first = new(
                     dir.path(),
                     None,
                     "The First Decision",
                     AdrTemplateType::Record,
-                    MarkupFormat::Markdown,
+                    Some(MarkupFormat::Markdown),
                     None,
                     None,
                 )
@@ -634,14 +623,14 @@ mod tests {
                     None,
                     "The Second Decision",
                     AdrTemplateType::Record,
-                    MarkupFormat::Markdown,
+                    Some(MarkupFormat::Markdown),
                     None,
                     None,
                 )
                 .unwrap();
 
-                let toc = generate_toc(dir.path(), MarkupFormat::Markdown, None, None, None)
-                    .unwrap();
+                let toc =
+                    generate_toc(dir.path(), MarkupFormat::Markdown, None, None, None).unwrap();
 
                 insta::with_settings!({filters => vec![
                     (dir.path().to_str().unwrap(), "[DIR]"),
@@ -659,16 +648,14 @@ mod tests {
         let dir = TempDir::new().unwrap();
 
         temp_env::with_vars(
-            [
-                ("EDITOR", Some(Path::new("./tests/fixtures/noop-editor"))),
-            ],
+            [("EDITOR", Some(Path::new("./tests/fixtures/noop-editor")))],
             || {
                 let first = new(
                     dir.path(),
                     None,
                     "The First Decision",
                     AdrTemplateType::Record,
-                    MarkupFormat::Markdown,
+                    Some(MarkupFormat::Markdown),
                     None,
                     None,
                 )
@@ -679,7 +666,7 @@ mod tests {
                     None,
                     "The Second Decision",
                     AdrTemplateType::Record,
-                    MarkupFormat::Markdown,
+                    Some(MarkupFormat::Markdown),
                     None,
                     None,
                 )
@@ -714,16 +701,14 @@ Multiple paragraphs."#,
         let dir = TempDir::new().unwrap();
 
         temp_env::with_vars(
-            [
-                ("EDITOR", Some(Path::new("./tests/fixtures/noop-editor"))),
-            ],
+            [("EDITOR", Some(Path::new("./tests/fixtures/noop-editor")))],
             || {
                 let first = new(
                     dir.path(),
                     None,
                     "The First Decision",
                     AdrTemplateType::Record,
-                    MarkupFormat::Markdown,
+                    Some(MarkupFormat::Markdown),
                     None,
                     None,
                 )
@@ -734,7 +719,7 @@ Multiple paragraphs."#,
                     None,
                     "The Second Decision",
                     AdrTemplateType::Record,
-                    MarkupFormat::Markdown,
+                    Some(MarkupFormat::Markdown),
                     None,
                     None,
                 )
@@ -765,16 +750,14 @@ Multiple paragraphs."#,
         let dir = TempDir::new().unwrap();
 
         temp_env::with_vars(
-            [
-                ("EDITOR", Some(Path::new("./tests/fixtures/noop-editor"))),
-            ],
+            [("EDITOR", Some(Path::new("./tests/fixtures/noop-editor")))],
             || {
                 let first = new(
                     dir.path(),
                     None,
                     "First Record",
                     AdrTemplateType::Record,
-                    MarkupFormat::Markdown,
+                    Some(MarkupFormat::Markdown),
                     None,
                     None,
                 )
@@ -785,7 +768,7 @@ Multiple paragraphs."#,
                     None,
                     "Second Record",
                     AdrTemplateType::Record,
-                    MarkupFormat::Markdown,
+                    Some(MarkupFormat::Markdown),
                     None,
                     None,
                 )
@@ -796,7 +779,7 @@ Multiple paragraphs."#,
                     None,
                     "Third Record",
                     AdrTemplateType::Record,
-                    MarkupFormat::Markdown,
+                    Some(MarkupFormat::Markdown),
                     None,
                     None,
                 )
@@ -839,16 +822,14 @@ Multiple paragraphs."#,
         let dir = TempDir::new().unwrap();
 
         temp_env::with_vars(
-            [
-                ("EDITOR", Some(Path::new("./tests/fixtures/noop-editor"))),
-            ],
+            [("EDITOR", Some(Path::new("./tests/fixtures/noop-editor")))],
             || {
                 let first = new(
                     dir.path(),
                     None,
                     "First Record",
                     AdrTemplateType::Record,
-                    MarkupFormat::Markdown,
+                    Some(MarkupFormat::Markdown),
                     None,
                     None,
                 )
@@ -859,7 +840,7 @@ Multiple paragraphs."#,
                     None,
                     "Second Record",
                     AdrTemplateType::Record,
-                    MarkupFormat::Markdown,
+                    Some(MarkupFormat::Markdown),
                     None,
                     None,
                 )
@@ -870,7 +851,7 @@ Multiple paragraphs."#,
                     None,
                     "Third Record",
                     AdrTemplateType::Record,
-                    MarkupFormat::Markdown,
+                    Some(MarkupFormat::Markdown),
                     None,
                     Some(vec![
                         "1:Amends:Amended by".to_string(),
@@ -897,16 +878,14 @@ Multiple paragraphs."#,
         let dir = TempDir::new().unwrap();
 
         temp_env::with_vars(
-            [
-                ("EDITOR", Some(Path::new("./tests/fixtures/noop-editor"))),
-            ],
+            [("EDITOR", Some(Path::new("./tests/fixtures/noop-editor")))],
             || {
                 let first = new(
                     dir.path(),
                     None,
                     "First Record",
                     AdrTemplateType::Record,
-                    MarkupFormat::Markdown,
+                    Some(MarkupFormat::Markdown),
                     None,
                     None,
                 )
@@ -917,7 +896,7 @@ Multiple paragraphs."#,
                     None,
                     "Second Record",
                     AdrTemplateType::Record,
-                    MarkupFormat::Markdown,
+                    Some(MarkupFormat::Markdown),
                     Some(vec!["1".to_string()]),
                     None,
                 )
@@ -940,16 +919,14 @@ Multiple paragraphs."#,
         let dir = TempDir::new().unwrap();
 
         temp_env::with_vars(
-            [
-                ("EDITOR", Some(Path::new("./tests/fixtures/noop-editor"))),
-            ],
+            [("EDITOR", Some(Path::new("./tests/fixtures/noop-editor")))],
             || {
                 let first = new(
                     dir.path(),
                     None,
                     "First Record",
                     AdrTemplateType::Record,
-                    MarkupFormat::Markdown,
+                    Some(MarkupFormat::Markdown),
                     None,
                     None,
                 )
@@ -960,7 +937,7 @@ Multiple paragraphs."#,
                     None,
                     "Second Record",
                     AdrTemplateType::Record,
-                    MarkupFormat::Markdown,
+                    Some(MarkupFormat::Markdown),
                     None,
                     None,
                 )
@@ -971,7 +948,7 @@ Multiple paragraphs."#,
                     None,
                     "Third Record",
                     AdrTemplateType::Record,
-                    MarkupFormat::Markdown,
+                    Some(MarkupFormat::Markdown),
                     Some(vec!["1".to_string(), "2".to_string()]),
                     None,
                 )
@@ -995,16 +972,14 @@ Multiple paragraphs."#,
         let dir = TempDir::new().unwrap();
 
         temp_env::with_vars(
-            [
-                ("EDITOR", Some(Path::new("./tests/fixtures/noop-editor"))),
-            ],
+            [("EDITOR", Some(Path::new("./tests/fixtures/noop-editor")))],
             || {
                 let first = new(
                     dir.path(),
                     None,
                     "The First Decision",
                     AdrTemplateType::Record,
-                    MarkupFormat::Markdown,
+                    Some(MarkupFormat::Markdown),
                     None,
                     None,
                 )
@@ -1015,7 +990,7 @@ Multiple paragraphs."#,
                     None,
                     "The Second Decision",
                     AdrTemplateType::Record,
-                    MarkupFormat::Markdown,
+                    Some(MarkupFormat::Markdown),
                     None,
                     None,
                 )
@@ -1041,9 +1016,7 @@ Multiple paragraphs."#,
         let dir = TempDir::new().unwrap();
 
         temp_env::with_vars(
-            [
-                ("EDITOR", Some(Path::new("./tests/fixtures/noop-editor"))),
-            ],
+            [("EDITOR", Some(Path::new("./tests/fixtures/noop-editor")))],
             || {
                 init(
                     dir.path(),
@@ -1079,7 +1052,7 @@ Date: {{ date }}
                     None,
                     "Custom Template Record",
                     AdrTemplateType::Record,
-                    MarkupFormat::Markdown,
+                    Some(MarkupFormat::Markdown),
                     None,
                     None,
                 )
@@ -1101,9 +1074,7 @@ Date: {{ date }}
         let dir = TempDir::new().unwrap();
 
         temp_env::with_vars(
-            [
-                ("EDITOR", Some(Path::new("./tests/fixtures/noop-editor"))),
-            ],
+            [("EDITOR", Some(Path::new("./tests/fixtures/noop-editor")))],
             || {
                 let path = init(
                     dir.path(),
@@ -1131,9 +1102,7 @@ Date: {{ date }}
         let dir = TempDir::new().unwrap();
 
         temp_env::with_vars(
-            [
-                ("EDITOR", Some(Path::new("./tests/fixtures/fake-editor"))),
-            ],
+            [("EDITOR", Some(Path::new("./tests/fixtures/fake-editor")))],
             || {
                 let adr_path = init(
                     dir.path(),
@@ -1157,9 +1126,7 @@ Date: {{ date }}
     fn init_should_fail_on_non_empty_directory() {
         let dir = TempDir::new().unwrap();
         temp_env::with_vars(
-            [
-                ("EDITOR", Some(Path::new("./tests/fixtures/fake-editor"))),
-            ],
+            [("EDITOR", Some(Path::new("./tests/fixtures/fake-editor")))],
             || {
                 init(
                     dir.path(),
