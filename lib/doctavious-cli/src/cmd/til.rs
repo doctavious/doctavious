@@ -5,7 +5,7 @@ use std::path::{Path, PathBuf};
 use std::str::FromStr;
 use std::{env, fs};
 
-use chrono::{DateTime, Local, Utc};
+use chrono::{DateTime, Local};
 use directories::UserDirs;
 use serde::Serialize;
 use walkdir::{DirEntry, WalkDir};
@@ -92,7 +92,6 @@ pub fn new(
 ) -> CliResult<PathBuf> {
     let config = get_config(cwd.as_deref())?;
 
-    // let settings = get_settings(&settings_file)?;
     let til_dir = if let Some(til_dir) = config.settings.get_til_dir() {
         til_dir
     } else {
@@ -168,12 +167,20 @@ pub fn list(cwd: &Path) -> CliResult<Vec<PathBuf>> {
     Ok(paths)
 }
 
-pub fn open(cwd: Option<&Path>, post: String) -> CliResult<()> {
+pub fn open(cwd: Option<&Path>, post: String) -> CliResult<PathBuf> {
     let config = get_config(cwd)?;
-    let til_dir = config
-        .settings
-        .get_til_dir()
-        .unwrap_or(env::current_dir().expect("Unable to get current directory"));
+
+    // TODO: extract to fn
+    let til_dir = if let Some(til_dir) = config.settings.get_til_dir() {
+        til_dir
+    } else {
+        if let Some(cwd) = cwd {
+            cwd.to_path_buf()
+        } else {
+            env::current_dir().expect("Unable to get current directory")
+        }
+    };
+
     let Some((topic, title)) = post.split_once("/") else {
         todo!()
     };
@@ -190,10 +197,9 @@ pub fn open(cwd: Option<&Path>, post: String) -> CliResult<()> {
     if let Some(post_path) = path {
         let edited = edit::edit_path(&post_path)?;
         fs::write(&post_path, edited)?;
-        Ok(())
+        Ok(post_path)
     } else {
-        // Err(DoctaviousCliError::)
-        Ok(())
+        todo!()
     }
 }
 
@@ -334,7 +340,7 @@ mod tests {
 
     use tempfile::TempDir;
 
-    use crate::cmd::til::{init, new};
+    use crate::cmd::til::{init, list, new, open};
     use crate::files::get_all_files;
     use crate::markup_format::MarkupFormat;
     use crate::settings::Config;
@@ -478,4 +484,69 @@ mod tests {
 
         dir.close().unwrap();
     }
+
+    #[test]
+    fn should_list() {
+        let dir = TempDir::new().unwrap();
+
+        temp_env::with_vars(
+            [("EDITOR", Some(Path::new("./tests/fixtures/noop-editor")))],
+            || {
+                new(
+                    Some(dir.path()),
+                    "testing".to_string(),
+                    "rust".to_string(),
+                    None,
+                    None,
+                    None,
+                    false,
+                )
+                    .expect("Should be able to create new post");
+
+                new(
+                    Some(dir.path()),
+                    "foo".to_string(),
+                    "baz".to_string(),
+                    None,
+                    None,
+                    None,
+                    false,
+                )
+                    .expect("Should be able to create new post");
+
+                let all_posts = list(dir.path()).unwrap();
+
+                assert_eq!(2, all_posts.len());
+            },
+        );
+
+        dir.close().unwrap();
+    }
+
+    #[test]
+    fn should_open() {
+        let dir = TempDir::new().unwrap();
+
+        temp_env::with_vars(
+            [("VISUAL", Some(Path::new("./tests/fixtures/fake-visual")))],
+            || {
+                new(
+                    Some(dir.path()),
+                    "testing".to_string(),
+                    "rust".to_string(),
+                    None,
+                    None,
+                    None,
+                    false,
+                )
+                    .expect("Should be able to create new post");
+
+                let path = open(Some(dir.path()), "rust/testing".to_string()).unwrap();
+                assert!(fs::read_to_string(&path).unwrap().contains("VISUAL"));
+            },
+        );
+
+        dir.close().unwrap();
+    }
+
 }
