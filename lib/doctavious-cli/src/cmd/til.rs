@@ -352,8 +352,8 @@ fn is_hidden(entry: &DirEntry) -> bool {
 mod tests {
     use std::fs;
     use std::path::Path;
-    use directories::{BaseDirs, ProjectDirs};
 
+    use directories::BaseDirs;
     use tempfile::TempDir;
 
     use crate::cmd::til::{init, list, new, open};
@@ -405,8 +405,10 @@ mod tests {
                 let config = Config::get_global().unwrap();
                 assert!(!config.is_default_settings);
 
-                let expected_config_path = BaseDirs::new().unwrap()
-                    .config_dir().join("com.doctavious.cli/doctavious.toml")
+                let expected_config_path = BaseDirs::new()
+                    .unwrap()
+                    .config_dir()
+                    .join("com.doctavious.cli/doctavious.toml")
                     .to_string_lossy()
                     .to_string();
 

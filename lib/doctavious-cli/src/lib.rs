@@ -12,6 +12,7 @@ pub mod templating;
 use thiserror::Error;
 
 use crate::cmd::design_decisions;
+use crate::settings::SettingErrors;
 
 #[remain::sorted]
 #[derive(Debug, Error)]
@@ -32,9 +33,6 @@ pub enum DoctaviousCliError {
     #[error("Glob pattern error: `{0}`")]
     GlobPatternError(#[from] glob::PatternError),
 
-    #[error("invalid settings file")]
-    InvalidSettingsFile,
-
     #[error("io: {0}")]
     Io(#[from] std::io::Error),
 
@@ -47,6 +45,9 @@ pub enum DoctaviousCliError {
 
     #[error("json serialize/deserialize error: {0}")]
     SerdeJson(#[from] serde_json::Error),
+
+    #[error(transparent)]
+    SettingError(#[from] SettingErrors),
 
     #[error("Enum parsing error: {0}")]
     StrumParseError(#[from] strum::ParseError),
@@ -61,6 +62,9 @@ pub enum DoctaviousCliError {
     /// Error that may occur while parsing the template.
     #[error("Template parse error:\n{0}")]
     TemplateParseError(String),
+
+    #[error("TIL already exists")]
+    TilAlreadyExists,
 
     /// Errors that may occur when deserializing types from TOML format.
     #[error("toml deserialize error: {0}")]
