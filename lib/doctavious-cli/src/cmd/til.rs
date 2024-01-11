@@ -35,9 +35,9 @@ struct TilEntry {
 /// If `local` if false create global settings with `til.dir` as either `cwd` or default til directory
 ///
 /// Global settings exist at the following locations
-/// - on Linux: /home/<user>/.config/com.doctavious.cli/doctavious.toml␊
-/// - on Windows: C:\Users\<user>\AppData\Roaming\com.doctavious.cli\doctavious.toml␊
-/// - on macOS: /Users/<user>/Library/Application Support/com.doctavious.cli/doctavious.toml␊
+/// - on Linux: /home/<user>/.config/com.doctavious.cli/doctavious.toml
+/// - on Windows: C:\Users\<user>\AppData\Roaming\com.doctavious.cli\doctavious.toml
+/// - on macOS: /Users/<user>/Library/Application Support/com.doctavious.cli/doctavious.toml
 pub fn init(cwd: Option<&Path>, format: MarkupFormat, local: bool) -> CliResult<PathBuf> {
     let cwd = cwd.and_then(|p| Some(p.to_path_buf()));
     let (mut config, til_dir) = if local {
@@ -352,6 +352,7 @@ fn is_hidden(entry: &DirEntry) -> bool {
 mod tests {
     use std::fs;
     use std::path::Path;
+    use directories::{BaseDirs, ProjectDirs};
 
     use tempfile::TempDir;
 
@@ -403,10 +404,16 @@ mod tests {
 
                 let config = Config::get_global().unwrap();
                 assert!(!config.is_default_settings);
+
+                let expected_config_path = BaseDirs::new().unwrap()
+                    .config_dir().join("com.doctavious.cli/doctavious.toml")
+                    .to_string_lossy()
+                    .to_string();
+
                 assert!(config
                     .path
                     .to_string_lossy()
-                    .ends_with("com.doctavious.cli/doctavious.toml"));
+                    .ends_with(expected_config_path.as_str()));
 
                 insta::with_settings!({filters => vec![
                     (dir.path().to_str().unwrap(), "[DIR]"),
