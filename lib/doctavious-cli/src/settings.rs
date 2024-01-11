@@ -9,6 +9,7 @@ use directories::ProjectDirs;
 use lazy_static::lazy_static;
 use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
+use thiserror::Error;
 
 use crate::cmd::githooks::Hook;
 use crate::file_structure::FileStructure;
@@ -48,6 +49,16 @@ static SETTINGS: OnceLock<Option<Settings>> = OnceLock::new();
 // lazy_static! {
 //     pub static ref SETTINGS_FILE: PathBuf = PathBuf::from(DEFAULT_CONFIG_NAME);
 // }
+
+#[remain::sorted]
+#[derive(Debug, Error)]
+pub enum SettingErrors {
+    #[error("{0} setting already initialized")]
+    AlreadyInitialized(String),
+
+    #[error("invalid settings file")]
+    InvalidFile,
+}
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct Config {
@@ -391,7 +402,7 @@ pub(crate) fn load_settings<'a>(cwd: &Path) -> CliResult<Cow<'a, Settings>> {
             }
         })
         .as_ref()
-        .ok_or(DoctaviousCliError::InvalidSettingsFile)?;
+        .ok_or(SettingErrors::InvalidFile)?;
 
     Ok(Cow::Borrowed(settings))
 }
