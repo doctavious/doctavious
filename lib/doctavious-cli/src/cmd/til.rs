@@ -8,15 +8,16 @@ use std::{env, fs};
 use chrono::{DateTime, Local};
 use directories::UserDirs;
 use serde::Serialize;
+use tracing::debug;
 use walkdir::{DirEntry, WalkDir};
 
 use crate::cmd::design_decisions::is_valid_file;
 use crate::files::{ensure_path, friendly_filename};
 use crate::markup_format::MarkupFormat;
-use crate::settings::{init_dir, Config, TilSettings, DEFAULT_TIL_DIR};
+use crate::settings::{init_dir, Config, SettingErrors, TilSettings, DEFAULT_TIL_DIR};
 use crate::templates::{get_template, get_template_content, get_title};
 use crate::templating::{TemplateContext, TemplateType, Templates, TilTemplateType};
-use crate::{edit, CliResult};
+use crate::{edit, CliResult, DoctaviousCliError};
 
 #[derive(Clone, Debug, Serialize)]
 struct TilEntry {
@@ -53,7 +54,9 @@ pub fn init(cwd: Option<&Path>, format: MarkupFormat, local: bool) -> CliResult<
     };
 
     if config.settings.til_settings.is_some() {
-        // TODO: return error
+        return Err(DoctaviousCliError::SettingError(
+            SettingErrors::AlreadyInitialized("til".to_string()),
+        ));
     }
 
     init_dir(&til_dir)?;
@@ -123,8 +126,7 @@ pub fn new(
         .with_extension(format.extension());
 
     if path.is_file() {
-        // TODO: this should return the error
-        eprintln!("File {} already exists", path.to_string_lossy());
+        return Err(DoctaviousCliError::TilAlreadyExists);
     }
 
     ensure_path(&path)?;
@@ -184,6 +186,7 @@ pub fn open(cwd: Option<&Path>, post: String) -> CliResult<PathBuf> {
     let Some((topic, title)) = post.split_once("/") else {
         todo!()
     };
+
     let path = get_posts(&til_dir, Some(topic))
         .filter_map(|e| {
             if e.path().to_string_lossy().contains(title) {
@@ -207,7 +210,6 @@ pub fn render() -> CliResult<()> {
     Ok(())
 }
 
-
 fn get_config(cwd: Option<&Path>) -> CliResult<Config> {
     Ok(if let Some(cwd) = cwd {
         Config::from_path_or_default(&cwd)
@@ -228,7 +230,6 @@ fn get_config(cwd: Option<&Path>) -> CliResult<Config> {
     // } else {
     //     local_config
     // })
-
 }
 
 fn get_posts(cwd: &Path, topic: Option<&str>) -> impl Iterator<Item = DirEntry> {
@@ -245,60 +246,16 @@ fn get_posts(cwd: &Path, topic: Option<&str>) -> impl Iterator<Item = DirEntry> 
         .filter(|e| is_valid_file(&e.path()))
 }
 
-// TODO: this should just build_mod the content and return and not write
 pub(crate) fn generate_toc(dir: &Path, format: MarkupFormat) -> CliResult<()> {
     let mut all_tils: BTreeMap<String, Vec<TilEntry>> = BTreeMap::new();
     for entry in get_posts(&dir, None) {
-        // skip files that are under til dir
-        if dir == entry.path().parent().unwrap() {
-            continue;
+        if let Some(til) = file_to_til_entry(dir, entry) {
+            if let Some(tils) = all_tils.get_mut(&til.topic) {
+                tils.push(til);
+            } else {
+                all_tils.insert(til.topic.clone(), vec![til]);
+            }
         }
-
-        // TODO: handle unwraps better
-        let topic = entry
-            .path()
-            .parent()
-            .unwrap()
-            .file_name()
-            .unwrap()
-            .to_string_lossy()
-            .into_owned();
-
-        if !all_tils.contains_key(&topic) {
-            // TODO: is there a way to avoid this clone?
-            all_tils.insert(topic.clone(), Vec::new());
-        }
-
-        let markup_format =
-            MarkupFormat::from_str(entry.path().extension().unwrap().to_str().unwrap()).unwrap();
-
-        let file = File::open(&entry.path())?;
-        let buffer = BufReader::new(file);
-        // TODO: should this use extension to get title? Would allow for users to mix/match file types
-        let description = get_title(buffer, markup_format);
-        // let file_name = entry.file_name().to_string_lossy().to_string();
-        // let entry_path = entry.path();
-        // let file_name = if let Ok(stripped) = entry_path.strip_prefix(dir) {
-        //     stripped.to_string_lossy().to_string()
-        // } else {
-        //     entry_path.to_string_lossy().to_string()
-        // };
-        let file_name = entry.path().file_name()
-            .expect("Unable to get file name")
-            .to_string_lossy().to_string();
-
-        all_tils.get_mut(&topic).unwrap().push(TilEntry {
-            topic,
-            title: entry
-                .path()
-                .file_stem()
-                .unwrap()
-                .to_string_lossy()
-                .to_string(), // TODO: dont unwrap
-            description,
-            file_name,
-            date: DateTime::<Local>::from(entry.metadata()?.created()?).format("%Y-%m-%d").to_string(),
-        });
     }
 
     let mut til_count = 0;
@@ -322,6 +279,64 @@ pub(crate) fn generate_toc(dir: &Path, format: MarkupFormat) -> CliResult<()> {
     fs::write(p, &rendered)?;
 
     Ok(())
+}
+
+fn file_to_til_entry(root: &Path, entry: DirEntry) -> Option<TilEntry> {
+    let entry_path = entry.path();
+    let parent = entry.path().parent()?;
+    // skip files that are under til dir
+    if root == parent {
+        debug!("Skipping {:?}. Not in a topic", entry_path);
+        return None;
+    }
+
+    let topic = parent.file_name();
+    if topic.is_none() {
+        debug!("Skipping {:?}. Could not get topic", entry_path);
+        return None;
+    }
+
+    let title = entry_path.file_stem();
+    if title.is_none() {
+        debug!("Skipping {:?}. Could not get title", entry_path);
+        return None;
+    }
+
+    let markup_format = MarkupFormat::from_path(entry_path);
+    if markup_format.is_err() {
+        debug!("Skipping {:?}. Could not get markup format", entry_path);
+        return None;
+    }
+
+    let file = File::open(entry_path);
+    if file.is_err() {
+        debug!("Skipping {:?}. Could not open file", entry_path);
+        return None;
+    }
+
+    let buffer = BufReader::new(file.ok()?);
+    let description = get_title(buffer, markup_format.ok()?);
+    let file_name = entry.path().file_name();
+    if file_name.is_none() {
+        debug!("Skipping {:?}. Could not get file_name", entry_path);
+        return None;
+    }
+
+    let created = entry.metadata().ok().and_then(|m| m.created().ok());
+    if created.is_none() {
+        debug!("Skipping {:?}. Could not get created date", entry_path);
+        return None;
+    }
+
+    Some(TilEntry {
+        topic: topic?.to_string_lossy().to_string(),
+        title: title?.to_string_lossy().to_string(),
+        description,
+        file_name: file_name?.to_string_lossy().to_string(),
+        date: DateTime::<Local>::from(created?)
+            .format("%Y-%m-%d")
+            .to_string(),
+    })
 }
 
 // TODO: where to put this
@@ -388,6 +403,10 @@ mod tests {
 
                 let config = Config::get_global().unwrap();
                 assert!(!config.is_default_settings);
+                assert!(config
+                    .path
+                    .to_string_lossy()
+                    .ends_with("com.doctavious.cli/doctavious.toml"));
 
                 insta::with_settings!({filters => vec![
                     (dir.path().to_str().unwrap(), "[DIR]"),
@@ -472,7 +491,7 @@ mod tests {
                     None,
                     true,
                 )
-                    .expect("Should be able to create new post and ToC");
+                .expect("Should be able to create new post and ToC");
 
                 insta::with_settings!({filters => vec![
                     (r"\d{4}-\d{2}-\d{2}", "[DATE]")
@@ -501,7 +520,7 @@ mod tests {
                     None,
                     false,
                 )
-                    .expect("Should be able to create new post");
+                .expect("Should be able to create new post");
 
                 new(
                     Some(dir.path()),
@@ -512,7 +531,7 @@ mod tests {
                     None,
                     false,
                 )
-                    .expect("Should be able to create new post");
+                .expect("Should be able to create new post");
 
                 let all_posts = list(dir.path()).unwrap();
 
@@ -539,7 +558,7 @@ mod tests {
                     None,
                     false,
                 )
-                    .expect("Should be able to create new post");
+                .expect("Should be able to create new post");
 
                 let path = open(Some(dir.path()), "rust/testing".to_string()).unwrap();
                 assert!(fs::read_to_string(&path).unwrap().contains("VISUAL"));
@@ -548,5 +567,4 @@ mod tests {
 
         dir.close().unwrap();
     }
-
 }
