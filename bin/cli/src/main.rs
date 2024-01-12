@@ -3,11 +3,16 @@ use doctavious_cli::cmd::{build, deploy, frameworks};
 use tracing::error;
 
 use crate::commands::frameworks::FrameworkSubCommand;
-use crate::commands::{adr, Command, Opt, rfd};
+use crate::commands::{adr, rfd, Command, Opt, til};
 
 mod commands;
 mod config;
 mod output;
+
+// #[async_trait]
+pub trait RunnableCmd: Send + Sync {
+    // async fn run(&self, ctx: &Context) -> Result<()>;
+}
 
 // TODO: do we need/want custom error codes?
 // TODO: this should probably have
@@ -45,7 +50,7 @@ fn main() {
         Command::Init(..) => unimplemented!(),
         Command::Link(..) => unimplemented!(),
         Command::Rfd(cmd) => rfd::execute(cmd),
-        Command::Til(..) => unimplemented!(),
+        Command::Til(cmd) => til::execute(cmd),
         Command::WhoAmI(..) => unimplemented!(),
     };
 

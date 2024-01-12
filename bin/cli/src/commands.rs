@@ -18,7 +18,7 @@ pub mod init;
 pub mod link;
 mod macros;
 pub mod rfd;
-mod til;
+pub mod til;
 pub mod whoami;
 
 #[derive(Debug, Parser)]

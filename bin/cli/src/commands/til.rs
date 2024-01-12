@@ -5,6 +5,7 @@ mod new;
 mod open;
 
 use clap::Parser;
+use doctavious_cli::CliResult;
 
 use crate::commands::til::generate::BuildTilReadMe;
 use crate::commands::til::init::InitTil;
@@ -30,4 +31,16 @@ pub(crate) enum TilSubCommand {
     // TODO: render
     // TODO: open
     // TODO: template
+}
+
+
+pub(crate) fn execute(command: TilCommand) -> CliResult<Option<String>> {
+    match command.sub_command {
+        TilSubCommand::Init(cmd) => init::execute(cmd),
+        TilSubCommand::List(cmd) => list::execute(cmd),
+        TilSubCommand::New(cmd) => new::execute(cmd),
+        TilSubCommand::Readme(cmd) => generate::execute(cmd),
+    }?;
+
+    Ok(Some(String::new()))
 }
