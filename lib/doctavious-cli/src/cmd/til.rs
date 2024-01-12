@@ -1,6 +1,6 @@
 use std::collections::BTreeMap;
 use std::fs::File;
-use std::io::BufReader;
+use std::io::{BufReader, ErrorKind};
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
 use std::{env, fs};
@@ -59,7 +59,7 @@ pub fn init(cwd: Option<&Path>, format: MarkupFormat, local: bool) -> CliResult<
         ));
     }
 
-    init_dir(&til_dir)?;
+    create_til_dir(&til_dir)?;
 
     config.settings.til_settings = Some(TilSettings {
         // dont need to include dir in a local config
@@ -74,6 +74,24 @@ pub fn init(cwd: Option<&Path>, format: MarkupFormat, local: bool) -> CliResult<
     config.save()?;
 
     Ok(til_dir)
+}
+
+fn create_til_dir(path: &Path) -> CliResult<()> {
+    match fs::create_dir_all(path) {
+        Ok(_) => Ok(()),
+        Err(e) if e.kind() == ErrorKind::AlreadyExists => {
+            debug!("the directory {} already exists", path.to_string_lossy());
+            Ok(())
+        }
+        Err(e) => {
+            debug!(
+                "Error occurred creating directory {}: {}",
+                path.to_string_lossy(),
+                e
+            );
+            Err(e.into())
+        }
+    }
 }
 
 // If `cwd` is provided but it doesnt have settings should we check if global settings exist?
