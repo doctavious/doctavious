@@ -264,7 +264,7 @@ fn get_posts(cwd: &Path, topic: Option<&str>) -> impl Iterator<Item = DirEntry> 
         .filter(|e| is_valid_file(&e.path()))
 }
 
-pub(crate) fn generate_toc(dir: &Path, format: MarkupFormat) -> CliResult<()> {
+pub fn generate_toc(dir: &Path, format: MarkupFormat) -> CliResult<()> {
     let mut all_tils: BTreeMap<String, Vec<TilEntry>> = BTreeMap::new();
     for entry in get_posts(&dir, None) {
         if let Some(til) = file_to_til_entry(dir, entry) {

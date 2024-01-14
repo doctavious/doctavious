@@ -5,8 +5,7 @@ use std::path::{Path, PathBuf};
 use crate::markup_format::MarkupFormat;
 use crate::templating::TemplateType;
 
-/// If the ADR directory contains a file `templates/template.<format>`, use it as the template for the new ADR.
-/// Otherwise a use the default template.
+
 pub(crate) fn get_template(dir: &Path, template_type: TemplateType, extension: &str) -> PathBuf {
     // see if direction defines a custom template
     let custom_template = dir
@@ -16,8 +15,7 @@ pub(crate) fn get_template(dir: &Path, template_type: TemplateType, extension: &
     if custom_template.is_file() {
         custom_template
     } else {
-        // default_template
-        template_type.get_default_path().with_extension(extension)
+        PathBuf::from(env!("CARGO_MANIFEST_DIR")).join(template_type.get_default_path().with_extension(extension))
     }
 }
 

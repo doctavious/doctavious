@@ -7,10 +7,11 @@ mod open;
 use clap::Parser;
 use doctavious_cli::CliResult;
 
-use crate::commands::til::generate::BuildTilReadMe;
+use crate::commands::til::generate::GenerateTils;
 use crate::commands::til::init::InitTil;
 use crate::commands::til::list::ListTils;
 use crate::commands::til::new::NewTil;
+use crate::commands::til::open::OpenTil;
 
 /// Manage Today I Learned (TIL) posts
 #[derive(Parser, Debug)]
@@ -23,23 +24,23 @@ pub(crate) struct TilCommand {
 #[remain::sorted]
 #[derive(Parser, Debug)]
 pub(crate) enum TilSubCommand {
+    Generate(GenerateTils),
     Init(InitTil),
     // #[clap(aliases = &["baz", "fizz"])]
     List(ListTils),
     New(NewTil),
-    Readme(BuildTilReadMe),
+    Open(OpenTil),
     // TODO: render
-    // TODO: open
     // TODO: template
 }
 
-
 pub(crate) fn execute(command: TilCommand) -> CliResult<Option<String>> {
     match command.sub_command {
+        TilSubCommand::Generate(cmd) => generate::execute(cmd),
         TilSubCommand::Init(cmd) => init::execute(cmd),
         TilSubCommand::List(cmd) => list::execute(cmd),
         TilSubCommand::New(cmd) => new::execute(cmd),
-        TilSubCommand::Readme(cmd) => generate::execute(cmd),
+        TilSubCommand::Open(cmd) => open::execute(cmd),
     }?;
 
     Ok(Some(String::new()))

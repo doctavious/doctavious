@@ -31,6 +31,7 @@ pub(crate) struct InitTil {
     /// global configuration
     #[arg(long, action)]
     pub local: bool,
+    // TODO: should we have toc details?
 }
 
 pub(crate) fn execute(cmd: InitTil) -> CliResult<Option<String>> {
