@@ -4,10 +4,10 @@
 * TILs: {{ til_count }}
 * Topics: {{ categories_count }}
 
-{% for key in tils -%}
-== {{ key }}
+{% for k, v in tils|items -%}
+== {{ k }}
 
-{% for til in tils[key] -%}
+{% for til in v -%}
 * [`{{ til.title }}`]{{ til.topic}}/{{ til.file_name }}) {{ til.description }} ({{ til.date }})
 {% endfor %}
 
