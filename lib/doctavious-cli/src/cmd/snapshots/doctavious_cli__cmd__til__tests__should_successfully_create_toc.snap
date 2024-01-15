@@ -10,7 +10,7 @@ expression: "fs::read_to_string(dir.path().join(\"README.md\")).unwrap()"
 
 ## rust
   
-* [`testing`](rust/testing.md) testing ([DATE])
+* [`testing`](rust/testing.md) Testing ([DATE])
 
 
 

@@ -14,7 +14,7 @@ use walkdir::{DirEntry, WalkDir};
 use crate::cmd::design_decisions::is_valid_file;
 use crate::files::{ensure_path, friendly_filename};
 use crate::markup_format::MarkupFormat;
-use crate::settings::{init_dir, Config, SettingErrors, TilSettings, DEFAULT_TIL_DIR};
+use crate::settings::{Config, SettingErrors, TilSettings, DEFAULT_TIL_DIR};
 use crate::templates::{get_template, get_template_content, get_title};
 use crate::templating::{TemplateContext, TemplateType, Templates, TilTemplateType};
 use crate::{edit, CliResult, DoctaviousCliError};
@@ -104,14 +104,15 @@ fn create_til_dir(path: &Path) -> CliResult<()> {
 /// settings are present, if they are use them, otherwise default to current directory.
 pub fn new(
     cwd: Option<&Path>,
-    title: String,
-    category: String,
+    post: String,
     tags: Option<Vec<String>>,
-    file_name: Option<String>,
-    format: Option<MarkupFormat>,
     toc: bool,
 ) -> CliResult<PathBuf> {
     let config = get_config(cwd.as_deref())?;
+
+    let Some((category, title)) = post.split_once("/") else {
+        todo!()
+    };
 
     let til_dir = if let Some(til_dir) = config.settings.get_til_dir() {
         til_dir
@@ -123,24 +124,13 @@ pub fn new(
         }
     };
 
-    let format = config.settings.get_til_template_format(format);
-
-    // https://stackoverflow.com/questions/7406102/create-sane-safe-filename-from-any-unsafe-string
-    // https://docs.rs/sanitize-filename/latest/sanitize_filename/
-    // https://github.com/danielecook/TIL-Tool/ has the following
-    // arg("fname", nargs = 1, help="Filename in the format topic/title (e.g. R/create_matrix")
-    // TODO: convert to a better file name
-    // spaces to hyphens
-    // special characters?
-    let file_name = if let Some(file_name) = file_name {
-        file_name.trim().to_string()
-    } else {
-        friendly_filename(&title)
-    };
+    let format = MarkupFormat::from_path(Path::new(title))
+        .ok()
+        .unwrap_or(config.settings.get_til_template_format(None));
 
     let path = Path::new(&til_dir)
         .join(category)
-        .join(file_name)
+        .join(friendly_filename(title))
         .with_extension(format.extension());
 
     if path.is_file() {
@@ -161,7 +151,7 @@ pub fn new(
     ));
 
     let mut context = TemplateContext::new();
-    context.insert("title", &title);
+    context.insert("title", &friendly_title(title));
     context.insert("date", &Local::now().format("%Y-%m-%d").to_string());
     if let Some(tags) = tags {
         context.insert("tags", &tags.join(" ").to_string());
@@ -366,6 +356,20 @@ fn is_hidden(entry: &DirEntry) -> bool {
         .unwrap_or(false)
 }
 
+fn friendly_title(s: &str) -> String {
+    s.split(&['-', '_'])
+        .map(|word| {
+            let mut chars = word.chars();
+            match chars.next() {
+                None => String::new(),
+                Some(f) => f.to_uppercase().collect::<String>() + chars.as_str(),
+            }
+        })
+        .collect::<Vec<String>>()
+        .join(" ")
+}
+
+
 #[cfg(test)]
 mod tests {
     use std::fs;
@@ -456,10 +460,7 @@ mod tests {
             || {
                 let path = new(
                     Some(dir.path()),
-                    "testing".to_string(),
-                    "rust".to_string(),
-                    None,
-                    None,
+                    "rust/testing".to_string(),
                     None,
                     false,
                 )
@@ -485,10 +486,7 @@ mod tests {
             || {
                 let path = new(
                     Some(dir.path()),
-                    "testing".to_string(),
-                    "rust".to_string(),
-                    None,
-                    None,
+                    "rust/testing".to_string(),
                     None,
                     false,
                 )
@@ -511,10 +509,7 @@ mod tests {
             || {
                 let path = new(
                     Some(dir.path()),
-                    "testing".to_string(),
-                    "rust".to_string(),
-                    None,
-                    None,
+                    "rust/testing".to_string(),
                     None,
                     true,
                 )
@@ -540,10 +535,7 @@ mod tests {
             || {
                 new(
                     Some(dir.path()),
-                    "testing".to_string(),
-                    "rust".to_string(),
-                    None,
-                    None,
+                    "rust/testing".to_string(),
                     None,
                     false,
                 )
@@ -551,10 +543,7 @@ mod tests {
 
                 new(
                     Some(dir.path()),
-                    "foo".to_string(),
-                    "baz".to_string(),
-                    None,
-                    None,
+                    "baz/foo".to_string(),
                     None,
                     false,
                 )
@@ -578,10 +567,7 @@ mod tests {
             || {
                 new(
                     Some(dir.path()),
-                    "testing".to_string(),
-                    "rust".to_string(),
-                    None,
-                    None,
+                    "rust/testing".to_string(),
                     None,
                     false,
                 )

@@ -11,9 +11,8 @@ pub(crate) struct OpenTil {
     #[arg(long, short)]
     pub cwd: Option<PathBuf>,
 
-    // TODO: should auto-complete
     /// The post, in the format of <topic/title>, to open
-    #[arg(long, short)]
+    #[arg(index = 0)]
     pub post: String,
 }
 

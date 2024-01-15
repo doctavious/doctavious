@@ -26,7 +26,6 @@ pub(crate) struct TilCommand {
 pub(crate) enum TilSubCommand {
     Generate(GenerateTils),
     Init(InitTil),
-    // #[clap(aliases = &["baz", "fizz"])]
     List(ListTils),
     New(NewTil),
     Open(OpenTil),
