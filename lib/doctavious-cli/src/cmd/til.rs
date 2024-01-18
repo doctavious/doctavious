@@ -219,25 +219,15 @@ pub fn render() -> CliResult<()> {
 }
 
 fn get_config(cwd: Option<&Path>) -> CliResult<Config> {
-    Ok(if let Some(cwd) = cwd {
-        Config::from_path_or_default(&cwd)
+    let path = cwd
+        .and_then(|p| Some(p.to_path_buf()))
+        .unwrap_or(env::current_dir()?);
+    let local_config = Config::from_path_or_default(&path);
+    Ok(if local_config.is_default_settings {
+        Config::get_global().unwrap_or_else(|_| local_config)
     } else {
-        let local_config = Config::from_path_or_default(&env::current_dir()?);
-        if local_config.is_default_settings {
-            Config::get_global().unwrap_or_else(|_| local_config)
-        } else {
-            local_config
-        }
+        local_config
     })
-
-    // TODO: why does this cause tests to hang?
-    // let path = cwd.and_then(|p| Some(p.to_path_buf())).unwrap_or(env::current_dir()?);
-    // let local_config = Config::from_path_or_default(&path);
-    // Ok(if local_config.is_default_settings {
-    //     Config::get_global().unwrap_or_else(|_| local_config)
-    // } else {
-    //     local_config
-    // })
 }
 
 fn get_posts(cwd: &Path, topic: Option<&str>) -> impl Iterator<Item = DirEntry> {
@@ -369,7 +359,6 @@ fn friendly_title(s: &str) -> String {
         .join(" ")
 }
 
-
 #[cfg(test)]
 mod tests {
     use std::fs;
@@ -458,13 +447,8 @@ mod tests {
         temp_env::with_vars(
             [("EDITOR", Some(Path::new("./tests/fixtures/noop-editor")))],
             || {
-                let path = new(
-                    Some(dir.path()),
-                    "rust/testing".to_string(),
-                    None,
-                    false,
-                )
-                .expect("Should be able to create new post");
+                let path = new(Some(dir.path()), "rust/testing".to_string(), None, false)
+                    .expect("Should be able to create new post");
 
                 insta::with_settings!({filters => vec![
                     (r"\d{4}-\d{2}-\d{2}", "[DATE]")
@@ -484,13 +468,8 @@ mod tests {
         temp_env::with_vars(
             [("EDITOR", Some(Path::new("./tests/fixtures/fake-editor")))],
             || {
-                let path = new(
-                    Some(dir.path()),
-                    "rust/testing".to_string(),
-                    None,
-                    false,
-                )
-                .expect("Should be able to create new post");
+                let path = new(Some(dir.path()), "rust/testing".to_string(), None, false)
+                    .expect("Should be able to create new post");
 
                 let content = fs::read_to_string(&path).unwrap();
                 assert!(content.starts_with("EDITOR"));
@@ -507,13 +486,8 @@ mod tests {
         temp_env::with_vars(
             [("EDITOR", Some(Path::new("./tests/fixtures/noop-editor")))],
             || {
-                let path = new(
-                    Some(dir.path()),
-                    "rust/testing".to_string(),
-                    None,
-                    true,
-                )
-                .expect("Should be able to create new post and ToC");
+                let path = new(Some(dir.path()), "rust/testing".to_string(), None, true)
+                    .expect("Should be able to create new post and ToC");
 
                 insta::with_settings!({filters => vec![
                     (r"\d{4}-\d{2}-\d{2}", "[DATE]")
@@ -533,21 +507,11 @@ mod tests {
         temp_env::with_vars(
             [("EDITOR", Some(Path::new("./tests/fixtures/noop-editor")))],
             || {
-                new(
-                    Some(dir.path()),
-                    "rust/testing".to_string(),
-                    None,
-                    false,
-                )
-                .expect("Should be able to create new post");
+                new(Some(dir.path()), "rust/testing".to_string(), None, false)
+                    .expect("Should be able to create new post");
 
-                new(
-                    Some(dir.path()),
-                    "baz/foo".to_string(),
-                    None,
-                    false,
-                )
-                .expect("Should be able to create new post");
+                new(Some(dir.path()), "baz/foo".to_string(), None, false)
+                    .expect("Should be able to create new post");
 
                 let all_posts = list(dir.path()).unwrap();
 
@@ -565,13 +529,8 @@ mod tests {
         temp_env::with_vars(
             [("VISUAL", Some(Path::new("./tests/fixtures/fake-visual")))],
             || {
-                new(
-                    Some(dir.path()),
-                    "rust/testing".to_string(),
-                    None,
-                    false,
-                )
-                .expect("Should be able to create new post");
+                new(Some(dir.path()), "rust/testing".to_string(), None, false)
+                    .expect("Should be able to create new post");
 
                 let path = open(Some(dir.path()), "rust/testing".to_string()).unwrap();
                 assert!(fs::read_to_string(&path).unwrap().contains("VISUAL"));
