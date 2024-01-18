@@ -11,8 +11,8 @@ pub(crate) struct OpenTil {
     #[arg(long, short)]
     pub cwd: Option<PathBuf>,
 
-    /// The post, in the format of <topic/title>, to open
-    #[arg(index = 0)]
+    /// The post, in the format of <category/title>, to open
+    #[arg(index = 1)]
     pub post: String,
 }
 

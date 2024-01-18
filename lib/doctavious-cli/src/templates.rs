@@ -5,7 +5,6 @@ use std::path::{Path, PathBuf};
 use crate::markup_format::MarkupFormat;
 use crate::templating::TemplateType;
 
-
 pub(crate) fn get_template(dir: &Path, template_type: TemplateType, extension: &str) -> PathBuf {
     // see if direction defines a custom template
     let custom_template = dir
@@ -15,7 +14,8 @@ pub(crate) fn get_template(dir: &Path, template_type: TemplateType, extension: &
     if custom_template.is_file() {
         custom_template
     } else {
-        PathBuf::from(env!("CARGO_MANIFEST_DIR")).join(template_type.get_default_path().with_extension(extension))
+        PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join(template_type.get_default_path().with_extension(extension))
     }
 }
 

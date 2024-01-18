@@ -2,7 +2,7 @@ use std::fs;
 use std::io::BufReader;
 use std::path::{Path, PathBuf};
 
-use chrono::{Local, Utc};
+use chrono::Local;
 use git2::Repository;
 use serde::Serialize;
 

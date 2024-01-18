@@ -6,7 +6,6 @@ use std::path::{Path, PathBuf};
 use std::sync::OnceLock;
 
 use directories::ProjectDirs;
-use lazy_static::lazy_static;
 use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
 use thiserror::Error;
@@ -14,10 +13,8 @@ use thiserror::Error;
 use crate::cmd::githooks::Hook;
 use crate::file_structure::FileStructure;
 use crate::markup_format::MarkupFormat;
-use crate::{CliResult, DoctaviousCliError};
+use crate::CliResult;
 
-// TODO: should be .doctavious.toml or put in .doctavious/ directory
-// TODO: better way to do this? Do we want to keep a default settings file in doctavious dir?
 pub const DEFAULT_CONFIG_DIR: &str = ".doctavious";
 
 pub const DEFAULT_CONFIG_NAME: &str = "doctavious.toml";
@@ -26,7 +23,6 @@ pub const DOCTAVIOUS_ENV_SETTINGS_PATH: &str = "DOCTAVIOUS_CONFIG_PATH";
 
 pub const DEFAULT_ADR_DIR: &str = "docs/adr";
 
-// TODO:
 // TODO: could use const_format formatcp
 pub const DEFAULT_TEMPLATE_DIR: &str = "templates";
 
@@ -46,10 +42,6 @@ pub const DEFAULT_TIL_POST_TEMPLATE_PATH: &str = "templates/til/post";
 #[cfg(not(test))]
 static SETTINGS: OnceLock<Option<Settings>> = OnceLock::new();
 
-// lazy_static! {
-//     pub static ref SETTINGS_FILE: PathBuf = PathBuf::from(DEFAULT_CONFIG_NAME);
-// }
-
 #[remain::sorted]
 #[derive(Debug, Error)]
 pub enum SettingErrors {
@@ -65,8 +57,6 @@ pub struct Config {
     pub path: PathBuf,
     pub settings: Settings,
     pub is_default_settings: bool,
-    // is_loaded: bool,
-    // local / global
 }
 
 impl Config {

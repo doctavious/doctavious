@@ -4,7 +4,7 @@ use std::io::{BufRead, BufReader};
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
 
-use chrono::{Local, Utc};
+use chrono::Local;
 use git2::Repository;
 use regex::RegexBuilder;
 use serde::Serialize;

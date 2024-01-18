@@ -2,11 +2,7 @@ use std::path::PathBuf;
 
 use clap::Parser;
 use doctavious_cli::cmd::til;
-use doctavious_cli::markup_format::MarkupFormat;
 use doctavious_cli::CliResult;
-use strum::VariantNames;
-
-use crate::clap_enum_variants;
 
 /// New TIL
 #[derive(Parser, Debug)]
@@ -33,12 +29,7 @@ pub(crate) struct NewTil {
 }
 
 pub(crate) fn execute(cmd: NewTil) -> CliResult<Option<String>> {
-    let output = til::new(
-        cmd.cwd.as_deref(),
-        cmd.post,
-        cmd.tags,
-        cmd.toc,
-    )?;
+    let output = til::new(cmd.cwd.as_deref(), cmd.post, cmd.tags, cmd.toc)?;
 
     Ok(Some(output.to_string_lossy().to_string()))
 }
