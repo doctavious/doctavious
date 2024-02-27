@@ -1,0 +1,18 @@
+#!/bin/sh
+
+if [ "$DOCTAVIOUS" = "0" ]; then
+  exit 0
+fi
+
+
+call_doctavious()
+{
+    if doctavious -h >/dev/null 2>&1
+    then
+        doctavious "$@"
+    else
+        echo "Can't find doctavious in PATH"
+    fi
+}
+
+call_doctavious run "{{program}}" "$@"

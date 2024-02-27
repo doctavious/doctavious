@@ -1,0 +1,69 @@
+use std::path::{Path, PathBuf};
+
+use indexmap::IndexMap;
+
+use crate::{ScmCommit, ScmRepository, ScmResult};
+
+const HOOK_NAMES: [&str; 13] = [
+    "changegroup",
+    "commit",
+    "incoming",
+    "outgoing",
+    "prechangegroup",
+    "precommit",
+    "preoutgoing",
+    "pretag",
+    "pretxnchangegroup",
+    "pretxncommit",
+    "preupdate",
+    "tag",
+    "update",
+];
+
+pub struct HgScmRepository;
+
+impl ScmRepository for HgScmRepository {
+    fn checkout(&self, reference: &str) -> ScmResult<()> {
+        todo!()
+    }
+
+    fn branch_exists(&self, branch_name: &str) -> ScmResult<bool> {
+        todo!()
+    }
+
+    fn write(&self, path: &Path, message: &str) -> ScmResult<()> {
+        todo!()
+    }
+
+    fn last_commit(&self) -> ScmResult<ScmCommit> {
+        todo!()
+    }
+
+    fn commits(&self, range: Option<String>) -> ScmResult<Vec<ScmCommit>> {
+        todo!()
+    }
+
+    fn tags(&self, pattern: &Option<String>) -> ScmResult<IndexMap<String, String>> {
+        todo!()
+    }
+
+    fn is_dirty(&self) -> ScmResult<bool> {
+        todo!()
+    }
+
+    fn supported_hooks(&self) -> Vec<&'static str> {
+        todo!()
+    }
+
+    fn supports_hook(&self, hook: &str) -> bool {
+        todo!()
+    }
+
+    fn hook_path(&self) -> ScmResult<PathBuf> {
+        todo!()
+    }
+
+    fn scm(&self) -> &'static str {
+        todo!()
+    }
+}

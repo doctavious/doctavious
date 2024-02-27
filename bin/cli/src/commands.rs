@@ -18,6 +18,7 @@ pub mod init;
 pub mod link;
 mod macros;
 pub mod rfd;
+mod scmhook;
 pub mod til;
 pub mod whoami;
 
