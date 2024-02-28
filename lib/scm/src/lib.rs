@@ -2,15 +2,20 @@ pub mod drivers;
 pub mod hooks;
 pub mod providers;
 
+use std::io;
 use std::path::{Path, PathBuf};
 use std::string::FromUtf8Error;
-use std::{fs, io};
 
 use chrono::{DateTime, Utc};
 use indexmap::IndexMap;
+use lazy_static::lazy_static;
+use regex::Regex;
 use thiserror::Error;
 
-use crate::drivers::git::GitScmRepository;
+pub const HOOK_TEMPLATE: &[u8; 251] = include_bytes!("hooks/hook.tmpl");
+lazy_static! {
+    pub static ref DOCTAVIOUS_SCM_HOOK_CONTENT_REGEX: Regex = Regex::new("DOCTAVIOUS").unwrap();
+}
 
 #[remain::sorted]
 #[derive(Debug, Error)]
@@ -36,14 +41,6 @@ pub enum ScmError {
 }
 
 pub type ScmResult<T> = Result<T, ScmError>;
-
-// #[remain::sorted]
-// pub enum Scm {
-//     Git,
-// }
-
-// We could have ScmType|Kind which is an enum of Git/Svn/Hg/etc
-// then have a Scm trait which extends ScmRepository and ScmHookSupport
 
 pub const GIT: &str = "git";
 pub const HG: &str = "hg";
@@ -81,38 +78,12 @@ pub struct ScmTag {
     pub commit_id: String,
 }
 
-// TODO: not sure where this belongs but putting here for now. dont like the name
-pub struct Scm;
-impl Scm {
-    pub fn get(cwd: &Path) -> ScmResult<Box<dyn ScmRepository>> {
-        // TODO: it might be better to try and discover directory such as
-        // `git rev-parse --show-toplevel` and `git rev-parse --git-dir`
-        if fs::metadata(cwd.join(".git")).is_ok() {
-            return Ok(Box::new(GitScmRepository::new(cwd)?));
-        }
-
-        if fs::metadata(cwd.join(".svn")).is_ok() {
-            // TODO: implement
-            unimplemented!()
-        }
-
-        if fs::metadata(cwd.join(".hg")).is_ok() {
-            // TODO: implement
-            unimplemented!()
-        }
-
-        Err(ScmError::Unsupported)
-    }
-}
-
 pub trait ScmRepository {
-    // fn open<P: AsRef<Path>>(path: P) -> ScmResult<Self>;
-
     fn checkout(&self, reference: &str) -> ScmResult<()>;
 
-    // branches(options) -> Vec<Branch>
-
     // TODO: change to return branch get_branch / resolve_branch
+    // TODO: For our use cases (ADR/RFD reservation) branches aren't always useful so it might be
+    // better to have a specific trait for those use cases
     fn branch_exists(&self, branch_name: &str) -> ScmResult<bool>;
 
     fn write(&self, path: &Path, message: &str) -> ScmResult<()>;
@@ -137,7 +108,7 @@ pub trait ScmRepository {
 
     fn supports_hook(&self, hook: &str) -> bool;
 
-    fn hook_path(&self) -> ScmResult<PathBuf>;
+    fn hooks_path(&self) -> ScmResult<PathBuf>;
 
     fn scm(&self) -> &'static str;
 }
@@ -146,7 +117,8 @@ pub trait ScmRepository {
 mod tests {
     use std::path::Path;
 
-    use crate::Scm;
+    use crate::drivers::Scm;
+    use crate::ScmRepository;
 
     #[test]
     fn hook_path() {

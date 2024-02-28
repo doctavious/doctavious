@@ -405,7 +405,7 @@ impl ScmRepository for GitScmRepository {
         HOOK_NAMES.contains(&hook.as_ref())
     }
 
-    fn hook_path(&self) -> ScmResult<PathBuf> {
+    fn hooks_path(&self) -> ScmResult<PathBuf> {
         let output = Command::new("git")
             .args(["rev-parse", "--git-path", "hooks"])
             .output()?

@@ -2,7 +2,7 @@ use std::path::PathBuf;
 
 use serde_derive::{Deserialize, Serialize};
 
-use crate::{Scm, ScmResult};
+use crate::ScmResult;
 
 // list of prior art
 // - https://pre-commit.com/

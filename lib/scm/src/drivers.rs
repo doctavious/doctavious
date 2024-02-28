@@ -13,18 +13,18 @@ pub mod hg;
 pub mod svn;
 
 #[remain::sorted]
-pub enum ScmKind {
+pub enum Scm {
     Git(GitScmRepository),
     Hg(HgScmRepository),
     Svn(SvnScmRepository),
 }
 
-impl ScmKind {
+impl Scm {
     pub fn get(cwd: &Path) -> ScmResult<Self> {
         // TODO: it might be better to try and discover directory such as
         // `git rev-parse --show-toplevel` and `git rev-parse --git-dir`
         if fs::metadata(cwd.join(".git")).is_ok() {
-            return Ok(ScmKind::Git(GitScmRepository::new(cwd)?));
+            return Ok(Scm::Git(GitScmRepository::new(cwd)?));
         }
 
         if fs::metadata(cwd.join(".svn")).is_ok() {
@@ -41,92 +41,92 @@ impl ScmKind {
     }
 }
 
-impl ScmRepository for ScmKind {
+impl ScmRepository for Scm {
     fn checkout(&self, reference: &str) -> ScmResult<()> {
         match self {
-            ScmKind::Git(r) => r.checkout(reference),
-            ScmKind::Hg(r) => r.checkout(reference),
-            ScmKind::Svn(r) => r.checkout(reference),
+            Scm::Git(r) => r.checkout(reference),
+            Scm::Hg(r) => r.checkout(reference),
+            Scm::Svn(r) => r.checkout(reference),
         }
     }
 
     fn branch_exists(&self, branch_name: &str) -> ScmResult<bool> {
         match self {
-            ScmKind::Git(r) => r.branch_exists(branch_name),
-            ScmKind::Hg(r) => r.branch_exists(branch_name),
-            ScmKind::Svn(r) => r.branch_exists(branch_name),
+            Scm::Git(r) => r.branch_exists(branch_name),
+            Scm::Hg(r) => r.branch_exists(branch_name),
+            Scm::Svn(r) => r.branch_exists(branch_name),
         }
     }
 
     fn write(&self, path: &Path, message: &str) -> ScmResult<()> {
         match self {
-            ScmKind::Git(r) => r.write(path, message),
-            ScmKind::Hg(r) => r.write(path, message),
-            ScmKind::Svn(r) => r.write(path, message),
+            Scm::Git(r) => r.write(path, message),
+            Scm::Hg(r) => r.write(path, message),
+            Scm::Svn(r) => r.write(path, message),
         }
     }
 
     fn last_commit(&self) -> ScmResult<ScmCommit> {
         match self {
-            ScmKind::Git(r) => r.last_commit(),
-            ScmKind::Hg(r) => r.last_commit(),
-            ScmKind::Svn(r) => r.last_commit(),
+            Scm::Git(r) => r.last_commit(),
+            Scm::Hg(r) => r.last_commit(),
+            Scm::Svn(r) => r.last_commit(),
         }
     }
 
     fn commits(&self, range: Option<String>) -> ScmResult<Vec<ScmCommit>> {
         match self {
-            ScmKind::Git(r) => r.commits(range),
-            ScmKind::Hg(r) => r.commits(range),
-            ScmKind::Svn(r) => r.commits(range),
+            Scm::Git(r) => r.commits(range),
+            Scm::Hg(r) => r.commits(range),
+            Scm::Svn(r) => r.commits(range),
         }
     }
 
     fn tags(&self, pattern: &Option<String>) -> ScmResult<IndexMap<String, String>> {
         match self {
-            ScmKind::Git(r) => r.tags(pattern),
-            ScmKind::Hg(r) => r.tags(pattern),
-            ScmKind::Svn(r) => r.tags(pattern),
+            Scm::Git(r) => r.tags(pattern),
+            Scm::Hg(r) => r.tags(pattern),
+            Scm::Svn(r) => r.tags(pattern),
         }
     }
 
     fn is_dirty(&self) -> ScmResult<bool> {
         match self {
-            ScmKind::Git(r) => r.is_dirty(),
-            ScmKind::Hg(r) => r.is_dirty(),
-            ScmKind::Svn(r) => r.is_dirty(),
+            Scm::Git(r) => r.is_dirty(),
+            Scm::Hg(r) => r.is_dirty(),
+            Scm::Svn(r) => r.is_dirty(),
         }
     }
 
     fn supported_hooks(&self) -> Vec<&'static str> {
         match self {
-            ScmKind::Git(r) => r.supported_hooks(),
-            ScmKind::Hg(r) => r.supported_hooks(),
-            ScmKind::Svn(r) => r.supported_hooks(),
+            Scm::Git(r) => r.supported_hooks(),
+            Scm::Hg(r) => r.supported_hooks(),
+            Scm::Svn(r) => r.supported_hooks(),
         }
     }
 
     fn supports_hook(&self, hook: &str) -> bool {
         match self {
-            ScmKind::Git(r) => r.supports_hook(hook),
-            ScmKind::Hg(r) => r.supports_hook(hook),
-            ScmKind::Svn(r) => r.supports_hook(hook),
+            Scm::Git(r) => r.supports_hook(hook),
+            Scm::Hg(r) => r.supports_hook(hook),
+            Scm::Svn(r) => r.supports_hook(hook),
         }
     }
 
-    fn hook_path(&self) -> ScmResult<PathBuf> {
+    fn hooks_path(&self) -> ScmResult<PathBuf> {
         match self {
-            ScmKind::Git(r) => r.hook_path(),
-            ScmKind::Hg(r) => r.hook_path(),
-            ScmKind::Svn(r) => r.hook_path(),
+            Scm::Git(r) => r.hooks_path(),
+            Scm::Hg(r) => r.hooks_path(),
+            Scm::Svn(r) => r.hooks_path(),
         }
     }
 
     fn scm(&self) -> &'static str {
         match self {
-            ScmKind::Git(r) => r.scm(),
-            ScmKind::Hg(r) => r.scm(),
-            ScmKind::Svn(r) => r.scm(),
+            Scm::Git(r) => r.scm(),
+            Scm::Hg(r) => r.scm(),
+            Scm::Svn(r) => r.scm(),
         }
     }
 }

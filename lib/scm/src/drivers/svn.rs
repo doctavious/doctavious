@@ -55,7 +55,7 @@ impl ScmRepository for SvnScmRepository {
         todo!()
     }
 
-    fn hook_path(&self) -> ScmResult<PathBuf> {
+    fn hooks_path(&self) -> ScmResult<PathBuf> {
         todo!()
     }
 
