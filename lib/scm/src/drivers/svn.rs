@@ -59,6 +59,14 @@ impl ScmRepository for SvnScmRepository {
         todo!()
     }
 
+    fn all_files(&self) -> ScmResult<Vec<PathBuf>> {
+        todo!()
+    }
+
+    fn staged_files(&self) -> ScmResult<Vec<PathBuf>> {
+        todo!()
+    }
+
     fn scm(&self) -> &'static str {
         todo!()
     }

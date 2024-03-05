@@ -282,6 +282,7 @@ impl GitScmRepository {
         // TODO: what should this be?
         Ok(remote.push(&["refs/heads/master:refs/heads/master"], None)?)
     }
+
 }
 
 impl ScmRepository for GitScmRepository {
@@ -413,6 +414,38 @@ impl ScmRepository for GitScmRepository {
 
         Ok(PathBuf::from(String::from_utf8(output)?.trim_end()))
     }
+
+    fn all_files(&self) -> ScmResult<Vec<PathBuf>> {
+        let output = Command::new("git")
+            .args(["ls-files", "--cached"])
+            .output()?
+            .stdout;
+
+        let files: Vec<_> = output
+            .split(|&b| b == b'\n')
+            .filter_map(|line| std::str::from_utf8(line).ok())
+            .map(|s| PathBuf::from(s.trim_end()))
+            .collect();
+
+        Ok(files)
+    }
+
+    fn staged_files(&self) -> ScmResult<Vec<PathBuf>> {
+        // TODO: see how diff-filter AM is different than d
+        let output = Command::new("git")
+            .args(["--name-only", "--staged", "--diff-filter=d"])
+            .output()?
+            .stdout;
+
+        let files: Vec<_> = output
+            .split(|&b| b == b'\n')
+            .filter_map(|line| std::str::from_utf8(line).ok())
+            .map(|s| PathBuf::from(s.trim_end()))
+            .collect();
+
+        Ok(files)
+    }
+
 
     fn scm(&self) -> &'static str {
         GIT

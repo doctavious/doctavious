@@ -36,6 +36,9 @@ pub enum ScmError {
     #[error("Could not find supported SCM")]
     Unsupported,
 
+    #[error("Hook {0} is not supported")]
+    UnsupportedHook(String),
+
     #[error(transparent)]
     Utf8Error(#[from] FromUtf8Error),
 }
@@ -109,6 +112,13 @@ pub trait ScmRepository {
     fn supports_hook(&self, hook: &str) -> bool;
 
     fn hooks_path(&self) -> ScmResult<PathBuf>;
+
+
+    fn all_files(&self) -> ScmResult<Vec<PathBuf>>;
+
+    // TODO: better name than staged. What do you call files in SVN that are added but not committed?
+    fn staged_files(&self) -> ScmResult<Vec<PathBuf>>;
+
 
     fn scm(&self) -> &'static str;
 }

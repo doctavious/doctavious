@@ -122,6 +122,22 @@ impl ScmRepository for Scm {
         }
     }
 
+    fn all_files(&self) -> ScmResult<Vec<PathBuf>> {
+        match self {
+            Scm::Git(r) => r.all_files(),
+            Scm::Hg(r) => r.all_files(),
+            Scm::Svn(r) => r.all_files(),
+        }
+    }
+
+    fn staged_files(&self) -> ScmResult<Vec<PathBuf>> {
+        match self {
+            Scm::Git(r) => r.staged_files(),
+            Scm::Hg(r) => r.staged_files(),
+            Scm::Svn(r) => r.staged_files(),
+        }
+    }
+
     fn scm(&self) -> &'static str {
         match self {
             Scm::Git(r) => r.scm(),
