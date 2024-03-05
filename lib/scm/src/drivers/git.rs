@@ -1,3 +1,4 @@
+use std::ffi::OsStr;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
@@ -283,6 +284,24 @@ impl GitScmRepository {
         Ok(remote.push(&["refs/heads/master:refs/heads/master"], None)?)
     }
 
+    fn get_files<I, S>(&self, args: I) -> ScmResult<Vec<PathBuf>>
+    where
+        I: IntoIterator<Item = S>,
+        S: AsRef<OsStr>,
+    {
+        let output = Command::new("git")
+            .args(args)
+            .output()?
+            .stdout;
+
+        let files: Vec<_> = output
+            .split(|&b| b == b'\n')
+            .filter_map(|line| std::str::from_utf8(line).ok())
+            .map(|s| PathBuf::from(s.trim_end()))
+            .collect();
+
+        Ok(files)
+    }
 }
 
 impl ScmRepository for GitScmRepository {
@@ -416,34 +435,12 @@ impl ScmRepository for GitScmRepository {
     }
 
     fn all_files(&self) -> ScmResult<Vec<PathBuf>> {
-        let output = Command::new("git")
-            .args(["ls-files", "--cached"])
-            .output()?
-            .stdout;
-
-        let files: Vec<_> = output
-            .split(|&b| b == b'\n')
-            .filter_map(|line| std::str::from_utf8(line).ok())
-            .map(|s| PathBuf::from(s.trim_end()))
-            .collect();
-
-        Ok(files)
+        self.get_files(["ls-files", "--cached"])
     }
 
     fn staged_files(&self) -> ScmResult<Vec<PathBuf>> {
         // TODO: see how diff-filter AM is different than d
-        let output = Command::new("git")
-            .args(["--name-only", "--staged", "--diff-filter=d"])
-            .output()?
-            .stdout;
-
-        let files: Vec<_> = output
-            .split(|&b| b == b'\n')
-            .filter_map(|line| std::str::from_utf8(line).ok())
-            .map(|s| PathBuf::from(s.trim_end()))
-            .collect();
-
-        Ok(files)
+        self.get_files(["--name-only", "--staged", "--diff-filter=d"])
     }
 
 
