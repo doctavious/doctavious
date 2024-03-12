@@ -1,23 +1,16 @@
 use std::fs;
-use std::fs::File;
-use std::io::{BufRead, BufReader, Write};
-#[cfg(not(target_os = "windows"))]
-use std::os::unix::fs::{OpenOptionsExt, PermissionsExt};
-#[cfg(target_os = "windows")]
-use std::os::windows::fs::OpenOptionsExt;
 use std::path::Path;
 
 use scm::drivers::Scm;
-use scm::hooks::OLD_HOOK_POSTFIX;
-use scm::{ScmRepository, DOCTAVIOUS_SCM_HOOK_CONTENT_REGEX, HOOK_TEMPLATE};
-use tracing::log::info;
+use scm::ScmRepository;
 
-use crate::cmd::scm_hooks::{add_hook, clean, is_doctavious_scm_hook_file};
-use crate::settings::{load_settings, ScmHookSettings, SettingErrors};
+use crate::cmd::scm_hooks::{add_hook, clean};
+use crate::settings::{load_settings, ScmHookSettings, SettingErrors, Settings};
 use crate::{CliResult, DoctaviousCliError};
 
 pub fn install(cwd: &Path) -> CliResult<()> {
-    let Some(scm_settings) = &load_settings(cwd)?.scmhook_settings else {
+    let mut settings: Settings = load_settings(cwd)?.into_owned();
+    let Some(scm_settings) = settings.scmhook_settings else {
         return Err(DoctaviousCliError::SettingError(
             SettingErrors::SectionNotFound(
                 "Either edit `scm` settings in doctavious configuration or use `scm_hook add`"

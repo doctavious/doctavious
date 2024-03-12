@@ -113,12 +113,13 @@ pub trait ScmRepository {
 
     fn hooks_path(&self) -> ScmResult<PathBuf>;
 
-
     fn all_files(&self) -> ScmResult<Vec<PathBuf>>;
 
     // TODO: better name than staged. What do you call files in SVN that are added but not committed?
     fn staged_files(&self) -> ScmResult<Vec<PathBuf>>;
 
+    // TODO: push files?
+    // for SVN files that are added would be staged and files that are added and have modifications would be pushed?
 
     fn scm(&self) -> &'static str;
 }

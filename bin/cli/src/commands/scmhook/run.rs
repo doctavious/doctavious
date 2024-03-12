@@ -1,14 +1,19 @@
 use std::path::PathBuf;
 
 use clap::Parser;
+use doctavious_cli::cmd::scm_hooks::run::run;
 use doctavious_cli::CliResult;
-
-use crate::commands::scmhook::add::Add;
 
 /// Adds a hook directory
 #[derive(Parser, Debug)]
 #[command()]
 pub(crate) struct Run {
+
+    /// Name of the hook to run
+    #[arg(index = 1)]
+    pub name: String,
+
+    /// Path to execute run
     #[arg(long, short)]
     pub cwd: Option<PathBuf>,
 
@@ -34,5 +39,16 @@ pub(crate) struct Run {
 }
 
 pub(crate) fn execute(command: Run) -> CliResult<Option<String>> {
+    let path = command.cwd.unwrap_or(std::env::current_dir()?);
+
+    run(
+        &path,
+        &command.name,
+        command.all_files,
+        command.files.unwrap_or_default(),
+        command.commands,
+        command.force,
+    )?;
+
     Ok(None)
 }

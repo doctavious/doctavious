@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::path::PathBuf;
 
 use serde_derive::{Deserialize, Serialize};
@@ -17,18 +18,39 @@ use crate::ScmResult;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ScmHook {
+    // might not need this name here
     pub name: String,
+
+    /// A custom git command for files to be referenced in {files} template. See run and files.
+    pub files: String,
+
+    /// Run commands and scripts concurrently.
     pub parallel: bool,
-    pub piped: bool, // If any command in the sequence fails, the other will not be executed.
-    pub glob: String,
-    pub exclude: String, //regex
-    pub root: String,    // execute in a sub directory "api/" # Careful to have only trailing slash
+
+    // If any command in the sequence fails, the other will not be executed.
+    // should return an error if both piped: true and parallel: true are set.
+    /// Stop running commands and scripts if one of them fail.
+    pub piped: bool,
+
+    // could also be set as an env var
+    /// Tags or command names that you want to exclude.
+    pub exclude_tags: String,
+    // execute in a sub directory "api/" # Careful to have only trailing slash
+    pub root: String,
+
+    /// Commands to be executed for the hook. Each command has a name and associated run options.
     pub commands: Vec<HookCommand>,
+
+    // script must exist under <source_dir>/<git-hook-name>/ folder. See source_dir.
+    /// Scripts to be executed for the hook.
+    /// Each script has a name (filename in scripts dir) and associated run options.
+    pub scripts: HashMap<String, Script>,
 }
 
 // If one line commands are not enough, you can execute files..
 // https://github.com/evilmartians/lefthook/blob/master/docs/full_guide.md#bash-script-example
-struct Script {
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Script {
     // used as file name
     pub name: String,
     pub runner: String,
@@ -63,11 +85,60 @@ struct Script {
 //     - frontend
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-struct HookCommand {
+pub struct HookCommand {
+    // might not need this
     pub name: String,
-    pub tags: Vec<String>,
-    pub glob: String, // Use glob patterns to choose what files you want to check
+
+    /// This is a mandatory option for a command. This is actually a command that is executed for the hook.
+    /// You can use files templates that will be substituted with the appropriate files on execution:
+    /// {files} - custom files command result.
+    /// {staged_files} - staged files which you try to commit.
+    /// {push_files} - files that are committed but not pushed.
+    /// {all_files} - all files tracked by git.
     pub run: String,
+
+    // TODO: what type should this be? Probably enum if we are expecting different types
+    /// You can skip all or specific commands and scripts using skip option.
+    /// You can also skip when merging, rebasing, or being on a specific branch.
+    /// Globs are available for branches.
+    pub skip: bool,
+
+    /// You can force a command, script, or the whole hook to execute only in certain conditions.
+    /// This option acts like the opposite of skip. It accepts the same values but skips execution
+    /// only if the condition is not satisfied.
+    pub only: String,
+
+    /// You can specify tags for commands and scripts.
+    /// This is useful for excluding. You can specify more than one tag using comma or space.
+    pub tags: Vec<String>,
+
+    // Use glob patterns to choose what files you want to check
+    /// You can set a glob to filter files for your command.
+    /// This is only used if you use a file template in run option or provide your custom files command.
+    pub glob: String,
+
+    /// A custom git command for files or directories to be referenced in {files} template for run setting.
+    /// If the result of this command is empty, the execution of commands will be skipped.
+    /// This option overwrites the hook-level files option.
+    pub files: String,
+
+    /// You can specify some ENV variables for the command or script.
+    pub env: HashMap<String, String>,
+
+    /// You can change the CWD for the command you execute using root option.
+    /// This is useful when you execute some npm or yarn command but the package.json is in another directory.
+    /// For pre-push and pre-commit hooks and for the custom files command root option is used to
+    /// filter file paths. If all files are filtered the command will be skipped.
+    pub root: String,
+
+    /// You can provide a regular expression to exclude some files from being passed to run command.
+    /// The regular expression is matched against full paths to files in the repo, relative to the
+    /// repo root, using / as the directory separator on all platforms. File paths do not begin
+    /// with the separator or any other prefix.
+    pub exclude: String,
+
+    /// You can specify a text to show when the command or script fails.
+    pub fail_text: String,
 }
 
 pub const FILE_MODE: &'static str = "755";

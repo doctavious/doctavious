@@ -284,15 +284,13 @@ impl GitScmRepository {
         Ok(remote.push(&["refs/heads/master:refs/heads/master"], None)?)
     }
 
+    /// accepts git command args and returns its result as a list of filepaths.
     fn get_files<I, S>(&self, args: I) -> ScmResult<Vec<PathBuf>>
     where
         I: IntoIterator<Item = S>,
         S: AsRef<OsStr>,
     {
-        let output = Command::new("git")
-            .args(args)
-            .output()?
-            .stdout;
+        let output = Command::new("git").args(args).output()?.stdout;
 
         let files: Vec<_> = output
             .split(|&b| b == b'\n')
@@ -439,10 +437,11 @@ impl ScmRepository for GitScmRepository {
     }
 
     fn staged_files(&self) -> ScmResult<Vec<PathBuf>> {
-        // TODO: see how diff-filter AM is different than d
+        // TODO: see how diff-filter AM / ACMR is different than d
         self.get_files(["--name-only", "--staged", "--diff-filter=d"])
     }
 
+    // push: ["diff", "--name-only", "HEAD", "@{push}"]
 
     fn scm(&self) -> &'static str {
         GIT

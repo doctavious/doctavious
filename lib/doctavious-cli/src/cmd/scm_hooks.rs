@@ -2,6 +2,7 @@ mod add;
 pub mod init;
 pub mod install;
 pub mod run;
+mod runner;
 pub mod uninstall;
 
 // list of prior art
