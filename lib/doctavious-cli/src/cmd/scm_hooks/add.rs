@@ -3,7 +3,7 @@ use std::path::Path;
 
 use scm::drivers::Scm;
 use scm::{ScmError, ScmRepository};
-use tracing::log::error;
+use tracing::error;
 
 use crate::cmd::scm_hooks::{add_hook, clean};
 use crate::settings::{load_settings, SettingErrors};

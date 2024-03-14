@@ -1,4 +1,4 @@
-mod add;
+pub mod add;
 pub mod init;
 pub mod install;
 pub mod run;
@@ -19,7 +19,7 @@ use std::path::Path;
 use scm::hooks::OLD_HOOK_POSTFIX;
 use scm::{DOCTAVIOUS_SCM_HOOK_CONTENT_REGEX, HOOK_TEMPLATE};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
-use tracing::log::info;
+use tracing::info;
 
 use crate::CliResult;
 

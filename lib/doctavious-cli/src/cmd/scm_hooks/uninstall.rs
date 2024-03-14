@@ -4,8 +4,7 @@ use std::path::Path;
 use scm::drivers::Scm;
 use scm::hooks::OLD_HOOK_POSTFIX;
 use scm::ScmRepository;
-use tracing::debug;
-use tracing::log::error;
+use tracing::{debug, error};
 
 use crate::cmd::scm_hooks::is_doctavious_scm_hook_file;
 use crate::settings::{load_settings, SettingErrors};

@@ -7,6 +7,7 @@ use crate::commands::frameworks::FrameworksCommand;
 use crate::commands::init::InitCommand;
 use crate::commands::link::LinkCommand;
 use crate::commands::rfd::RFDCommand;
+use crate::commands::scmhook::ScmHookCommand;
 use crate::commands::til::TilCommand;
 use crate::commands::whoami::WhoAmICommand;
 
@@ -18,7 +19,7 @@ pub mod init;
 pub mod link;
 mod macros;
 pub mod rfd;
-mod scmhook;
+pub mod scmhook;
 pub mod til;
 pub mod whoami;
 
@@ -54,6 +55,8 @@ pub enum Command {
     Init(InitCommand),
     Link(LinkCommand),
     Rfd(RFDCommand),
+    #[command(name = "scmhook")]
+    ScmHook(ScmHookCommand),
     Til(TilCommand),
     #[command(name = "whoami")]
     WhoAmI(WhoAmICommand),

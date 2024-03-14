@@ -3,7 +3,7 @@ use doctavious_cli::cmd::{build, deploy, frameworks};
 use tracing::error;
 
 use crate::commands::frameworks::FrameworkSubCommand;
-use crate::commands::{adr, rfd, Command, Opt, til};
+use crate::commands::{adr, rfd, scmhook, til, Command, Opt};
 
 mod commands;
 mod config;
@@ -50,6 +50,7 @@ fn main() {
         Command::Init(..) => unimplemented!(),
         Command::Link(..) => unimplemented!(),
         Command::Rfd(cmd) => rfd::execute(cmd),
+        Command::ScmHook(cmd) => scmhook::execute(cmd),
         Command::Til(cmd) => til::execute(cmd),
         Command::WhoAmI(..) => unimplemented!(),
     };

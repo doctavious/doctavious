@@ -7,8 +7,7 @@ use doctavious_cli::CliResult;
 /// Adds a hook directory
 #[derive(Parser, Debug)]
 #[command()]
-pub(crate) struct Run {
-
+pub(crate) struct RunScmHook {
     /// Name of the hook to run
     #[arg(index = 1)]
     pub name: String,
@@ -38,7 +37,7 @@ pub(crate) struct Run {
     pub force: bool,
 }
 
-pub(crate) fn execute(command: Run) -> CliResult<Option<String>> {
+pub(crate) fn execute(command: RunScmHook) -> CliResult<Option<String>> {
     let path = command.cwd.unwrap_or(std::env::current_dir()?);
 
     run(

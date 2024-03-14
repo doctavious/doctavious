@@ -1,12 +1,13 @@
 use std::path::PathBuf;
 
 use clap::Parser;
+use doctavious_cli::cmd::scm_hooks::uninstall::uninstall;
 use doctavious_cli::CliResult;
 
 /// Clear SCM hooks related to doctavious configuration
 #[derive(Parser, Debug)]
 #[command()]
-pub(crate) struct Uninstall {
+pub(crate) struct UninstallScmHook {
     #[arg(long, short)]
     pub cwd: Option<PathBuf>,
 
@@ -19,6 +20,10 @@ pub(crate) struct Uninstall {
     pub remove_config: bool,
 }
 
-pub(crate) fn execute(command: Uninstall) -> CliResult<Option<String>> {
+pub(crate) fn execute(command: UninstallScmHook) -> CliResult<Option<String>> {
+    let path = command.cwd.unwrap_or(std::env::current_dir()?);
+
+    uninstall(&path)?;
+
     Ok(None)
 }

@@ -1,9 +1,6 @@
 use std::collections::HashMap;
-use std::path::PathBuf;
 
 use serde_derive::{Deserialize, Serialize};
-
-use crate::ScmResult;
 
 // list of prior art
 // - https://pre-commit.com/
@@ -15,6 +12,9 @@ use crate::ScmResult;
 // TODO: flush this out more
 // add hook
 // execute hook
+
+pub const FILE_MODE: &'static str = "755";
+pub const OLD_HOOK_POSTFIX: &'static str = ".old";
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ScmHook {
@@ -139,48 +139,4 @@ pub struct HookCommand {
 
     /// You can specify a text to show when the command or script fails.
     pub fail_text: String,
-}
-
-pub const FILE_MODE: &'static str = "755";
-pub const OLD_HOOK_POSTFIX: &'static str = ".old";
-
-// TODO: Some of these things probably belong in the CLI.
-// Example the template might be good to put there as it needs to know the various ways doctavious can be installed
-
-pub trait ScmHookSupport {
-    fn get_supported(&self) -> Vec<&'static str>;
-
-    fn supports<S: AsRef<str>>(&self, hook: S) -> bool;
-
-    fn hook_path(&self) -> ScmResult<PathBuf>;
-
-    // not sure if we should have an install method or just a way to get a specific file for the hook
-    // which the CLI can write to
-}
-
-pub fn install() -> ScmResult<()> {
-    // get config or return error
-    // ensure hooks directory exists (get from SCM)
-    // iterate over hooks in configuration
-    //
-
-    Ok(())
-}
-
-pub fn add_hook() -> ScmResult<()> {
-    // write
-    //      fs::set_permissions("/path", fs::Permissions::from_mode(0o655)).unwrap();
-
-    // fs::OpenOptions::new()
-    //     .create(true)
-    //     .write(true)
-    //     .mode(0o770)
-    //     .open("somefile")
-    //     .unwrap();
-
-    Ok(())
-}
-
-pub fn synchronize() -> ScmResult<()> {
-    Ok(())
 }
