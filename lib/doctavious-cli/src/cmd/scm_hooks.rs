@@ -1,5 +1,4 @@
 pub mod add;
-pub mod init;
 pub mod install;
 pub mod run;
 mod runner;
@@ -32,8 +31,6 @@ use crate::{templating, CliResult};
 
 // add hook
 // execute hook
-
-fn init() {}
 
 /// Tests whether a hook file was created by doctavious.
 pub(crate) fn is_doctavious_scm_hook_file(path: &Path) -> CliResult<bool> {

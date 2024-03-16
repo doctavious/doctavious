@@ -9,6 +9,8 @@ pub mod settings;
 mod templates;
 pub mod templating;
 
+use std::str::Utf8Error;
+
 use thiserror::Error;
 
 use crate::cmd::design_decisions;
@@ -43,6 +45,9 @@ pub enum DoctaviousCliError {
     #[error("regex error: {0}")]
     RegexError(#[from] regex::Error),
 
+    #[error("SCM error: {0}")]
+    ScmError(#[from] scm::ScmError),
+
     #[error("json serialize/deserialize error: {0}")]
     SerdeJson(#[from] serde_json::Error),
 
@@ -76,6 +81,9 @@ pub enum DoctaviousCliError {
 
     #[error("Unknown markup extension for path: {0}")]
     UnknownMarkupExtension(String),
+
+    #[error(transparent)]
+    Utf8Error(#[from] Utf8Error),
 
     #[error("walkdir error")]
     WalkdirError(#[from] walkdir::Error),
