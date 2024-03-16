@@ -11,17 +11,21 @@ pub mod uninstall;
 // - https://github.com/evilmartians/lefthook
 // - https://github.com/sds/overcommit
 
+use std::collections::HashMap;
 use std::fs;
 use std::io::{BufRead, BufReader, Write};
 use std::os::unix::fs::OpenOptionsExt;
 use std::path::Path;
 
+use minijinja::{AutoEscape, Environment};
 use scm::hooks::OLD_HOOK_POSTFIX;
 use scm::{DOCTAVIOUS_SCM_HOOK_CONTENT_REGEX, HOOK_TEMPLATE};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
+use serde_json::json;
 use tracing::info;
 
-use crate::CliResult;
+use crate::templating::{TemplateContext, Templates};
+use crate::{templating, CliResult};
 
 // idea from rusty-hook and left-hook
 // TODO: flush this out more
@@ -33,8 +37,10 @@ fn init() {}
 
 /// Tests whether a hook file was created by doctavious.
 pub(crate) fn is_doctavious_scm_hook_file(path: &Path) -> CliResult<bool> {
+    info!("reading file {path:?}");
     let f = fs::File::open(path)?;
     let reader = BufReader::new(f);
+    info!("checking file");
     for line in reader.lines().flatten() {
         if DOCTAVIOUS_SCM_HOOK_CONTENT_REGEX.is_match(&line) {
             return Ok(true);
@@ -46,11 +52,14 @@ pub(crate) fn is_doctavious_scm_hook_file(path: &Path) -> CliResult<bool> {
 
 /// Removes the hook from hooks path, saving non-doctavious hooks with .old suffix.
 pub(crate) fn clean(hook: &str, path: &Path, force: bool) -> CliResult<()> {
+    info!("check to see if path exists");
     if !path.exists() {
         return Ok(());
     }
 
+    info!("check to see if path is doctavious hook");
     if is_doctavious_scm_hook_file(path)? {
+        info!("removing file {path:?}");
         return Ok(fs::remove_file(path)?);
     }
 
@@ -64,6 +73,7 @@ pub(crate) fn clean(hook: &str, path: &Path, force: bool) -> CliResult<()> {
         }
     }
 
+    info!("rename file {path:?} to {old_path:?}");
     fs::rename(&path, &old_path)?;
 
     info!("Renamed {path:?} to {old_path:?}");
@@ -72,24 +82,16 @@ pub(crate) fn clean(hook: &str, path: &Path, force: bool) -> CliResult<()> {
 
 /// create a doctavious hook file using hook template
 pub(crate) fn add_hook(hook: &str, path: &Path) -> CliResult<()> {
-    // get hook path
-    // write file with template. set file mode
+    let mut binding = fs::OpenOptions::new();
+    let mut options = binding.create(true).write(true);
 
-    // let open_options = fs::OpenOptions::new()
-    //     .create(true)
-    //     .write(true);
+    if !cfg!(windows) {
+        options.mode(0o770);
+    }
 
-    // TODO: what would windows be if anything?
-    #[cfg(target_os = "windows")]
-    open_options.mode(0o770);
+    let template = std::str::from_utf8(HOOK_TEMPLATE)?;
+    let context = TemplateContext::from([("hook_name", hook)]);
+    let file = Templates::one_off(template, context, false)?;
 
-    // #[cfg(not(target_os = "windows"))]
-    // open_options = open_options.mode(0o770);
-
-    Ok(fs::OpenOptions::new()
-        .create(true)
-        .write(true)
-        .mode(0o770)
-        .open(path)?
-        .write_all(HOOK_TEMPLATE)?)
+    Ok(options.open(path)?.write_all(file.as_bytes())?)
 }

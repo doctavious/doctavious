@@ -6,12 +6,12 @@ use minijinja::{AutoEscape, Environment};
 use serde::Serialize;
 use serde_json::{to_value, Value};
 
+use crate::{CliResult, DoctaviousCliError};
 use crate::settings::{
     DEFAULT_ADR_INIT_TEMPLATE_PATH, DEFAULT_ADR_RECORD_TEMPLATE_PATH,
     DEFAULT_ADR_TOC_TEMPLATE_PATH, DEFAULT_RFD_RECORD_TEMPLATE_PATH, DEFAULT_RFD_TOC_TEMPLATE_PATH,
     DEFAULT_TIL_POST_TEMPLATE_PATH, DEFAULT_TIL_TOC_TEMPLATE_PATH,
 };
-use crate::{CliResult, DoctaviousCliError};
 
 pub enum TemplateType {
     Adr(AdrTemplateType),
@@ -93,6 +93,7 @@ impl TemplateContext {
     ///
     /// Panics if the serialization fails.
     pub fn insert<T: Serialize + ?Sized, S: Into<String>>(&mut self, key: S, val: &T) {
+        // TODO: remove unwrap
         self.data.insert(key.into(), to_value(val).unwrap());
     }
 
@@ -118,6 +119,23 @@ impl TemplateContext {
     /// Checks if a value exists at a specific index.
     pub fn contains_key(&self, index: &str) -> bool {
         self.data.contains_key(index)
+    }
+}
+
+impl<S: Into<String>, V: Serialize, const N: usize> From<[(S, V); N]> for TemplateContext {
+    fn from(arr: [(S, V); N]) -> Self {
+        Self::from_iter(arr)
+    }
+}
+
+impl<S: Into<String>, V: Serialize> FromIterator<(S, V)> for TemplateContext {
+    fn from_iter<T: IntoIterator<Item = (S, V)>>(iter: T) -> Self {
+        let mut data = BTreeMap::new();
+        for (k, v) in iter {
+            // TODO: remove unwrap
+            data.insert(k.into(), to_value(v).unwrap());
+        }
+        Self { data }
     }
 }
 

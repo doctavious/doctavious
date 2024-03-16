@@ -18,6 +18,7 @@ lazy_static = { workspace = true }
 minijinja = { workspace = true, features = ["loader"] }
 regex = { workspace = true }
 remain = { workspace = true }
+scm = { path = "../scm" }
 serde = { workspace = true }
 serde_json = { workspace = true }
 serde_regex = { workspace = true }
