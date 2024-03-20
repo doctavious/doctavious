@@ -17,13 +17,13 @@ pub(crate) struct UninstallScmHook {
 
     /// Flag to remove SCM hook configuration from doctavious configuration
     #[arg(long, short, action)]
-    pub remove_config: bool,
+    pub remove_settings: bool,
 }
 
 pub(crate) fn execute(command: UninstallScmHook) -> CliResult<Option<String>> {
     let path = command.cwd.unwrap_or(std::env::current_dir()?);
 
-    uninstall(&path)?;
+    uninstall(&path, command.force, command.remove_settings)?;
 
     Ok(None)
 }

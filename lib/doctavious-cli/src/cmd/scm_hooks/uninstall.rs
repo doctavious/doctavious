@@ -1,3 +1,4 @@
+use std::borrow::Cow;
 use std::fs;
 use std::path::Path;
 
@@ -7,35 +8,39 @@ use scm::ScmRepository;
 use tracing::{debug, error};
 
 use crate::cmd::scm_hooks::is_doctavious_scm_hook_file;
-use crate::settings::{load_settings, SettingErrors};
+use crate::settings::{load_settings, persist_settings, SettingErrors, Settings};
 use crate::{CliResult, DoctaviousCliError};
 
-pub fn uninstall(cwd: &Path) -> CliResult<()> {
-    let Some(scm_settings) = &load_settings(cwd)?.scmhook_settings else {
-        return Err(DoctaviousCliError::SettingError(
-            SettingErrors::SectionNotFound(
-                "Either edit `scm` settings in doctavious configuration or use `scm_hook add`"
-                    .to_string(),
-            ),
-        ));
-    };
+pub fn uninstall(cwd: &Path, force: bool, remove_settings: bool) -> CliResult<()> {
+    let mut settings: Settings = load_settings(cwd)?.into_owned();
 
-    delete_hooks(cwd)?;
+    delete_hooks(cwd, force)?;
 
-    // TODO: remove scm section from config
+    // TODO: hide behind flag?
+    if remove_settings && settings.scmhook_settings.is_some() {
+        settings.scmhook_settings = None;
+        persist_settings(cwd, &settings)?;
+    }
 
     Ok(())
 }
 
-fn delete_hooks(cwd: &Path) -> CliResult<()> {
+fn delete_hooks(cwd: &Path, force: bool) -> CliResult<()> {
     let scm = Scm::get(cwd)?;
     let hooks_path = scm.hooks_path()?;
     for entry in fs::read_dir(hooks_path)? {
         let entry = entry?;
         let path = entry.path();
+        if !path.is_file() {
+            debug!("skipping {path:?}...not a file");
+            continue;
+        }
 
-        // do we want a force option?
-        if !is_doctavious_scm_hook_file(&path)? {
+        // TODO: Do we want to keep sample hooks? Where should that logic live? In the scm interface?
+        if !force && !is_doctavious_scm_hook_file(&path)? {
+            debug!(
+                "skipping {path:?}...not a doctavious hook file. To remove please use force option"
+            );
             continue;
         }
 
@@ -45,13 +50,11 @@ fn delete_hooks(cwd: &Path) -> CliResult<()> {
         }
 
         let old_hook = path.join(OLD_HOOK_POSTFIX);
-        if !old_hook.exists() {
-            continue;
-        }
-
-        match fs::rename(&old_hook, &path) {
-            Ok(_) => debug!("{old_hook:?} renamed to {path:?}"),
-            Err(e) => error!("Failed renaming {old_hook:?}: {e}"),
+        if old_hook.exists() {
+            match fs::rename(&old_hook, &path) {
+                Ok(_) => debug!("{old_hook:?} renamed to {path:?}"),
+                Err(e) => error!("Failed renaming {old_hook:?}: {e}"),
+            }
         }
     }
 
