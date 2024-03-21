@@ -30,6 +30,9 @@ pub enum ScmError {
     #[error(transparent)]
     IoError(#[from] io::Error),
 
+    #[error("Can't rename {0} to {0}.old as file already exists")]
+    OldHookExists(String),
+
     #[error("regex error: {0}")]
     RegexError(#[from] regex::Error),
 

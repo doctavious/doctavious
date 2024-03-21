@@ -4,8 +4,8 @@ use std::path::Path;
 use scm::drivers::Scm;
 use scm::ScmRepository;
 
-use crate::cmd::scm_hooks::{add_hook, clean};
-use crate::settings::{load_settings, ScmHookSettings, SettingErrors, Settings};
+use crate::cmd::scm_hooks::{add_hook, clean_hook};
+use crate::settings::{load_settings, SettingErrors, Settings};
 use crate::{CliResult, DoctaviousCliError};
 
 pub fn install(cwd: &Path) -> CliResult<()> {
@@ -27,7 +27,7 @@ pub fn install(cwd: &Path) -> CliResult<()> {
 
     for (key, value) in scm_settings.hooks.iter() {
         let hook_path = hooks_path.join(key);
-        clean(&key, &hook_path, false)?;
+        clean_hook(&key, &hook_path, false)?;
         add_hook(&key, &hook_path)?;
     }
 

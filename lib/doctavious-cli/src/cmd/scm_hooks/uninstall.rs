@@ -16,7 +16,6 @@ pub fn uninstall(cwd: &Path, force: bool, remove_settings: bool) -> CliResult<()
 
     delete_hooks(cwd, force)?;
 
-    // TODO: hide behind flag?
     if remove_settings && settings.scmhook_settings.is_some() {
         settings.scmhook_settings = None;
         persist_settings(cwd, &settings)?;
