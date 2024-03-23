@@ -16,6 +16,7 @@ glob = { workspace = true }
 indexmap = { workspace = true, features = ["serde"] }
 lazy_static = { workspace = true }
 minijinja = { workspace = true, features = ["loader"] }
+rayon = { workspace = true }
 regex = { workspace = true }
 remain = { workspace = true }
 scm = { path = "../scm" }
