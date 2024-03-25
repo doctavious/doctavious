@@ -22,13 +22,14 @@ use scm::{ScmError, DOCTAVIOUS_SCM_HOOK_CONTENT_REGEX, HOOK_TEMPLATE};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use serde_json::json;
 use tracing::info;
+use scm::drivers::Scm;
 
 use crate::templating::{TemplateContext, Templates};
 use crate::{templating, CliResult, DoctaviousCliError};
+use crate::settings::ScmHookSettings;
 
 /// Tests whether a hook file was created by doctavious.
 pub(crate) fn is_doctavious_scm_hook_file(path: &Path) -> CliResult<bool> {
-    // TODO: change this to be more performant by loading line into same string
     let f = fs::File::open(path)?;
     let reader = BufReader::new(f);
     for line in reader.lines().flatten() {
@@ -83,4 +84,25 @@ pub(crate) fn add_hook(hook: &str, path: &Path) -> CliResult<()> {
     let file = Templates::one_off(template, context, false)?;
 
     Ok(options.open(path)?.write_all(file.as_bytes())?)
+}
+
+
+// TODO: check checksum bool?
+// ensure_hooks
+fn create_hooks_if_needed(settings: &ScmHookSettings, scm: &Scm, force: bool) -> CliResult<()> {
+    // TODO: compare checksum
+
+    let hooks_path = scm.ensure_hooks_directory()?;
+
+    for (name, hook) in &settings.hooks {
+        let hook_path = hooks_path.join(name);
+        clean_hook(name, &hook_path, force)?;
+        add_hook(name, &hook_path)?;
+    }
+
+    // TODO: add checksum file
+
+    // TODO: log created hooks
+
+    Ok(())
 }

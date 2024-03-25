@@ -33,6 +33,8 @@ impl<'a> ScmHookRunner<'a> {
     }
 
     pub fn run_scripts(&self, dir: &Path) -> ScmResult<()> {
+        // TODO: I feel like perhaps we should iterate hooks and warn if file doesnt exist
+        // is there a reason to iterate the directory first?
         for entry in fs::read_dir(dir)?.flatten() {
             let file_name = entry.file_name().to_string_lossy().to_string();
             let Some(script) = self.options.hook.scripts.get(&file_name) else {
@@ -40,7 +42,7 @@ impl<'a> ScmHookRunner<'a> {
                 continue;
             };
 
-            self.run_script(script, &entry.path());
+            self.run_script(script, &entry.path())?;
         }
 
         Ok(())

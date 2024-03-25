@@ -4,7 +4,7 @@ use std::path::{Path, PathBuf};
 use scm::drivers::Scm;
 use scm::{ScmError, ScmRepository};
 
-use crate::cmd::scm_hooks::{add_hook, clean};
+use crate::cmd::scm_hooks::{add_hook, clean_hook};
 use crate::settings::{load_settings, ScmHookSettings, SettingErrors, Settings};
 use crate::{CliResult, DoctaviousCliError};
 
@@ -36,17 +36,14 @@ pub fn run(
     };
 
     let scm = Scm::get(cwd)?;
-    let hooks_path = scm.hooks_path()?;
-    if !hooks_path.exists() {
-        fs::create_dir_all(&hooks_path)?;
-    }
+    let hooks_path = scm.ensure_hooks_directory()?;
 
     // TODO: create hooks if needed
 
-    // TODO: make sure hook is valid
     let Some(hook) = scm_settings.hooks.get(hook_name) else {
-        // TODO: return appropriate error
-        return Err(DoctaviousCliError::ScmError(ScmError::Unsupported));
+        return Err(DoctaviousCliError::ScmError(ScmError::UnsupportedHook(
+            hook_name.to_string(),
+        )));
     };
 
     // TODO: validate hook configuration
@@ -63,6 +60,7 @@ pub fn run(
     // TODO: decide if hook should be skipped
 
     // TODO: run scripts
+    for (name, script) in &hook.scripts {}
 
     // TODO: run commands
     // - see if runOnlyCommands contains hook
@@ -81,6 +79,8 @@ pub fn run(
     //     - check if hook uses staged files and skip if no matching staged
     //     - check if hook uses push files and skip if no matching push
     // - run
+
+    for cmd in &hook.commands {}
 
     // capture results including summary details if requested
 

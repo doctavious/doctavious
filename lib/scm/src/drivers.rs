@@ -39,6 +39,15 @@ impl Scm {
 
         Err(ScmError::Unsupported)
     }
+
+    pub fn ensure_hooks_directory(&self) -> ScmResult<PathBuf> {
+        let path = self.hooks_path()?;
+        if !path.exists() {
+            fs::create_dir_all(&path)?;
+        }
+
+        Ok(path)
+    }
 }
 
 impl ScmRepository for Scm {

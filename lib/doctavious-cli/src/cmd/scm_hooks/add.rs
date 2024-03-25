@@ -27,18 +27,18 @@ pub fn add(
         )));
     }
 
-    let hooks_path = scm.hooks_path()?;
-    if !hooks_path.exists() {
-        fs::create_dir_all(&hooks_path)?;
-    }
-
+    let hooks_path = scm.ensure_hooks_directory()?;
     let hook_path = hooks_path.join(&hook_name);
 
     clean_hook(&hook_name, &hook_path, force)?;
     add_hook(&hook_name, &hook_path)?;
 
     if create_hook_script_dir {
-        fs::create_dir_all(PathBuf::from(DEFAULT_CONFIG_DIR).join(hook_name))?;
+        fs::create_dir_all(
+            PathBuf::from(DEFAULT_CONFIG_DIR)
+                .join("scmhooks")
+                .join(hook_name),
+        )?;
     }
 
     Ok(())

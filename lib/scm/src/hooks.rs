@@ -13,6 +13,8 @@ use serde_derive::{Deserialize, Serialize};
 // add hook
 // execute hook
 
+// TODO: most of these things look like CLI things vs core SCM hooks
+
 pub const FILE_MODE: &'static str = "755";
 pub const OLD_HOOK_POSTFIX: &'static str = ".old";
 
@@ -38,6 +40,7 @@ pub struct ScmHook {
     // execute in a sub directory "api/" # Careful to have only trailing slash
     pub root: String,
 
+    // TODO: should commands and scripts be combined? Why separate the concepts?
     /// Commands to be executed for the hook. Each command has a name and associated run options.
     pub commands: Vec<HookCommand>,
 

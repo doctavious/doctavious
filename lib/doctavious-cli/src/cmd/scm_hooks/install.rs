@@ -20,10 +20,7 @@ pub fn install(cwd: &Path) -> CliResult<()> {
     };
 
     let scm = Scm::get(cwd)?;
-    let hooks_path = scm.hooks_path()?;
-    if !hooks_path.exists() {
-        fs::create_dir_all(&hooks_path)?;
-    }
+    let hooks_path = scm.ensure_hooks_directory()?;
 
     for (key, value) in scm_settings.hooks.iter() {
         let hook_path = hooks_path.join(key);

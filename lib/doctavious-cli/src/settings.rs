@@ -6,11 +6,11 @@ use std::path::{Path, PathBuf};
 use std::sync::OnceLock;
 
 use directories::ProjectDirs;
+use scm::hooks::ScmHook;
 use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
 use thiserror::Error;
 
-use crate::cmd::githooks::Hook;
 use crate::file_structure::FileStructure;
 use crate::markup_format::MarkupFormat;
 use crate::CliResult;
@@ -50,6 +50,9 @@ pub enum SettingErrors {
 
     #[error("invalid settings file")]
     InvalidFile,
+
+    #[error("{0} section not found")]
+    SectionNotFound(String),
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -136,9 +139,9 @@ pub struct Settings {
     #[serde(alias = "build")]
     pub build_settings: Option<BuildSettings>,
 
-    #[serde(rename(serialize = "githook"))]
-    #[serde(alias = "githook")]
-    pub githook_settings: Option<GithookSettings>,
+    #[serde(rename(serialize = "scmhook"))]
+    #[serde(alias = "scmhook")]
+    pub scmhook_settings: Option<ScmHookSettings>,
 
     #[serde(rename(serialize = "rfd"))]
     #[serde(alias = "rfd")]
@@ -184,8 +187,8 @@ pub struct TilSettings {
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
-pub struct GithookSettings {
-    pub hooks: HashMap<String, Hook>,
+pub struct ScmHookSettings {
+    pub hooks: HashMap<String, ScmHook>,
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]

@@ -12,7 +12,8 @@ use lazy_static::lazy_static;
 use regex::Regex;
 use thiserror::Error;
 
-pub const HOOK_TEMPLATE: &[u8; 253] = include_bytes!("hooks/hook.tmpl");
+// TODO: get hash of file for checksum
+pub const HOOK_TEMPLATE: &[u8; 252] = include_bytes!("hooks/hook.tmpl");
 lazy_static! {
     pub static ref DOCTAVIOUS_SCM_HOOK_CONTENT_REGEX: Regex = Regex::new("DOCTAVIOUS").unwrap();
 }
