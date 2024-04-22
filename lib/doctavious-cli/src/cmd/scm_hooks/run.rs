@@ -1,12 +1,19 @@
-use std::fs;
 use std::path::{Path, PathBuf};
 
 use scm::drivers::Scm;
+use scm::hooks::ScmHook;
 use scm::{ScmError, ScmRepository};
 
-use crate::cmd::scm_hooks::{add_hook, clean_hook};
-use crate::settings::{load_settings, ScmHookSettings, SettingErrors, Settings};
+use crate::cmd::scm_hooks::ensure_hooks;
+use crate::cmd::scm_hooks::runner::{ScmHookRunner, ScmHookRunnerOptions};
+use crate::settings::{load_settings, SettingErrors, Settings};
 use crate::{CliResult, DoctaviousCliError};
+
+#[remain::sorted]
+pub enum ScmHookRunFiles {
+    All,
+    Specific(Vec<String>),
+}
 
 // staged files?
 
@@ -20,12 +27,13 @@ use crate::{CliResult, DoctaviousCliError};
 pub fn run(
     cwd: &Path,
     hook_name: &str,
+    // files: ScmHookRunFiles,
     all_files: bool,
-    files: Vec<String>,
-    commands: Option<Vec<String>>,
+    mut files: Vec<PathBuf>,
+    run_only_executions: Vec<String>,
     force: bool,
 ) -> CliResult<()> {
-    let mut settings: Settings = load_settings(cwd)?.into_owned();
+    let settings: Settings = load_settings(cwd)?.into_owned();
     let Some(scm_settings) = settings.scmhook_settings else {
         return Err(DoctaviousCliError::SettingError(
             SettingErrors::SectionNotFound(
@@ -38,7 +46,7 @@ pub fn run(
     let scm = Scm::get(cwd)?;
     let hooks_path = scm.ensure_hooks_directory()?;
 
-    // TODO: create hooks if needed
+    ensure_hooks(&scm_settings, &scm, force)?;
 
     let Some(hook) = scm_settings.hooks.get(hook_name) else {
         return Err(DoctaviousCliError::ScmError(ScmError::UnsupportedHook(
@@ -47,20 +55,35 @@ pub fn run(
     };
 
     // TODO: validate hook configuration
+    if hook.parallel && hook.stop_on_failure {
+        // TODO: return error
+        // conflicting options 'piped' and 'parallel' are set to 'true', remove one of this option from hook group
+    }
 
     // TODO: setup and execute hook runner
-    let mut f: Vec<PathBuf> = Vec::new();
-    if !files.is_empty() {
-    } else if all_files {
-        // get all files from scm
-        f.extend(scm.all_files()?);
-    } else {
+    if files.is_empty() && all_files {
+        files.extend(scm.all_files()?);
     }
+
+    let runner = ScmHookRunner::new(ScmHookRunnerOptions {
+        scm: &scm,
+        hook,
+        hook_name: hook_name.to_string(),
+        files,
+        run_only_executions,
+    });
+
+    let results = runner.run_all();
+
+    // TODO: print summary results
+
+    let staged = scm.staged_files()?;
+    let pushed = scm.push_files()?;
 
     // TODO: decide if hook should be skipped
 
     // TODO: run scripts
-    for (name, script) in &hook.scripts {}
+    // for (name, script) in &hook.scripts {}
 
     // TODO: run commands
     // - see if runOnlyCommands contains hook
@@ -80,7 +103,29 @@ pub fn run(
     //     - check if hook uses push files and skip if no matching push
     // - run
 
-    for cmd in &hook.commands {}
+    // let mut files_cmd = hook.files.clone();
+    // for (name, cmd) in &hook.executions {
+    //     if let Some(files) = &cmd.files {
+    //         files_cmd = cmd.files.clone();
+    //     }
+    //
+    //     // make optional
+    //     if !files_cmd.is_empty() {
+    //         // replace positional args
+    //     }
+    //
+    //     // what is r.Files? better way to do this?
+    //     let (staged_files, push_files, all_files, cmd_files) = if !files.is_empty() {
+    //         (files.clone(), files.clone(), files.clone(), files.clone())
+    //     } else {
+    //         (
+    //             scm.staged_files()?,
+    //             scm.push_files()?,
+    //             scm.all_files()?,
+    //             scm.files_by_command(files_cmd)?,
+    //         )
+    //     };
+    // }
 
     // capture results including summary details if requested
 

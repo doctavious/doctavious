@@ -4,29 +4,31 @@ pub mod run;
 mod runner;
 pub mod uninstall;
 
+use std::collections::HashMap;
+use std::fs;
+use std::io::{BufRead, BufReader, Write};
+#[cfg(not(target_os = "windows"))]
+use std::os::unix::fs::OpenOptionsExt;
+use std::path::{Path, PathBuf};
+
+use crc32c::crc32c;
+use minijinja::{AutoEscape, Environment};
+use scm::drivers::Scm;
+use scm::hooks::OLD_HOOK_POSTFIX;
+use scm::{ScmError, ScmRepository, DOCTAVIOUS_SCM_HOOK_CONTENT_REGEX, HOOK_TEMPLATE};
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
+use serde_json::json;
+use tracing::info;
+
+use crate::settings::ScmHookSettings;
+use crate::templating::{TemplateContext, Templates};
+use crate::{templating, CliResult, DoctaviousCliError};
+
 // list of prior art
 // - https://pre-commit.com/
 // - https://www.npmjs.com/package/node-hooks
 // - https://github.com/evilmartians/lefthook
 // - https://github.com/sds/overcommit
-
-use std::collections::HashMap;
-use std::fs;
-use std::io::{BufRead, BufReader, Write};
-use std::os::unix::fs::OpenOptionsExt;
-use std::path::Path;
-
-use minijinja::{AutoEscape, Environment};
-use scm::hooks::OLD_HOOK_POSTFIX;
-use scm::{ScmError, DOCTAVIOUS_SCM_HOOK_CONTENT_REGEX, HOOK_TEMPLATE};
-use serde::{Deserialize, Deserializer, Serialize, Serializer};
-use serde_json::json;
-use tracing::info;
-use scm::drivers::Scm;
-
-use crate::templating::{TemplateContext, Templates};
-use crate::{templating, CliResult, DoctaviousCliError};
-use crate::settings::ScmHookSettings;
 
 /// Tests whether a hook file was created by doctavious.
 pub(crate) fn is_doctavious_scm_hook_file(path: &Path) -> CliResult<bool> {
@@ -86,18 +88,17 @@ pub(crate) fn add_hook(hook: &str, path: &Path) -> CliResult<()> {
     Ok(options.open(path)?.write_all(file.as_bytes())?)
 }
 
-
-// TODO: check checksum bool?
-// ensure_hooks
-fn create_hooks_if_needed(settings: &ScmHookSettings, scm: &Scm, force: bool) -> CliResult<()> {
-    // TODO: compare checksum
+/// Ensures that SCM hook files are doctavious hooks
+fn ensure_hooks(settings: &ScmHookSettings, scm: &Scm, force: bool) -> CliResult<()> {
+    // TODO: compare checksum - is this better performance than just writing out files
 
     let hooks_path = scm.ensure_hooks_directory()?;
-
+    let mut synced = Vec::with_capacity(settings.hooks.len());
     for (name, hook) in &settings.hooks {
         let hook_path = hooks_path.join(name);
         clean_hook(name, &hook_path, force)?;
         add_hook(name, &hook_path)?;
+        synced.push(name.clone());
     }
 
     // TODO: add checksum file
@@ -105,4 +106,31 @@ fn create_hooks_if_needed(settings: &ScmHookSettings, scm: &Scm, force: bool) ->
     // TODO: log created hooks
 
     Ok(())
+}
+
+fn hooks_synchronized(settings: &ScmHookSettings, scm: &Scm) -> CliResult<bool> {
+    let checksum_file_path = checksum_file(scm)?;
+    let checksum_file = fs::File::open(checksum_file_path)?;
+    let checksum_file_reader = BufReader::new(checksum_file);
+
+    // let line = checksum_file_reader.lines().next()??;
+    // if line.is_empty() {
+    //     return Ok(false);
+    // }
+
+    // dont need timestamp
+    // if let Some((stored_checksum, stored_timestamp)) = line.split_once(' ') {
+    //
+    // } else {
+    //     return Ok(false);
+    // }
+
+    // let bytes = bincode::serialize(settings)?;
+    // let checksum = crc32c::crc32c(&bytes);
+
+    Ok(true)
+}
+
+fn checksum_file(scm: &Scm) -> CliResult<PathBuf> {
+    Ok(scm.hooks_path()?.join("doctavious.checksum"))
 }

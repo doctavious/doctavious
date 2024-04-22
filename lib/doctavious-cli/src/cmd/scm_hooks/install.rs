@@ -1,15 +1,13 @@
-use std::fs;
 use std::path::Path;
 
 use scm::drivers::Scm;
-use scm::ScmRepository;
 
 use crate::cmd::scm_hooks::{add_hook, clean_hook};
 use crate::settings::{load_settings, SettingErrors, Settings};
 use crate::{CliResult, DoctaviousCliError};
 
 pub fn install(cwd: &Path) -> CliResult<()> {
-    let mut settings: Settings = load_settings(cwd)?.into_owned();
+    let settings: Settings = load_settings(cwd)?.into_owned();
     let Some(scm_settings) = settings.scmhook_settings else {
         return Err(DoctaviousCliError::SettingError(
             SettingErrors::SectionNotFound(

@@ -14,13 +14,14 @@ directories = { workspace = true }
 doctavious-cli = { path = "../../lib/doctavious-cli" }
 keyring = "2"
 lazy_static = { workspace = true }
+regex = { workspace = true }
 remain = { workspace = true }
+scm = { path = "../../lib/scm" }
 serde = { workspace = true }
 serde_json = { workspace = true }
 strum = {workspace = true }
 tracing = { workspace = true }
 tracing-subscriber = { workspace = true }
-
 
 [build-dependencies]
 built = "0.7"

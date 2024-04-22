@@ -3,12 +3,13 @@ use doctavious_cli::CliResult;
 
 use crate::commands::scmhook::add::AddScmHook;
 use crate::commands::scmhook::install::InstallScmHook;
-use crate::commands::scmhook::run::RunScmHook;
+use crate::commands::scmhook::run::RunScmHookCommand;
 use crate::commands::scmhook::uninstall::UninstallScmHook;
 
 mod add;
 mod install;
 mod run;
+mod runner;
 mod uninstall;
 
 /// Manage SCM Hooks
@@ -24,7 +25,7 @@ pub(crate) struct ScmHookCommand {
 pub(crate) enum ScmHookSubCommand {
     Add(AddScmHook),
     Install(InstallScmHook),
-    Run(RunScmHook),
+    Run(RunScmHookCommand),
     Uninstall(UninstallScmHook),
 }
 
