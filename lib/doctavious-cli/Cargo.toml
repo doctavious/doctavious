@@ -8,11 +8,16 @@ publish = false
 cas = { path = "../../lib/cas" }
 cifrs = { path = "../../lib/cifrs" }
 
+# TODO: see if we need bincode
+bincode = { workspace = true }
 chrono = { workspace = true }
+# TODO: see if we need crc32c
+crc32c = { workspace = true }
 directories = { workspace = true }
 dotavious = { workspace = true }
 git2 = { workspace = true }
 glob = { workspace = true }
+glob-match = { workspace = true }
 indexmap = { workspace = true, features = ["serde"] }
 lazy_static = { workspace = true }
 minijinja = { workspace = true, features = ["loader"] }

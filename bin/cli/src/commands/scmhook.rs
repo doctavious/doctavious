@@ -9,7 +9,6 @@ use crate::commands::scmhook::uninstall::UninstallScmHook;
 mod add;
 mod install;
 mod run;
-mod runner;
 mod uninstall;
 
 /// Manage SCM Hooks

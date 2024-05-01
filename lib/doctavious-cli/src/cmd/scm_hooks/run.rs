@@ -1,8 +1,6 @@
-use std::fs;
 use std::path::{Path, PathBuf};
 
 use scm::drivers::Scm;
-use scm::hooks::ScmHook;
 use scm::{ScmError, ScmRepository};
 
 use crate::cmd::scm_hooks::ensure_hooks;
@@ -45,8 +43,6 @@ pub fn run(
     };
 
     let scm = Scm::get(cwd)?;
-    let hooks_path = scm.ensure_hooks_directory()?;
-
     ensure_hooks(&scm_settings, &scm, force)?;
 
     let Some(hook) = scm_settings.hooks.get(hook_name) else {
@@ -55,21 +51,13 @@ pub fn run(
         )));
     };
 
-    // TODO: validate hook configuration
     if hook.parallel && hook.stop_on_failure {
         // TODO: return error
         // conflicting options 'piped' and 'parallel' are set to 'true', remove one of this option from hook group
     }
 
-    // TODO: setup and execute hook runner
     if files.is_empty() && all_files {
         files.extend(scm.all_files()?);
-    }
-
-    // TODO: better way to do this to allow testing?
-    let mut runner_files = vec![];
-    for file in files {
-        runner_files.push(fs::canonicalize(cwd.join(file)).unwrap());
     }
 
     let runner = ScmHookRunner::new(ScmHookRunnerOptions {
@@ -77,7 +65,7 @@ pub fn run(
         scm: &scm,
         hook,
         hook_name: hook_name.to_string(),
-        files: runner_files,
+        files,
         run_only_executions,
     });
 

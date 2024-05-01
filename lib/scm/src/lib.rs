@@ -12,10 +12,10 @@ use lazy_static::lazy_static;
 use regex::Regex;
 use thiserror::Error;
 
-// TODO: get hash of file for checksum
 pub const HOOK_TEMPLATE: &[u8; 252] = include_bytes!("hooks/hook.tmpl");
 lazy_static! {
     pub static ref DOCTAVIOUS_SCM_HOOK_CONTENT_REGEX: Regex = Regex::new("DOCTAVIOUS").unwrap();
+    pub static ref HOOK_TEMPLATE_CHECKSUM: u32 = crc32c::crc32c(HOOK_TEMPLATE);
 }
 
 #[remain::sorted]
@@ -124,6 +124,10 @@ pub trait ScmRepository {
 
     // TODO: push files?
     // for SVN files that are added would be staged and files that are added and have modifications would be pushed?
+    // or we just say this isnt used for all SCMs
+    fn push_files(&self) -> ScmResult<Vec<PathBuf>>;
+
+    fn files_by_command(&self, cmd: &String) -> ScmResult<Vec<PathBuf>>;
 
     fn scm(&self) -> &'static str;
 }
@@ -138,7 +142,7 @@ mod tests {
     #[test]
     fn hook_path() {
         let scm = Scm::get(Path::new("../..")).unwrap();
-        let p = scm.hook_path().unwrap();
+        let p = scm.hooks_path().unwrap();
         assert_eq!("../../.git/hooks", p.to_string_lossy());
     }
 }

@@ -1,18 +1,18 @@
 [scmhook_settings]
-    [scmhook_settings.hooks]
-        [scmhook_settings.hooks.pre-commit]
-            name = "pre-commit"
-            [scmhook_settings.hooks.pre-commit.executions]
-                [scmhook_settings.hooks.pre-commit.executions.format-backend]
-                    name = "format"
-                    type = "command"
-                    run = "rustfmt {all_files}"
-                    glob = "**/*.rs"
+[scmhook_settings.hooks.pre-commit]
+name = "pre-commit"
+[scmhook_settings.hooks.pre-commit.executions.format-backend]
+name = "format-backend"
+type = "command"
+run = "rustfmt {all_files}"
+#glob = "/**/.*/**/*.rs"
+glob = "**/*.rs"
 
 # need a files test
 # need a script test
 # need a skip test
 # need a only test
+# need a root test
 # need a parallel test
 # need a exclude tag
 # need a test for variable replacement

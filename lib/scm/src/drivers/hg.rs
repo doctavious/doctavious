@@ -71,6 +71,14 @@ impl ScmRepository for HgScmRepository {
         todo!()
     }
 
+    fn push_files(&self) -> ScmResult<Vec<PathBuf>> {
+        todo!()
+    }
+
+    fn files_by_command(&self, cmd: &String) -> ScmResult<Vec<PathBuf>> {
+        todo!()
+    }
+
     fn scm(&self) -> &'static str {
         todo!()
     }

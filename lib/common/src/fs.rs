@@ -1,6 +1,6 @@
+use std::io::{Error, ErrorKind};
 use std::path::Path;
 use std::{fs, io};
-use std::io::{Error, ErrorKind};
 
 // TODO: I feel like I could do this better
 pub fn copy_dir(src: impl AsRef<Path>, dst: impl AsRef<Path>) -> io::Result<()> {

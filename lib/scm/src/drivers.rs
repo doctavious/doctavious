@@ -147,6 +147,22 @@ impl ScmRepository for Scm {
         }
     }
 
+    fn push_files(&self) -> ScmResult<Vec<PathBuf>> {
+        match self {
+            Scm::Git(r) => r.push_files(),
+            Scm::Hg(r) => r.push_files(),
+            Scm::Svn(r) => r.push_files(),
+        }
+    }
+
+    fn files_by_command(&self, cmd: &String) -> ScmResult<Vec<PathBuf>> {
+        match self {
+            Scm::Git(r) => r.files_by_command(cmd),
+            Scm::Hg(r) => r.files_by_command(cmd),
+            Scm::Svn(r) => r.files_by_command(cmd),
+        }
+    }
+
     fn scm(&self) -> &'static str {
         match self {
             Scm::Git(r) => r.scm(),

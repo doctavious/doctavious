@@ -1,9 +1,0 @@
----
-source: bin/cli/src/commands/scmhook/run.rs
-assertion_line: 112
-expression: "fs::read_to_string(&temp_path.join(\"backend/lib.rs\")).unwrap()"
----
-fn main() {
-    println!("Hello, world!");
-}
-

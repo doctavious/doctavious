@@ -94,6 +94,8 @@ mod tests {
         insta::assert_snapshot!(fs::read_to_string(&temp_path.join("backend/lib.rs")).unwrap());
     }
 
+    // test all_files
+
     // test run_only_executions
 
     // test specific files

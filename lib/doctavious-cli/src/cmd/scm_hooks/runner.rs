@@ -161,7 +161,9 @@ impl<'a> ScmHookRunner<'a> {
             }
         }
 
-        let output = Command::new(&script.runner).args([&path]).output()?.stdout;
+        let mut command = Command::new(&script.runner);
+        command.current_dir(self.options.cwd);
+        command.args([&path]).output()?.stdout;
         // TODO: log output
 
         Ok(())
@@ -220,12 +222,16 @@ impl<'a> ScmHookRunner<'a> {
         // - swap template variables with files
 
         let runnable = self.build_run_command(command)?;
-
-        let p = fs::canonicalize(self.options.cwd)?;
-        println!("{}", p.to_string_lossy());
-
         let split: Vec<&str> = runnable.splitn(2, ' ').collect();
         let mut run_command = Command::new(split[0]);
+
+        let mut current_dir = self.options.cwd.to_path_buf();
+        if let Some(root) = &self.options.hook.root {
+            current_dir = current_dir.join(root);
+        }
+
+        run_command.current_dir(current_dir);
+
         // run_command.current_dir(&p);
         if split.len() > 1 {
             run_command.args(&split[1..]);
@@ -269,6 +275,7 @@ impl<'a> ScmHookRunner<'a> {
         Ok(())
     }
 
+    // TODO: return a struct / tuple instead of a string
     fn build_run_command(&self, command: &HookCommand) -> Result<String, ScmHookRunnerError> {
         let mut files_cmd = command.files.clone().or(self.options.hook.files.clone());
         if let Some(cmd) = files_cmd {
@@ -276,6 +283,7 @@ impl<'a> ScmHookRunner<'a> {
             files_cmd = Some("".to_string());
         }
 
+        // TODO: could we improve this by codifying into a type / struct?
         let (staged_files, push_files, all_files, cmd_files) = if !self.options.files.is_empty() {
             (
                 self.options.files.clone(),
@@ -302,7 +310,6 @@ impl<'a> ScmHookRunner<'a> {
         ]);
 
         let mut run_string = command.run.clone();
-        // let mut templates = HashMap::new();
         for (file_type, files) in file_templates {
             let substitution = self
                 .filter_files(command, files)
@@ -345,13 +352,7 @@ impl<'a> ScmHookRunner<'a> {
                         return true;
                     }
 
-                    let gr = glob_match(
-                        glob,
-                        file.file_name()
-                            .unwrap_or_default()
-                            .to_str()
-                            .unwrap_or_default(),
-                    );
+                    let gr = glob_match(glob, file.to_string_lossy().as_ref());
                     return gr;
                 }
 
