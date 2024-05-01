@@ -95,9 +95,6 @@ pub struct ScmHook {
 
     pub only: Option<ScmHookConditionalExecution>,
 
-    // execute in a sub directory "api/" # Careful to have only trailing slash
-    pub root: Option<String>,
-
     pub executions: HashMap<String, ScmHookExecution>,
 }
 

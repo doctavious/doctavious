@@ -72,9 +72,7 @@ mod tests {
         let temp_dir = TempDir::new().unwrap();
         let temp_path = temp_dir.into_path();
 
-        let c = CleanUp::new(|| {
-            let _ = fs::remove_dir_all(&temp_path);
-        });
+        let c = CleanUp::new(|| { let _ = fs::remove_dir_all(&temp_path); });
 
         copy_dir("./tests/fixtures/scmhook/", &temp_path).expect("copy test fixtures");
 
@@ -91,7 +89,7 @@ mod tests {
         });
 
         assert!(result.is_ok());
-        insta::assert_snapshot!(fs::read_to_string(&temp_path.join("backend/lib.rs")).unwrap());
+        insta::assert_snapshot!(fs::read_to_string(&temp_path.join("backend/src/lib.rs")).unwrap());
     }
 
     // test all_files

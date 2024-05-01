@@ -4,9 +4,10 @@ name = "pre-commit"
 [scmhook_settings.hooks.pre-commit.executions.format-backend]
 name = "format-backend"
 type = "command"
-run = "rustfmt {all_files}"
-#glob = "/**/.*/**/*.rs"
-glob = "**/*.rs"
+run = "cargo fmt"
+root = "backend"
+#run = "rustfmt {all_files}"
+#glob = "**/*.rs"
 
 # need a files test
 # need a script test
