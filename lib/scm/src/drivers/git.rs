@@ -4,12 +4,13 @@ use std::process::Command;
 
 use chrono::DateTime;
 use git2::{
-    BranchType, Commit as Git2Commit, Direction, Repository as Git2Repository,
+    BranchType, Commit as Git2Commit, Direction, IndexAddOption, Repository as Git2Repository,
     Signature as Git2Signature, Sort, StatusOptions,
 };
 use indexmap::IndexMap;
 use regex::Regex;
 
+use crate::drivers::Scm;
 use crate::{ScmCommit, ScmRepository, ScmResult, ScmSignature, GIT};
 
 // TODO: Oid strut
@@ -248,9 +249,14 @@ pub struct GitScmRepository {
 }
 
 impl GitScmRepository {
+    pub fn init<P: AsRef<Path>>(path: P) -> ScmResult<Self> {
+        Git2Repository::init(&path)?;
+        GitScmRepository::new(path)
+    }
+
     pub fn new<P: AsRef<Path>>(path: P) -> ScmResult<Self> {
         Ok(Self {
-            inner: Git2Repository::open(path)?,
+            inner: Git2Repository::open(&path)?,
         })
     }
 
@@ -277,6 +283,14 @@ impl GitScmRepository {
         })
     }
 
+    pub fn add_all(&self) {
+        let mut index = self.inner.index().unwrap();
+        index
+            .add_all(["*"].iter(), IndexAddOption::DEFAULT, None)
+            .unwrap();
+        index.write().unwrap();
+    }
+
     fn push(&self) -> ScmResult<()> {
         let mut remote = self.inner.find_remote("origin")?;
         remote.connect(Direction::Push)?;
@@ -290,10 +304,16 @@ impl GitScmRepository {
         I: IntoIterator<Item = S>,
         S: AsRef<OsStr>,
     {
-        let output = Command::new("git").args(args).output()?.stdout;
+        let mut command = Command::new("git");
+        if let Some(parent) = self.inner.path().parent() {
+            command.args(["-C", &parent.to_string_lossy()]);
+        }
+
+        let output = command.args(args).output()?.stdout;
 
         let files: Vec<_> = output
             .split(|&b| b == b'\n')
+            .filter(|&x| !x.is_empty())
             .filter_map(|line| std::str::from_utf8(line).ok())
             .map(|s| PathBuf::from(s.trim_end()))
             .collect();
@@ -441,7 +461,14 @@ impl ScmRepository for GitScmRepository {
         self.get_files(["--name-only", "--staged", "--diff-filter=d"])
     }
 
-    // push: ["diff", "--name-only", "HEAD", "@{push}"]
+    fn push_files(&self) -> ScmResult<Vec<PathBuf>> {
+        self.get_files(["diff", "--name-only", "HEAD", "@{push}"])
+    }
+
+    // TODO: verify this
+    fn files_by_command(&self, cmd: &String) -> ScmResult<Vec<PathBuf>> {
+        self.get_files([cmd])
+    }
 
     fn scm(&self) -> &'static str {
         GIT

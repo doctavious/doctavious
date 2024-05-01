@@ -1,10 +1,13 @@
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::string::FromUtf8Error;
 use std::{fs, io};
 
-use regex::RegexBuilder;
+use cifrs::PrintCommand;
+use glob::{Paths, PatternError};
+use glob_match::glob_match;
+use regex::{Error, Regex, RegexBuilder};
 use scm::drivers::Scm;
 use scm::hooks::{HookCommand, HookScript, ScmHook, ScmHookConditionalExecution, ScmHookExecution};
 use scm::{ScmError, ScmRepository};
@@ -14,6 +17,12 @@ use tracing::{debug, info, warn};
 #[remain::sorted]
 #[derive(Debug, Error)]
 pub enum ScmHookRunnerError {
+    #[error(transparent)]
+    IoError(#[from] io::Error),
+
+    #[error(transparent)]
+    ScmError(#[from] ScmError),
+
     #[error("Skipped: {0}")]
     Skip(String),
 }
@@ -67,6 +76,7 @@ impl ScmHookRunnerOutcome {
 }
 
 pub struct ScmHookRunnerOptions<'a> {
+    pub cwd: &'a Path,
     pub scm: &'a Scm,
     pub hook: &'a ScmHook,
     pub hook_name: String,
@@ -136,38 +146,24 @@ impl<'a> ScmHookRunner<'a> {
         results
     }
 
-    // pub fn run_scripts(&self, dir: &Path) -> Vec<ScmHookRunnerResult<()>> {
-    //     let mut results = Vec::new();
-    //     // TODO: I feel like perhaps we should iterate hooks and warn if file doesnt exist
-    //     // is there a reason to iterate the directory first?
-    //     for entry in fs::read_dir(dir)?.flatten() {
-    //         let file_name = entry.file_name().to_string_lossy().to_string();
-    //         let Some(script) = self.options.hook.scripts.get(&file_name) else {
-    //             // log
-    //             continue;
-    //         };
-    //
-    //         results.push(self.run_script(script, &entry.path()));
-    //     }
-    //
-    //     results
-    // }
-
+    // TODO: return bool?
     fn run_script(&self, script: &HookScript, path: &Path) -> ScmHookRunnerResult<()> {
         if let Err(error) = self.should_execute_script(script, path) {
             // TODO: log error
             match error {
                 ScmHookRunnerError::Skip(_) => {
                     // return ScmHookRunnerOutcome.skipped(command.name);
-                } // marked as failed
-                  // return ScmHookRunnerOutcome.failed(command.name, err);
+                }
+                _ => {
+                    // marked as failed
+                    // return ScmHookRunnerOutcome.failed(command.name, err);
+                }
             }
         }
 
-        Ok(())
-    }
+        let output = Command::new(&script.runner).args([&path]).output()?.stdout;
+        // TODO: log output
 
-    fn build_run_script(&self, script: &HookScript) -> Result<(), ScmHookRunnerError> {
         Ok(())
     }
 
@@ -204,36 +200,17 @@ impl<'a> ScmHookRunner<'a> {
         Ok(())
     }
 
-    // pub fn run_commands(&self) -> Vec<ScmHookRunnerResult<()>> {
-    //     let mut runnable_commands = Vec::new();
-    //     for command in &self.options.hook.commands {
-    //         if self.options.run_only_commands.is_empty() ||  self.options.run_only_commands.contains(&command.name) {
-    //             runnable_commands.push(command);
-    //         }
-    //     }
-    //
-    //     // TODO: do we want to have a sort priority for commands?
-    //     let mut results = Vec::new();
-    //     for command in runnable_commands {
-    //         if self.options.hook.parallel {
-    //             // TODO: implement parallel processing
-    //             unimplemented!()
-    //         } else {
-    //             results.push(self.run_command(command));
-    //         }
-    //     }
-    //
-    //     results
-    // }
-
     fn run_command(&self, command: &HookCommand) -> ScmHookRunnerResult<()> {
         if let Err(error) = self.should_execute_command(command) {
             // TODO: log error
             match error {
                 ScmHookRunnerError::Skip(_) => {
                     // return ScmHookRunnerOutcome.skipped(command.name);
-                } // marked as failed
-                  // return ScmHookRunnerOutcome.failed(command.name, err);
+                }
+                _ => {
+                    // marked as failed
+                    // return ScmHookRunnerOutcome.failed(command.name, err);
+                }
             }
         }
 
@@ -241,6 +218,32 @@ impl<'a> ScmHookRunner<'a> {
         // - get appropriate file template vars
         // - get files and apply any necessary filters
         // - swap template variables with files
+
+        let runnable = self.build_run_command(command)?;
+
+        let p = fs::canonicalize(self.options.cwd)?;
+        println!("{}", p.to_string_lossy());
+
+        let split: Vec<&str> = runnable.splitn(2, ' ').collect();
+        let mut run_command = Command::new(split[0]);
+        // run_command.current_dir(&p);
+        if split.len() > 1 {
+            run_command.args(&split[1..]);
+        }
+
+        println!("running command: [{}]", run_command.print_command());
+
+        let output = run_command.output();
+        match output {
+            Ok(o) => {
+                println!("stdout: {:?}", String::from_utf8(o.stdout));
+                println!("stderr: {:?}", String::from_utf8(o.stderr));
+            }
+            Err(e) => {
+                println!("error: {}", e);
+            }
+        }
+        // TODO: log output
 
         Ok(())
     }
@@ -266,8 +269,113 @@ impl<'a> ScmHookRunner<'a> {
         Ok(())
     }
 
-    fn build_run_command(&self, command: &HookCommand) -> Result<(), ScmHookRunnerError> {
-        Ok(())
+    fn build_run_command(&self, command: &HookCommand) -> Result<String, ScmHookRunnerError> {
+        let mut files_cmd = command.files.clone().or(self.options.hook.files.clone());
+        if let Some(cmd) = files_cmd {
+            // replace positional args
+            files_cmd = Some("".to_string());
+        }
+
+        let (staged_files, push_files, all_files, cmd_files) = if !self.options.files.is_empty() {
+            (
+                self.options.files.clone(),
+                self.options.files.clone(),
+                self.options.files.clone(),
+                self.options.files.clone(),
+            )
+        } else {
+            (
+                self.options.scm.staged_files()?,
+                self.options.scm.push_files()?,
+                self.options.scm.all_files()?,
+                self.options
+                    .scm
+                    .files_by_command(&files_cmd.unwrap_or_default())?,
+            )
+        };
+
+        let file_templates = HashMap::from([
+            ("{staged_files}", staged_files),
+            ("{push_files}", push_files),
+            ("{all_files}", all_files),
+            ("{files}", cmd_files),
+        ]);
+
+        let mut run_string = command.run.clone();
+        // let mut templates = HashMap::new();
+        for (file_type, files) in file_templates {
+            let substitution = self
+                .filter_files(command, files)
+                .iter()
+                .map(|p| p.to_string_lossy().to_string())
+                .collect::<Vec<String>>()
+                .join(" ");
+            run_string = run_string.replace(file_type, &substitution);
+        }
+
+        println!("run string: [{}]", run_string);
+
+        Ok(run_string)
+    }
+
+    fn filter_files(&self, command: &HookCommand, files: Vec<PathBuf>) -> Vec<PathBuf> {
+        if files.is_empty() {
+            return Vec::new();
+        }
+
+        // by_type
+        files
+            .into_iter()
+            .filter(|file| {
+                // filter by root
+                if let Some(root) = &command.root {
+                    if root.is_empty() {
+                        return true;
+                    }
+
+                    return file.starts_with(root);
+                }
+
+                true
+            })
+            .filter(|file| {
+                // filter by glob
+                if let Some(glob) = &command.glob {
+                    if glob.is_empty() {
+                        return true;
+                    }
+
+                    let gr = glob_match(
+                        glob,
+                        file.file_name()
+                            .unwrap_or_default()
+                            .to_str()
+                            .unwrap_or_default(),
+                    );
+                    return gr;
+                }
+
+                true
+            })
+            .filter(|file| {
+                // filter by exclude
+                if let Some(exclude) = &command.exclude {
+                    if exclude.is_empty() {
+                        return true;
+                    }
+
+                    return match Regex::new(exclude) {
+                        Ok(regex) => regex.is_match(exclude),
+                        Err(_) => {
+                            // TODO: Log
+                            false
+                        }
+                    };
+                }
+
+                true
+            })
+            .collect()
     }
 
     pub fn run(&self) {}

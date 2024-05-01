@@ -389,7 +389,14 @@ pub(crate) fn load_settings<'a>(cwd: &Path) -> CliResult<Cow<'a, Settings>> {
         .get_or_init(|| {
             let settings_path = get_settings_file(cwd);
             if settings_path.is_file() {
-                get_settings(&settings_path).ok()
+                let settings = get_settings(&settings_path);
+                match settings {
+                    Ok(s) => Some(s),
+                    Err(e) => {
+                        eprintln!("{}", e);
+                        None
+                    }
+                }
             } else {
                 Some(Settings::default())
             }

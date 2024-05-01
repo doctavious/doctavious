@@ -53,3 +53,50 @@ pub(crate) fn execute(command: RunScmHookCommand) -> CliResult<Option<String>> {
 
     Ok(None)
 }
+
+#[cfg(test)]
+mod tests {
+    use std::fs;
+    use std::path::PathBuf;
+
+    use common::fs::copy_dir;
+    use doctavious_cli::CliResult;
+    use scm::drivers::git::GitScmRepository;
+    use tempfile::TempDir;
+    use testing::CleanUp;
+
+    use crate::commands::scmhook::run::{execute, RunScmHookCommand};
+
+    #[test]
+    fn execute_hook() {
+        let temp_dir = TempDir::new().unwrap();
+        let temp_path = temp_dir.into_path();
+
+        let c = CleanUp::new(|| {
+            let _ = fs::remove_dir_all(&temp_path);
+        });
+
+        copy_dir("./tests/fixtures/scmhook/", &temp_path).expect("copy test fixtures");
+
+        let scm = GitScmRepository::init(&temp_path).expect("init git");
+        scm.add_all();
+
+        let result = execute(RunScmHookCommand {
+            hook: "pre-commit".to_string(),
+            cwd: Some(temp_path.clone()),
+            file: None,
+            all_files: true,
+            run_only_executions: None,
+            force: false,
+        });
+
+        assert!(result.is_ok());
+        insta::assert_snapshot!(fs::read_to_string(&temp_path.join("backend/lib.rs")).unwrap());
+    }
+
+    // test run_only_executions
+
+    // test specific files
+
+    // test force
+}

@@ -23,5 +23,11 @@ strum = {workspace = true }
 tracing = { workspace = true }
 tracing-subscriber = { workspace = true }
 
+[dev-dependencies]
+common = { path = "../../lib/common" }
+insta = { workspace = true }
+tempfile = { workspace = true }
+testing = { path = "../../lib/testing" }
+
 [build-dependencies]
 built = "0.7"

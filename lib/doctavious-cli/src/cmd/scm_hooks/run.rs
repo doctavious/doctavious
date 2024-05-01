@@ -1,3 +1,4 @@
+use std::fs;
 use std::path::{Path, PathBuf};
 
 use scm::drivers::Scm;
@@ -65,69 +66,24 @@ pub fn run(
         files.extend(scm.all_files()?);
     }
 
+    // TODO: better way to do this to allow testing?
+    let mut runner_files = vec![];
+    for file in files {
+        runner_files.push(fs::canonicalize(cwd.join(file)).unwrap());
+    }
+
     let runner = ScmHookRunner::new(ScmHookRunnerOptions {
+        cwd,
         scm: &scm,
         hook,
         hook_name: hook_name.to_string(),
-        files,
+        files: runner_files,
         run_only_executions,
     });
 
     let results = runner.run_all();
 
     // TODO: print summary results
-
-    let staged = scm.staged_files()?;
-    let pushed = scm.push_files()?;
-
-    // TODO: decide if hook should be skipped
-
-    // TODO: run scripts
-    // for (name, script) in &hook.scripts {}
-
-    // TODO: run commands
-    // - see if runOnlyCommands contains hook
-    // - prepare command
-    //   - see if should skip
-    //   - check exclude_tags and tags and exclude_tags with name
-    //   - validate - is runner flags compatible which checks for {staged_files} and {push_files}
-    //   - build_run
-    //     - filesCmd := r.Hook.Files
-    //     - if command.Files > 0 set filesCmd = command.Files
-    //     - if filesCmd > 0 filesCmd = replacePositionalArguments(filesCmd, r.GitArgs)
-    //     - if r.Files > 0 pushFiles / allFiles / cmdFiles = r.Files
-    //     - else stagedFiles = r.Repo.StagedFiles, pushFiles = r.Repo.PushFiles, allFiles = r.Repo.AllFiles, cmdFiles = r.Repo.FilesByCommand(filesCmd)
-    //     - set fileFns and for each resolve template
-    //     - replace run command positional args
-    //     - check if hook uses staged files and skip if no matching staged
-    //     - check if hook uses push files and skip if no matching push
-    // - run
-
-    // let mut files_cmd = hook.files.clone();
-    // for (name, cmd) in &hook.executions {
-    //     if let Some(files) = &cmd.files {
-    //         files_cmd = cmd.files.clone();
-    //     }
-    //
-    //     // make optional
-    //     if !files_cmd.is_empty() {
-    //         // replace positional args
-    //     }
-    //
-    //     // what is r.Files? better way to do this?
-    //     let (staged_files, push_files, all_files, cmd_files) = if !files.is_empty() {
-    //         (files.clone(), files.clone(), files.clone(), files.clone())
-    //     } else {
-    //         (
-    //             scm.staged_files()?,
-    //             scm.push_files()?,
-    //             scm.all_files()?,
-    //             scm.files_by_command(files_cmd)?,
-    //         )
-    //     };
-    // }
-
-    // capture results including summary details if requested
 
     Ok(())
 }

@@ -20,6 +20,7 @@ pub const OLD_HOOK_POSTFIX: &'static str = ".old";
 
 #[remain::sorted]
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(tag = "type", rename_all = "lowercase")]
 pub enum ScmHookExecution {
     /// Commands to be executed for the hook. Each command has a name and associated run options.
     Command(HookCommand),
@@ -52,6 +53,7 @@ pub struct HookScript {
     // TODO: could this also go in ScmHookConditionalExecution?
     /// You can specify tags for commands and scripts.
     /// This is useful for excluding. You can specify more than one tag using comma or space.
+    #[serde(default)]
     pub tags: Vec<String>,
 }
 
@@ -66,7 +68,7 @@ pub enum ScmHookConditionalExecution {
     Run(Vec<String>),
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct ScmHook {
     // might not need this name here
     pub name: String,
@@ -76,11 +78,13 @@ pub struct ScmHook {
     pub files: Option<String>,
 
     /// Run commands and scripts concurrently.
+    #[serde(default)]
     pub parallel: bool,
 
     // If any command in the sequence fails, the other will not be executed.
     // should return an error if both piped: true and parallel: true are set.
     /// Stop running commands and scripts if one of them fail.
+    #[serde(default)]
     pub stop_on_failure: bool,
 
     // could also be set as an env var
@@ -125,7 +129,7 @@ pub struct ScmHook {
 //   exclude_tags:
 //     - frontend
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct HookCommand {
     // might not need this
     pub name: String,
@@ -153,12 +157,13 @@ pub struct HookCommand {
     // TODO: could this also go in ScmHookConditionalExecution?
     /// You can specify tags for commands and scripts.
     /// This is useful for excluding. You can specify more than one tag using comma or space.
+    #[serde(default)]
     pub tags: Vec<String>,
 
     // Use glob patterns to choose what files you want to check
     /// You can set a glob to filter files for your command.
     /// This is only used if you use a file template in run option or provide your custom files command.
-    pub glob: String,
+    pub glob: Option<String>,
 
     /// A custom git command for files or directories to be referenced in {files} template for run setting.
     /// If the result of this command is empty, the execution of commands will be skipped.
@@ -166,20 +171,21 @@ pub struct HookCommand {
     pub files: Option<String>,
 
     /// You can specify some ENV variables for the command or script.
+    #[serde(default)]
     pub env: HashMap<String, String>,
 
     /// You can change the CWD for the command you execute using root option.
     /// This is useful when you execute some npm or yarn command but the package.json is in another directory.
     /// For pre-push and pre-commit hooks and for the custom files command root option is used to
     /// filter file paths. If all files are filtered the command will be skipped.
-    pub root: String,
+    pub root: Option<String>,
 
     /// You can provide a regular expression to exclude some files from being passed to run command.
     /// The regular expression is matched against full paths to files in the repo, relative to the
     /// repo root, using / as the directory separator on all platforms. File paths do not begin
     /// with the separator or any other prefix.
-    pub exclude: String,
+    pub exclude: Option<String>,
 
     /// You can specify a text to show when the command or script fails.
-    pub fail_text: String,
+    pub fail_text: Option<String>,
 }

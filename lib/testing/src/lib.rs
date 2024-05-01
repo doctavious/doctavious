@@ -1,14 +1,23 @@
-pub struct CleanUp<'a> {
-    closure: &'a dyn Fn() -> (),
+pub struct CleanUp<F>
+where
+    F: Fn() -> (),
+{
+    closure: F,
 }
 
-impl CleanUp<'_> {
-    pub fn new(closure: &dyn Fn() -> ()) -> Self {
+impl<F> CleanUp<F>
+where
+    F: Fn() -> (),
+{
+    pub fn new(closure: F) -> Self {
         Self { closure }
     }
 }
 
-impl Drop for CleanUp<'_> {
+impl<F> Drop for CleanUp<F>
+where
+    F: Fn() -> (),
+{
     fn drop(&mut self) {
         let _ = &(self.closure)();
     }
