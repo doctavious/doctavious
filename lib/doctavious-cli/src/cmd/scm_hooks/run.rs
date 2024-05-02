@@ -2,16 +2,17 @@ use std::path::{Path, PathBuf};
 
 use scm::drivers::Scm;
 use scm::{ScmError, ScmRepository};
+use tracing::info;
 
 use crate::cmd::scm_hooks::ensure_hooks;
-use crate::cmd::scm_hooks::runner::{ScmHookRunner, ScmHookRunnerOptions};
+use crate::cmd::scm_hooks::runner::{ScmHookRunner, ScmHookRunnerOptions, ScmHookRunnerResult};
 use crate::settings::{load_settings, SettingErrors, Settings};
 use crate::{CliResult, DoctaviousCliError};
 
 #[remain::sorted]
 pub enum ScmHookRunFiles {
     All,
-    Specific(Vec<String>),
+    Specific(Vec<PathBuf>),
 }
 
 // staged files?
@@ -26,9 +27,7 @@ pub enum ScmHookRunFiles {
 pub fn run(
     cwd: &Path,
     hook_name: &str,
-    // files: ScmHookRunFiles,
-    all_files: bool,
-    mut files: Vec<PathBuf>,
+    files: Option<ScmHookRunFiles>,
     run_only_executions: Vec<String>,
     force: bool,
 ) -> CliResult<()> {
@@ -56,9 +55,13 @@ pub fn run(
         // conflicting options 'piped' and 'parallel' are set to 'true', remove one of this option from hook group
     }
 
-    if files.is_empty() && all_files {
-        files.extend(scm.all_files()?);
-    }
+    let files = match files {
+        None => vec![],
+        Some(f) => match f {
+            ScmHookRunFiles::All => scm.all_files()?,
+            ScmHookRunFiles::Specific(files) => files,
+        },
+    };
 
     let runner = ScmHookRunner::new(ScmHookRunnerOptions {
         cwd,
@@ -70,8 +73,24 @@ pub fn run(
     });
 
     let results = runner.run_all();
-
-    // TODO: print summary results
+    print_summary(results);
 
     Ok(())
+}
+
+fn print_summary(results: Vec<ScmHookRunnerResult<()>>) {
+    // TODO: have log settings
+    // TODO: print summary
+    for result in results {
+        match result {
+            Ok(r) => {
+                // TODO: color green
+                info!("✔️  {}", "name")
+            }
+            Err(e) => {
+                // TODO: color red
+                info!("{}", e)
+            }
+        }
+    }
 }

@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 
 use clap::Parser;
-use doctavious_cli::cmd::scm_hooks::run::run;
+use doctavious_cli::cmd::scm_hooks::run::{run, ScmHookRunFiles};
 use doctavious_cli::CliResult;
 
 /// Execute commands/scripts associated to the specified hook.
@@ -40,13 +40,19 @@ pub(crate) struct RunScmHookCommand {
 pub(crate) fn execute(command: RunScmHookCommand) -> CliResult<Option<String>> {
     let path = command.cwd.unwrap_or(std::env::current_dir()?);
 
-    // TODO: turn all_files / files into an enum
+    let cmd_files = command.file.unwrap_or_default();
+    let files = if !cmd_files.is_empty() {
+        Some(ScmHookRunFiles::Specific(cmd_files))
+    } else if command.all_files {
+        Some(ScmHookRunFiles::All)
+    } else {
+        None
+    };
 
     run(
         &path,
         &command.hook,
-        command.all_files,
-        command.file.unwrap_or_default(),
+        files,
         command.run_only_executions.unwrap_or_default(),
         command.force,
     )?;
@@ -72,7 +78,9 @@ mod tests {
         let temp_dir = TempDir::new().unwrap();
         let temp_path = temp_dir.into_path();
 
-        let c = CleanUp::new(|| { let _ = fs::remove_dir_all(&temp_path); });
+        let c = CleanUp::new(|| {
+            let _ = fs::remove_dir_all(&temp_path);
+        });
 
         copy_dir("./tests/fixtures/scmhook/", &temp_path).expect("copy test fixtures");
 

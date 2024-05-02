@@ -88,6 +88,106 @@ pub struct ScmHookRunner<'a> {
     pub options: ScmHookRunnerOptions<'a>,
 }
 
+struct TemplateFiles {
+    templates: HashMap<&'static str, String>,
+}
+impl<'a> TemplateFiles {
+    fn from_files(command: &HookCommand, files: Vec<PathBuf>) -> ScmHookRunnerResult<Self> {
+        let file_templates = Self::filter_map_files(command, files);
+        Ok(Self::new(
+            file_templates.clone(),
+            file_templates.clone(),
+            file_templates.clone(),
+            file_templates.clone(),
+        ))
+    }
+
+    fn from_scm(
+        command: &HookCommand,
+        scm: &Scm,
+        custom_files_cmd: Option<String>,
+    ) -> ScmHookRunnerResult<Self> {
+        let staged = Self::filter_map_files(command, scm.staged_files()?);
+        let push = Self::filter_map_files(command, scm.push_files()?);
+        let all = Self::filter_map_files(command, scm.all_files()?);
+        let files = if let Some(custom_files_cmd) = custom_files_cmd {
+            Self::filter_map_files(command, scm.files_by_command(&custom_files_cmd)?)
+        } else {
+            String::new()
+        };
+
+        Ok(Self::new(staged, push, all, files))
+    }
+
+    fn new(staged: String, push: String, all: String, files: String) -> Self {
+        Self {
+            templates: HashMap::from([
+                ("{staged_files}", staged),
+                ("{push_files}", push),
+                ("{all_files}", all),
+                ("{files}", files),
+            ]),
+        }
+    }
+
+    fn filter_map_files(command: &HookCommand, files: Vec<PathBuf>) -> String {
+        if files.is_empty() {
+            return String::new();
+        }
+
+        // TODO: filter by_type
+
+        files
+            .into_iter()
+            .filter(|file| {
+                // filter by root
+                if let Some(root) = &command.root {
+                    if root.is_empty() {
+                        return true;
+                    }
+
+                    return file.starts_with(root);
+                }
+
+                true
+            })
+            .filter(|file| {
+                // filter by glob
+                if let Some(glob) = &command.glob {
+                    if glob.is_empty() {
+                        return true;
+                    }
+
+                    let gr = glob_match(glob, file.to_string_lossy().as_ref());
+                    return gr;
+                }
+
+                true
+            })
+            .filter(|file| {
+                // filter by exclude
+                if let Some(exclude) = &command.exclude {
+                    if exclude.is_empty() {
+                        return true;
+                    }
+
+                    return match Regex::new(exclude) {
+                        Ok(regex) => regex.is_match(exclude),
+                        Err(_) => {
+                            // TODO: Log
+                            false
+                        }
+                    };
+                }
+
+                true
+            })
+            .map(|p| p.to_string_lossy().to_string())
+            .collect::<Vec<String>>()
+            .join(" ")
+    }
+}
+
 impl<'a> ScmHookRunner<'a> {
     pub fn new(options: ScmHookRunnerOptions<'a>) -> Self {
         Self { options }
@@ -222,17 +322,16 @@ impl<'a> ScmHookRunner<'a> {
         // - swap template variables with files
 
         let runnable = self.build_run_command(command)?;
-        let split: Vec<&str> = runnable.splitn(2, ' ').collect();
+        let split: Vec<&str> = runnable.split(' ').collect();
         let mut run_command = Command::new(split[0]);
 
         let mut current_dir = self.options.cwd.to_path_buf();
-        if let Some(root) = &self.options.hook.root {
+        if let Some(root) = &command.root {
             current_dir = current_dir.join(root);
         }
 
         run_command.current_dir(current_dir);
 
-        // run_command.current_dir(&p);
         if split.len() > 1 {
             run_command.args(&split[1..]);
         }
@@ -277,47 +376,59 @@ impl<'a> ScmHookRunner<'a> {
 
     // TODO: return a struct / tuple instead of a string
     fn build_run_command(&self, command: &HookCommand) -> Result<String, ScmHookRunnerError> {
-        let mut files_cmd = command.files.clone().or(self.options.hook.files.clone());
-        if let Some(cmd) = files_cmd {
-            // replace positional args
-            files_cmd = Some("".to_string());
-        }
-
         // TODO: could we improve this by codifying into a type / struct?
-        let (staged_files, push_files, all_files, cmd_files) = if !self.options.files.is_empty() {
-            (
-                self.options.files.clone(),
-                self.options.files.clone(),
-                self.options.files.clone(),
-                self.options.files.clone(),
-            )
+        // let (staged_files, push_files, all_files, cmd_files) = if !self.options.files.is_empty() {
+        //     (
+        //         self.options.files.clone(),
+        //         self.options.files.clone(),
+        //         self.options.files.clone(),
+        //         self.options.files.clone(),
+        //     )
+        // } else {
+        //     let mut files_cmd = command.files.clone().or(self.options.hook.files.clone());
+        //     if let Some(cmd) = files_cmd {
+        //         // replace positional args
+        //         files_cmd = Some("".to_string());
+        //     }
+        //
+        //     (
+        //         self.options.scm.staged_files()?,
+        //         self.options.scm.push_files()?,
+        //         self.options.scm.all_files()?,
+        //         self.options
+        //             .scm
+        //             .files_by_command(&files_cmd.unwrap_or_default())?,
+        //     )
+        // };
+        //
+        // let file_templates = HashMap::from([
+        //     ("{staged_files}", staged_files),
+        //     ("{push_files}", push_files),
+        //     ("{all_files}", all_files),
+        //     ("{files}", cmd_files),
+        // ]);
+
+        let template_files = if !self.options.files.is_empty() {
+            TemplateFiles::from_files(command, self.options.files.to_owned())?
         } else {
-            (
-                self.options.scm.staged_files()?,
-                self.options.scm.push_files()?,
-                self.options.scm.all_files()?,
-                self.options
-                    .scm
-                    .files_by_command(&files_cmd.unwrap_or_default())?,
-            )
+            let mut files_cmd = command.files.clone().or(self.options.hook.files.clone());
+            if let Some(cmd) = files_cmd {
+                // replace positional args
+                files_cmd = Some("".to_string());
+            }
+
+            TemplateFiles::from_scm(command, self.options.scm, files_cmd)?
         };
 
-        let file_templates = HashMap::from([
-            ("{staged_files}", staged_files),
-            ("{push_files}", push_files),
-            ("{all_files}", all_files),
-            ("{files}", cmd_files),
-        ]);
-
         let mut run_string = command.run.clone();
-        for (file_type, files) in file_templates {
-            let substitution = self
-                .filter_files(command, files)
-                .iter()
-                .map(|p| p.to_string_lossy().to_string())
-                .collect::<Vec<String>>()
-                .join(" ");
-            run_string = run_string.replace(file_type, &substitution);
+        for (key, tmpl) in template_files.templates {
+            // let substitution = self
+            //     .filter_files(command, files)
+            //     .iter()
+            //     .map(|p| p.to_string_lossy().to_string())
+            //     .collect::<Vec<String>>()
+            //     .join(" ");
+            run_string = run_string.replace(key, &tmpl);
         }
 
         println!("run string: [{}]", run_string);
