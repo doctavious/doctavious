@@ -6,8 +6,6 @@ name = "format-backend"
 type = "command"
 run = "cargo fmt"
 root = "backend"
-#run = "rustfmt {all_files}"
-#glob = "**/*.rs"
 
 # need a files test
 # need a script test

@@ -5,7 +5,7 @@ use scm::{ScmError, ScmRepository};
 use tracing::info;
 
 use crate::cmd::scm_hooks::ensure_hooks;
-use crate::cmd::scm_hooks::runner::{ScmHookRunner, ScmHookRunnerOptions, ScmHookRunnerResult};
+use crate::cmd::scm_hooks::runner::{ScmHookRunner, ScmHookRunnerOptions, ScmHookRunnerOutcome, ScmHookRunnerResult};
 use crate::settings::{load_settings, SettingErrors, Settings};
 use crate::{CliResult, DoctaviousCliError};
 
@@ -78,7 +78,7 @@ pub fn run(
     Ok(())
 }
 
-fn print_summary(results: Vec<ScmHookRunnerResult<()>>) {
+fn print_summary(results: Vec<ScmHookRunnerResult<ScmHookRunnerOutcome>>) {
     // TODO: have log settings
     // TODO: print summary
     for result in results {

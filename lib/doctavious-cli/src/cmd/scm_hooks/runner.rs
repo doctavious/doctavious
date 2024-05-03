@@ -66,11 +66,11 @@ impl ScmHookRunnerOutcome {
         }
     }
 
-    pub fn failed(name: String, text: String) -> Self {
+    pub fn failed(name: String, text: Option<String>) -> Self {
         Self {
             name,
             status: ScmHookRunnerStatus::Failure,
-            text: Some(text),
+            text,
         }
     }
 }
@@ -94,6 +94,7 @@ struct TemplateFiles {
 impl<'a> TemplateFiles {
     fn from_files(command: &HookCommand, files: Vec<PathBuf>) -> ScmHookRunnerResult<Self> {
         let file_templates = Self::filter_map_files(command, files);
+        // TODO: would be nice to avoid all these clones but dont know a better way at the moment
         Ok(Self::new(
             file_templates.clone(),
             file_templates.clone(),
@@ -194,7 +195,7 @@ impl<'a> ScmHookRunner<'a> {
     }
 
     // TODO: probably need to pass in scripts dir
-    pub fn run_all(&self) -> Vec<ScmHookRunnerResult<()>> {
+    pub fn run_all(&self) -> Vec<ScmHookRunnerResult<ScmHookRunnerOutcome>> {
         let mut results = Vec::new();
         if ExecutionChecker::check(&self.options.hook.skip, &self.options.hook.only) {
             // TODO: should logging skips be a flag?
@@ -207,7 +208,7 @@ impl<'a> ScmHookRunner<'a> {
         results
     }
 
-    fn run_executions(&self) -> Vec<ScmHookRunnerResult<()>> {
+    fn run_executions(&self) -> Vec<ScmHookRunnerResult<ScmHookRunnerOutcome>> {
         let mut runnable_executions = Vec::new();
         for name in self.options.hook.executions.keys() {
             if self.options.run_only_executions.is_empty()
@@ -246,27 +247,33 @@ impl<'a> ScmHookRunner<'a> {
         results
     }
 
-    // TODO: return bool?
-    fn run_script(&self, script: &HookScript, path: &Path) -> ScmHookRunnerResult<()> {
+    fn run_script(&self, script: &HookScript, path: &Path) -> ScmHookRunnerResult<ScmHookRunnerOutcome> {
         if let Err(error) = self.should_execute_script(script, path) {
             // TODO: log error
-            match error {
-                ScmHookRunnerError::Skip(_) => {
-                    // return ScmHookRunnerOutcome.skipped(command.name);
+            return match error {
+                ScmHookRunnerError::Skip(reason) => {
+                    Ok(ScmHookRunnerOutcome::skipped(script.name.to_owned()))
                 }
                 _ => {
-                    // marked as failed
-                    // return ScmHookRunnerOutcome.failed(command.name, err);
+                    Ok(ScmHookRunnerOutcome::failed(script.name.to_owned(), Some(error.to_string())))
                 }
             }
         }
 
-        let mut command = Command::new(&script.runner);
-        command.current_dir(self.options.cwd);
-        command.args([&path]).output()?.stdout;
-        // TODO: log output
+        let ok = self.run(
+            script.name.as_str(),
+            &RunnableCommand {
+                program: script.runner.to_owned(),
+                args: Vec::from([path.to_string_lossy().to_string()])
+            },
+            self.options.cwd
+        );
 
-        Ok(())
+        if ok {
+            Ok(ScmHookRunnerOutcome::succeeded(script.name.to_owned()))
+        } else {
+            Ok(ScmHookRunnerOutcome::failed(script.name.to_owned(), script.fail_text.to_owned()))
+        }
     }
 
     fn should_execute_script(
@@ -302,55 +309,33 @@ impl<'a> ScmHookRunner<'a> {
         Ok(())
     }
 
-    fn run_command(&self, command: &HookCommand) -> ScmHookRunnerResult<()> {
+    fn run_command(&self, command: &HookCommand) -> ScmHookRunnerResult<ScmHookRunnerOutcome> {
         if let Err(error) = self.should_execute_command(command) {
             // TODO: log error
-            match error {
-                ScmHookRunnerError::Skip(_) => {
-                    // return ScmHookRunnerOutcome.skipped(command.name);
+            return match error {
+                ScmHookRunnerError::Skip(reason) => {
+                    Ok(ScmHookRunnerOutcome::skipped(command.name.to_owned()))
                 }
                 _ => {
-                    // marked as failed
-                    // return ScmHookRunnerOutcome.failed(command.name, err);
+                    Ok(ScmHookRunnerOutcome::failed(command.name.to_owned(), Some(error.to_string())))
                 }
             }
         }
 
-        // TODO: build run command
-        // - get appropriate file template vars
-        // - get files and apply any necessary filters
-        // - swap template variables with files
-
         let runnable = self.build_run_command(command)?;
-        let split: Vec<&str> = runnable.split(' ').collect();
-        let mut run_command = Command::new(split[0]);
-
-        let mut current_dir = self.options.cwd.to_path_buf();
+        let mut working_dir = self.options.cwd.to_path_buf();
         if let Some(root) = &command.root {
-            current_dir = current_dir.join(root);
+            working_dir = working_dir.join(root);
         }
 
-        run_command.current_dir(current_dir);
+        let ok = self.run(command.name.as_str(), &runnable, &working_dir);
 
-        if split.len() > 1 {
-            run_command.args(&split[1..]);
+        if ok {
+            Ok(ScmHookRunnerOutcome::succeeded(command.name.to_owned()))
+        } else {
+            Ok(ScmHookRunnerOutcome::failed(command.name.to_owned(), command.fail_text.to_owned()))
         }
 
-        println!("running command: [{}]", run_command.print_command());
-
-        let output = run_command.output();
-        match output {
-            Ok(o) => {
-                println!("stdout: {:?}", String::from_utf8(o.stdout));
-                println!("stderr: {:?}", String::from_utf8(o.stderr));
-            }
-            Err(e) => {
-                println!("error: {}", e);
-            }
-        }
-        // TODO: log output
-
-        Ok(())
     }
 
     fn should_execute_command(&self, command: &HookCommand) -> Result<(), ScmHookRunnerError> {
@@ -374,40 +359,7 @@ impl<'a> ScmHookRunner<'a> {
         Ok(())
     }
 
-    // TODO: return a struct / tuple instead of a string
-    fn build_run_command(&self, command: &HookCommand) -> Result<String, ScmHookRunnerError> {
-        // TODO: could we improve this by codifying into a type / struct?
-        // let (staged_files, push_files, all_files, cmd_files) = if !self.options.files.is_empty() {
-        //     (
-        //         self.options.files.clone(),
-        //         self.options.files.clone(),
-        //         self.options.files.clone(),
-        //         self.options.files.clone(),
-        //     )
-        // } else {
-        //     let mut files_cmd = command.files.clone().or(self.options.hook.files.clone());
-        //     if let Some(cmd) = files_cmd {
-        //         // replace positional args
-        //         files_cmd = Some("".to_string());
-        //     }
-        //
-        //     (
-        //         self.options.scm.staged_files()?,
-        //         self.options.scm.push_files()?,
-        //         self.options.scm.all_files()?,
-        //         self.options
-        //             .scm
-        //             .files_by_command(&files_cmd.unwrap_or_default())?,
-        //     )
-        // };
-        //
-        // let file_templates = HashMap::from([
-        //     ("{staged_files}", staged_files),
-        //     ("{push_files}", push_files),
-        //     ("{all_files}", all_files),
-        //     ("{files}", cmd_files),
-        // ]);
-
+    fn build_run_command(&self, command: &HookCommand) -> Result<RunnableCommand, ScmHookRunnerError> {
         let template_files = if !self.options.files.is_empty() {
             TemplateFiles::from_files(command, self.options.files.to_owned())?
         } else {
@@ -422,82 +374,48 @@ impl<'a> ScmHookRunner<'a> {
 
         let mut run_string = command.run.clone();
         for (key, tmpl) in template_files.templates {
-            // let substitution = self
-            //     .filter_files(command, files)
-            //     .iter()
-            //     .map(|p| p.to_string_lossy().to_string())
-            //     .collect::<Vec<String>>()
-            //     .join(" ");
             run_string = run_string.replace(key, &tmpl);
         }
 
         println!("run string: [{}]", run_string);
 
-        Ok(run_string)
+        let split: Vec<String> = run_string.split(' ').map(|s| s.to_string()).collect();
+        Ok(RunnableCommand {
+            program: split[0].to_owned(),
+            args: split[1..].to_vec()
+        })
     }
 
-    fn filter_files(&self, command: &HookCommand, files: Vec<PathBuf>) -> Vec<PathBuf> {
-        if files.is_empty() {
-            return Vec::new();
-        }
+    pub fn run(&self, name: &str, runnable: &RunnableCommand, root: &Path) -> bool {
+        let mut command = Command::new(&runnable.program);
+        command.current_dir(root);
 
-        // by_type
-        files
-            .into_iter()
-            .filter(|file| {
-                // filter by root
-                if let Some(root) = &command.root {
-                    if root.is_empty() {
-                        return true;
-                    }
+        let output = command.args(&runnable.args).output();
+        // TODO: log execution
+        match &output {
+            Ok(o) => {
+                println!("stdout: {:?}", String::from_utf8(o.stdout.clone()));
+                println!("stderr: {:?}", String::from_utf8(o.stderr.clone()));
+            }
+            Err(e) => {
+                println!("error: {}", e);
+            }
+        };
 
-                    return file.starts_with(root);
-                }
 
-                true
-            })
-            .filter(|file| {
-                // filter by glob
-                if let Some(glob) = &command.glob {
-                    if glob.is_empty() {
-                        return true;
-                    }
-
-                    let gr = glob_match(glob, file.to_string_lossy().as_ref());
-                    return gr;
-                }
-
-                true
-            })
-            .filter(|file| {
-                // filter by exclude
-                if let Some(exclude) = &command.exclude {
-                    if exclude.is_empty() {
-                        return true;
-                    }
-
-                    return match Regex::new(exclude) {
-                        Ok(regex) => regex.is_match(exclude),
-                        Err(_) => {
-                            // TODO: Log
-                            false
-                        }
-                    };
-                }
-
-                true
-            })
-            .collect()
+        output.is_ok()
     }
+}
 
-    pub fn run(&self) {}
+struct RunnableCommand {
+    program: String,
+    args: Vec<String>
 }
 
 struct ExecutionChecker;
 
 impl ExecutionChecker {
     pub fn check(
-        // &self,
         skip: &Option<ScmHookConditionalExecution>,
         only: &Option<ScmHookConditionalExecution>,
     ) -> bool {
@@ -515,7 +433,6 @@ impl ExecutionChecker {
     }
 
     fn matches(
-        // &self,
         condition: &ScmHookConditionalExecution,
     ) -> bool {
         match condition {
