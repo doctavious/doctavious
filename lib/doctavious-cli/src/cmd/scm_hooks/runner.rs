@@ -159,8 +159,7 @@ impl<'a> TemplateFiles {
                         return true;
                     }
 
-                    let gr = glob_match(glob, file.to_string_lossy().as_ref());
-                    return gr;
+                    return glob_match(glob, file.to_string_lossy().as_ref());
                 }
 
                 true
@@ -174,7 +173,7 @@ impl<'a> TemplateFiles {
 
                     return match Regex::new(exclude) {
                         Ok(regex) => regex.is_match(exclude),
-                        Err(_) => {
+                        Err(e) => {
                             // TODO: Log
                             false
                         }
@@ -235,8 +234,12 @@ impl<'a> ScmHookRunner<'a> {
                         results.push(match execution {
                             ScmHookExecution::Command(command) => self.run_command(command),
                             ScmHookExecution::Script(script) => {
-                                let path = PathBuf::from(&self.options.hook_name).join(name);
-                                self.run_script(script, &path)
+                                // TODO: constant for hooks directory
+                                let path = PathBuf::from(self.options.cwd)
+                                    .join(".doctavious/scm_hooks")
+                                    .join(&self.options.hook_name)
+                                    .join(&script.file_name);
+                                self.run_script(name.as_str(), script, &path)
                             }
                         });
                     }
@@ -247,37 +250,53 @@ impl<'a> ScmHookRunner<'a> {
         results
     }
 
-    fn run_script(&self, script: &HookScript, path: &Path) -> ScmHookRunnerResult<ScmHookRunnerOutcome> {
-        if let Err(error) = self.should_execute_script(script, path) {
+    fn run_script(
+        &self,
+        name: &str,
+        script: &HookScript,
+        path: &Path,
+    ) -> ScmHookRunnerResult<ScmHookRunnerOutcome> {
+        if let Err(error) = self.should_execute_script(name, script, path) {
             // TODO: log error
             return match error {
                 ScmHookRunnerError::Skip(reason) => {
-                    Ok(ScmHookRunnerOutcome::skipped(script.name.to_owned()))
+                    Ok(ScmHookRunnerOutcome::skipped(name.to_owned()))
                 }
-                _ => {
-                    Ok(ScmHookRunnerOutcome::failed(script.name.to_owned(), Some(error.to_string())))
-                }
-            }
+                _ => Ok(ScmHookRunnerOutcome::failed(
+                    name.to_owned(),
+                    Some(error.to_string()),
+                )),
+            };
         }
 
+        // let ok = self.run(
+        //     script.name.as_str(),
+        //     &RunnableCommand {
+        //         program: script.runner.to_owned(),
+        //         args: Vec::from([path.to_string_lossy().to_string()]),
+        //     },
+        //     self.options.cwd,
+        // );
+
         let ok = self.run(
-            script.name.as_str(),
-            &RunnableCommand {
-                program: script.runner.to_owned(),
-                args: Vec::from([path.to_string_lossy().to_string()])
-            },
-            self.options.cwd
+            name,
+            [script.runner.as_str(), path.to_string_lossy().as_ref()].join(" ").as_str(),
+            self.options.cwd,
         );
 
         if ok {
-            Ok(ScmHookRunnerOutcome::succeeded(script.name.to_owned()))
+            Ok(ScmHookRunnerOutcome::succeeded(name.to_owned()))
         } else {
-            Ok(ScmHookRunnerOutcome::failed(script.name.to_owned(), script.fail_text.to_owned()))
+            Ok(ScmHookRunnerOutcome::failed(
+                name.to_owned(),
+                script.fail_text.to_owned(),
+            ))
         }
     }
 
     fn should_execute_script(
         &self,
+        name: &str,
         script: &HookScript,
         path: &Path,
     ) -> Result<(), ScmHookRunnerError> {
@@ -286,8 +305,9 @@ impl<'a> ScmHookRunner<'a> {
         }
 
         // TODO: convert to hashset?
+        // TODO: is there a way to avoid the &Vec<String> and the &String for contains?
         if let Some(exclude_tags) = &self.options.hook.exclude_tags {
-            if exclude_tags.contains(&script.name) {
+            if exclude_tags.contains(&name.to_string()) {
                 return Err(ScmHookRunnerError::Skip(String::from("name")));
             }
 
@@ -316,10 +336,11 @@ impl<'a> ScmHookRunner<'a> {
                 ScmHookRunnerError::Skip(reason) => {
                     Ok(ScmHookRunnerOutcome::skipped(command.name.to_owned()))
                 }
-                _ => {
-                    Ok(ScmHookRunnerOutcome::failed(command.name.to_owned(), Some(error.to_string())))
-                }
-            }
+                _ => Ok(ScmHookRunnerOutcome::failed(
+                    command.name.to_owned(),
+                    Some(error.to_string()),
+                )),
+            };
         }
 
         let runnable = self.build_run_command(command)?;
@@ -329,13 +350,14 @@ impl<'a> ScmHookRunner<'a> {
         }
 
         let ok = self.run(command.name.as_str(), &runnable, &working_dir);
-
         if ok {
             Ok(ScmHookRunnerOutcome::succeeded(command.name.to_owned()))
         } else {
-            Ok(ScmHookRunnerOutcome::failed(command.name.to_owned(), command.fail_text.to_owned()))
+            Ok(ScmHookRunnerOutcome::failed(
+                command.name.to_owned(),
+                command.fail_text.to_owned(),
+            ))
         }
-
     }
 
     fn should_execute_command(&self, command: &HookCommand) -> Result<(), ScmHookRunnerError> {
@@ -359,7 +381,10 @@ impl<'a> ScmHookRunner<'a> {
         Ok(())
     }
 
-    fn build_run_command(&self, command: &HookCommand) -> Result<RunnableCommand, ScmHookRunnerError> {
+    fn build_run_command(
+        &self,
+        command: &HookCommand,
+    ) -> Result<String, ScmHookRunnerError> {
         let template_files = if !self.options.files.is_empty() {
             TemplateFiles::from_files(command, self.options.files.to_owned())?
         } else {
@@ -379,18 +404,40 @@ impl<'a> ScmHookRunner<'a> {
 
         println!("run string: [{}]", run_string);
 
-        let split: Vec<String> = run_string.split(' ').map(|s| s.to_string()).collect();
-        Ok(RunnableCommand {
-            program: split[0].to_owned(),
-            args: split[1..].to_vec()
-        })
+        Ok(run_string)
+        // let split: Vec<String> = run_string.split(' ').map(|s| s.to_string()).collect();
+        // Ok(RunnableCommand {
+        //     program: split[0].to_owned(),
+        //     args: split[1..].to_vec(),
+        // })
     }
 
-    pub fn run(&self, name: &str, runnable: &RunnableCommand, root: &Path) -> bool {
-        let mut command = Command::new(&runnable.program);
-        command.current_dir(root);
+    pub fn run(&self, name: &str, runnable: &str, root: &Path) -> bool {
+        // let mut command = Command::new(&runnable.program);
+        // command.current_dir(root);
 
-        let output = command.args(&runnable.args).output();
+        let output = if cfg!(target_os = "windows") {
+            Command::new("cmd")
+                .current_dir(root)
+                .arg("/C")
+                .arg(runnable)
+                // .arg(format!("{} {}", &runnable.program, runnable.args.join(" ")))
+                // .arg(&runnable.program)
+                // .arg(runnable.args.join(" "))
+                .output()
+        } else {
+            Command::new("sh")
+                .current_dir(root)
+                .arg("-c")
+                .arg(runnable)
+                // .arg(format!("{} {}", &runnable.program, runnable.args.join(" ")))
+                // .arg(&runnable.program)
+                // .arg(runnable.args.join(" "))
+                .output()
+        };
+
+
+        // let output = command.args(&runnable.args).output();
         // TODO: log execution
         match &output {
             Ok(o) => {
@@ -402,14 +449,13 @@ impl<'a> ScmHookRunner<'a> {
             }
         };
 
-
         output.is_ok()
     }
 }
 
 struct RunnableCommand {
     program: String,
-    args: Vec<String>
+    args: Vec<String>,
 }
 
 struct ExecutionChecker;
@@ -432,9 +478,7 @@ impl ExecutionChecker {
         false
     }
 
-    fn matches(
-        condition: &ScmHookConditionalExecution,
-    ) -> bool {
+    fn matches(condition: &ScmHookConditionalExecution) -> bool {
         match condition {
             ScmHookConditionalExecution::Bool(b) => *b,
             ScmHookConditionalExecution::Ref(refs) => {

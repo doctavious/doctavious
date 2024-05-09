@@ -1,0 +1,6 @@
+---
+source: bin/cli/src/commands/scmhook/run.rs
+expression: "fs::read_to_string(&temp_path.join(\"test_specified_files.txt\")).unwrap()"
+---
+.doctavious/scm_hooks/pre-commit/good-script.sh backend/Cargo.toml backend/src/fizzbuzz.rs backend/src/lib.rs doctavious.toml frontend/eslint.config.js frontend/index.js frontend/package.json frontend/pnpm-lock.yaml
+

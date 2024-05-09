@@ -34,8 +34,7 @@ pub enum ScmHookExecution {
 // https://github.com/evilmartians/lefthook/blob/master/docs/full_guide.md#bash-script-example
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct HookScript {
-    // used as file name
-    pub name: String,
+    pub file_name: String,
     pub runner: String,
 
     // TODO: what type should this be? Probably enum if we are expecting different types
@@ -55,6 +54,9 @@ pub struct HookScript {
     /// This is useful for excluding. You can specify more than one tag using comma or space.
     #[serde(default)]
     pub tags: Vec<String>,
+
+    // You can specify a text to show when the script fails.
+    pub fail_text: Option<String>,
 }
 
 // TODO: should this be non_exhaustive?
@@ -162,7 +164,7 @@ pub struct HookCommand {
     /// This is only used if you use a file template in run option or provide your custom files command.
     pub glob: Option<String>,
 
-    /// A custom git command for files or directories to be referenced in {files} template for run setting.
+    /// A custom scm command for files or directories to be referenced in {files} template for run setting.
     /// If the result of this command is empty, the execution of commands will be skipped.
     /// This option overwrites the hook-level files option.
     pub files: Option<String>,

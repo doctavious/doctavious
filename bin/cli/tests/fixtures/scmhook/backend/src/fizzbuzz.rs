@@ -1,0 +1,1 @@
+fn fizz_buzz() -> bool { true }

@@ -5,7 +5,9 @@ use scm::{ScmError, ScmRepository};
 use tracing::info;
 
 use crate::cmd::scm_hooks::ensure_hooks;
-use crate::cmd::scm_hooks::runner::{ScmHookRunner, ScmHookRunnerOptions, ScmHookRunnerOutcome, ScmHookRunnerResult};
+use crate::cmd::scm_hooks::runner::{
+    ScmHookRunner, ScmHookRunnerOptions, ScmHookRunnerOutcome, ScmHookRunnerResult,
+};
 use crate::settings::{load_settings, SettingErrors, Settings};
 use crate::{CliResult, DoctaviousCliError};
 

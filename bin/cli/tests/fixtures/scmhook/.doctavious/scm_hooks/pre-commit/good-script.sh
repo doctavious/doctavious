@@ -1,0 +1,1 @@
+echo "from a script" > script_output.txt
