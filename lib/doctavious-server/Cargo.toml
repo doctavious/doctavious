@@ -16,7 +16,7 @@ hyper-util = { version = "0.1", features = ["tokio", "server-auto", "http1"] }
 mime = { workspace = true }
 # lets play with this a bit and see how it does. Otherwise swap in for our own Storage/Objects implmentation
 # given the free tier of Cloudflare's R2 storage I would like to add that
-opendal = { workspace = true, features = ["layers-otel-trace", "layers-metrics", "layers-tracing"] }
+opendal = { workspace = true, features = ["layers-otel-trace", "layers-metrics", "layers-tracing", "services-fs", "services-gcs"] }
 serde = { workspace = true, features = ["derive"]}
 tokio = { workspace = true, features = ["full", "fs", "macros", "rt", "rt-multi-thread", "tracing", "io-util", "signal"] }
 thiserror = { workspace = true }

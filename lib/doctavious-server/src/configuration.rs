@@ -1,10 +1,9 @@
-use figment::{Figment, providers::{Format, Toml, Json, Env}};
+use figment::providers::{Env, Format, Json, Toml};
+use figment::Figment;
 use opendal::services::Gcs;
 use opendal::Operator;
-
 // use serde;
-use serde::{Deserialize};
-
+use serde::Deserialize;
 
 #[derive(Deserialize)]
 pub struct Configuration {
@@ -42,7 +41,6 @@ pub struct ExternalStorageConfiguration {
 }
 
 impl ExternalStorageConfiguration {
-
     pub fn get_storage(self) {
         match &self.storage_type {
             StorageType::Filesystem => todo!(),
@@ -50,7 +48,6 @@ impl ExternalStorageConfiguration {
             StorageType::S3 => todo!(),
         }
     }
-
 }
 #[derive(Deserialize)]
 pub struct FileStorageConfig {
@@ -62,7 +59,6 @@ pub struct FileStorageConfig {
     )]
     pub compression: Compression,
 }
-
 
 #[derive(Clone, Copy, Debug, Default, Deserialize, Eq, PartialEq)]
 #[serde(rename_all = "snake_case")]
@@ -82,19 +78,16 @@ pub enum Compression {
     None,
 }
 
-
-
 // TODO: honeycomb config: https://github.com/vectordotdev/vector/blob/fa8a55385dd391aa2429c3f2e9821198c364c6a0/src/sinks/honeycomb.rs
 
 // https://github.com/vectordotdev/vector/blob/fa8a55385dd391aa2429c3f2e9821198c364c6a0/src/sinks/opendal_common.rs
 // https://github.com/vectordotdev/vector/blob/fa8a55385dd391aa2429c3f2e9821198c364c6a0/src/sinks/mod.rs
 
-
 pub fn get_configuration() { //-> Result<Configuration> {
-    // let config: Config = Figment::new()
-    //     .merge(Toml::file("Cargo.toml"))
-    //     .merge(Env::prefixed("CARGO_"))
-    //     .merge(Env::raw().only(&["RUSTC", "RUSTDOC"]))
-    //     .join(Json::file("Cargo.json"))
-    //     .extract()?;
+                             // let config: Config = Figment::new()
+                             //     .merge(Toml::file("Cargo.toml"))
+                             //     .merge(Env::prefixed("CARGO_"))
+                             //     .merge(Env::raw().only(&["RUSTC", "RUSTDOC"]))
+                             //     .join(Json::file("Cargo.json"))
+                             //     .extract()?;
 }
