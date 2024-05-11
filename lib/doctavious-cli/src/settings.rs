@@ -39,9 +39,6 @@ pub const DEFAULT_TIL_DIR: &str = ".til";
 pub const DEFAULT_TIL_TOC_TEMPLATE_PATH: &str = "templates/til/toc";
 pub const DEFAULT_TIL_POST_TEMPLATE_PATH: &str = "templates/til/post";
 
-#[cfg(not(test))]
-static SETTINGS: OnceLock<Option<Settings>> = OnceLock::new();
-
 #[remain::sorted]
 #[derive(Debug, Error)]
 pub enum SettingErrors {
@@ -383,33 +380,9 @@ pub(crate) fn get_settings_file(cwd: &Path) -> PathBuf {
     cwd.join(DEFAULT_CONFIG_NAME)
 }
 
-#[cfg(not(test))]
-pub(crate) fn load_settings<'a>(cwd: &Path) -> CliResult<Cow<'a, Settings>> {
-    let settings = SETTINGS
-        .get_or_init(|| {
-            let settings_path = get_settings_file(cwd);
-            if settings_path.is_file() {
-                let settings = get_settings(&settings_path);
-                match settings {
-                    Ok(s) => Some(s),
-                    Err(e) => {
-                        eprintln!("{}", e);
-                        None
-                    }
-                }
-            } else {
-                Some(Settings::default())
-            }
-        })
-        .as_ref()
-        .ok_or(SettingErrors::InvalidFile)?;
-
-    Ok(Cow::Borrowed(settings))
-}
-
-#[cfg(test)]
 pub(crate) fn load_settings<'a>(cwd: &Path) -> CliResult<Cow<'a, Settings>> {
     let settings_path = get_settings_file(cwd);
+    println!("settings path: [{:?}]", &settings_path);
     let settings = if settings_path.is_file() {
         get_settings(&settings_path)?
     } else {
@@ -420,6 +393,7 @@ pub(crate) fn load_settings<'a>(cwd: &Path) -> CliResult<Cow<'a, Settings>> {
 }
 
 pub(crate) fn get_settings(path: &Path) -> CliResult<Settings> {
+    println!("read from path: [{:?}]", &path);
     let contents = fs::read_to_string(path)?;
     Ok(toml::from_str(contents.as_str())?)
 }

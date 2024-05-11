@@ -98,12 +98,10 @@ root = "backend"
 tags = ["backed", "style"]
 "###,
         )
-            .expect("write doctavious.toml");
+        .expect("write doctavious.toml");
 
         let scm = GitScmRepository::init(&temp_path).expect("init git");
         scm.add_all();
-
-        // std::process::Command::new("pnpm").arg("install").output().expect("pnpm install");
 
         let result = execute(RunScmHookCommand {
             hook: "pre-commit".to_string(),
@@ -154,7 +152,9 @@ run = "echo '{files}' > test_specified_files.txt"
         });
 
         assert!(result.is_ok());
-        insta::assert_snapshot!(fs::read_to_string(&temp_path.join("test_specified_files.txt")).unwrap());
+        insta::assert_snapshot!(
+            fs::read_to_string(&temp_path.join("test_specified_files.txt")).unwrap()
+        );
     }
 
     #[test]
@@ -178,7 +178,7 @@ type = "command"
 run = "echo '{files}' > test_all_files.txt"
 "###,
         )
-            .expect("write doctavious.toml");
+        .expect("write doctavious.toml");
 
         let scm = GitScmRepository::init(&temp_path).expect("init git");
         scm.add_all();
@@ -211,13 +211,13 @@ run = "echo '{files}' > test_all_files.txt"
             r###"[scmhook_settings]
 [scmhook_settings.hooks.pre-commit]
 name = "pre-commit"
-[scmhook_settings.hooks.pre-commit.executions.good-script]
+[scmhook_settings.hooks.pre-commit.executions.script]
 file_name = "good-script.sh"
 type = "script"
 runner = "bash"
 "###,
         )
-            .expect("write doctavious.toml");
+        .expect("write doctavious.toml");
 
         let scm = GitScmRepository::init(&temp_path).expect("init git");
         scm.add_all();
@@ -236,10 +236,52 @@ runner = "bash"
     }
 
     // test run_only_executions
+    #[test]
+    fn run_only_executions() {
+        let temp_dir = TempDir::new().unwrap();
+        let temp_path = temp_dir.into_path();
+
+        let c = CleanUp::new(|| {
+            let _ = fs::remove_dir_all(&temp_path);
+        });
+
+        copy_dir("./tests/fixtures/scmhook/", &temp_path).expect("copy test fixtures");
+        fs::write(
+            temp_path.join("doctavious.toml"),
+            r###"[scmhook_settings]
+[scmhook_settings.hooks.pre-commit]
+name = "pre-commit"
+[scmhook_settings.hooks.pre-commit.executions.format-backend]
+name = "format-backend"
+type = "command"
+run = "cargo fmt"
+root = "backend"
+[scmhook_settings.hooks.pre-commit.executions.script]
+file_name = "good-script.sh"
+type = "script"
+runner = "bash"
+"###,
+        )
+        .expect("write doctavious.toml");
+
+        let scm = GitScmRepository::init(&temp_path).expect("init git");
+        scm.add_all();
+
+        let result = execute(RunScmHookCommand {
+            hook: "pre-commit".to_string(),
+            cwd: Some(temp_path.clone()),
+            file: None,
+            all_files: None,
+            run_only_executions: Some(vec!["format-backend".to_string()]),
+            force: false,
+        });
+
+        assert!(result.is_ok());
+        insta::assert_snapshot!(fs::read_to_string(&temp_path.join("backend/src/lib.rs")).unwrap());
+        assert!(!&temp_path.join("script_output.txt").exists())
+    }
 
     // test tags
 
     // test force
-
-    // test script
 }

@@ -280,7 +280,9 @@ impl<'a> ScmHookRunner<'a> {
 
         let ok = self.run(
             name,
-            [script.runner.as_str(), path.to_string_lossy().as_ref()].join(" ").as_str(),
+            [script.runner.as_str(), path.to_string_lossy().as_ref()]
+                .join(" ")
+                .as_str(),
             self.options.cwd,
         );
 
@@ -381,10 +383,7 @@ impl<'a> ScmHookRunner<'a> {
         Ok(())
     }
 
-    fn build_run_command(
-        &self,
-        command: &HookCommand,
-    ) -> Result<String, ScmHookRunnerError> {
+    fn build_run_command(&self, command: &HookCommand) -> Result<String, ScmHookRunnerError> {
         let template_files = if !self.options.files.is_empty() {
             TemplateFiles::from_files(command, self.options.files.to_owned())?
         } else {
@@ -416,6 +415,9 @@ impl<'a> ScmHookRunner<'a> {
         // let mut command = Command::new(&runnable.program);
         // command.current_dir(root);
 
+        println!("root: {:?}", root);
+        println!("runnable: {}", runnable);
+
         let output = if cfg!(target_os = "windows") {
             Command::new("cmd")
                 .current_dir(root)
@@ -435,7 +437,6 @@ impl<'a> ScmHookRunner<'a> {
                 // .arg(runnable.args.join(" "))
                 .output()
         };
-
 
         // let output = command.args(&runnable.args).output();
         // TODO: log execution
