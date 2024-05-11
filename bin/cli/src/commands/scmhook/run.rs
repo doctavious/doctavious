@@ -22,13 +22,13 @@ pub(crate) struct RunScmHookCommand {
     // TODO: better explanation as to what files mean. Explain {files}
     // TODO: can use group = "files" to only allow one to be used?
     /// Run on specified file (repeat for multiple files). takes precedence over --all-files
-    #[arg(long, short)]
+    #[arg(long, group = "files")]
     pub file: Option<Vec<PathBuf>>,
 
     // TODO: better explanation as to what files mean. Explain {files}
     /// Run hooks on all files
-    #[arg(long, short, action)]
-    pub all_files: Option<bool>,
+    #[arg(long, action, group = "files")]
+    pub all_files: bool,
 
     /// Run only specified executions (commands / scripts)
     #[arg(long = "executions", short = 'e')]
@@ -45,7 +45,7 @@ pub(crate) fn execute(command: RunScmHookCommand) -> CliResult<Option<String>> {
     let cmd_files = command.file.unwrap_or_default();
     let files = if !cmd_files.is_empty() {
         Some(ScmHookRunFiles::Specific(cmd_files))
-    } else if let Some(true) = command.all_files {
+    } else if command.all_files {
         Some(ScmHookRunFiles::All)
     } else {
         None
@@ -107,7 +107,7 @@ tags = ["backed", "style"]
             hook: "pre-commit".to_string(),
             cwd: Some(temp_path.clone()),
             file: None,
-            all_files: None,
+            all_files: false,
             run_only_executions: None,
             force: false,
         });
@@ -146,7 +146,7 @@ run = "echo '{files}' > test_specified_files.txt"
             hook: "pre-commit".to_string(),
             cwd: Some(temp_path.clone()),
             file: Some(vec![PathBuf::from("/backend/src/lib.rs")]),
-            all_files: None,
+            all_files: false,
             run_only_executions: None,
             force: false,
         });
@@ -187,7 +187,7 @@ run = "echo '{files}' > test_all_files.txt"
             hook: "pre-commit".to_string(),
             cwd: Some(temp_path.clone()),
             file: None,
-            all_files: Some(true),
+            all_files: true,
             run_only_executions: None,
             force: false,
         });
@@ -226,7 +226,7 @@ runner = "bash"
             hook: "pre-commit".to_string(),
             cwd: Some(temp_path.clone()),
             file: None,
-            all_files: None,
+            all_files: false,
             run_only_executions: None,
             force: false,
         });
@@ -271,7 +271,7 @@ runner = "bash"
             hook: "pre-commit".to_string(),
             cwd: Some(temp_path.clone()),
             file: None,
-            all_files: None,
+            all_files: false,
             run_only_executions: Some(vec!["format-backend".to_string()]),
             force: false,
         });
