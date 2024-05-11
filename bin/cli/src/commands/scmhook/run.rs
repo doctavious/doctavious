@@ -21,7 +21,7 @@ pub(crate) struct RunScmHookCommand {
 
     // TODO: better explanation as to what files mean. Explain {files}
     // TODO: can use group = "files" to only allow one to be used?
-    /// Run on specified file (repeat for multiple files). takes precedence over --all-files
+    /// Run on specified file (repeat for multiple files).
     #[arg(long, group = "files")]
     pub file: Option<Vec<PathBuf>>,
 
@@ -65,29 +65,19 @@ pub(crate) fn execute(command: RunScmHookCommand) -> CliResult<Option<String>> {
 #[cfg(test)]
 mod tests {
     use std::fs;
-    use std::path::PathBuf;
+    use std::path::{Path, PathBuf};
 
     use common::fs::copy_dir;
     use doctavious_cli::CliResult;
     use scm::drivers::git::GitScmRepository;
     use tempfile::TempDir;
-    use testing::CleanUp;
+    use testing::cleanup::CleanUp;
 
     use crate::commands::scmhook::run::{execute, RunScmHookCommand};
 
     #[test]
     fn execute_hook() {
-        let temp_dir = TempDir::new().unwrap();
-        let temp_path = temp_dir.into_path();
-
-        let c = CleanUp::new(|| {
-            let _ = fs::remove_dir_all(&temp_path);
-        });
-
-        copy_dir("./tests/fixtures/scmhook/", &temp_path).expect("copy test fixtures");
-        fs::write(
-            temp_path.join("doctavious.toml"),
-            r###"[scmhook_settings]
+        let config = r###"[scmhook_settings]
 [scmhook_settings.hooks.pre-commit]
 name = "pre-commit"
 [scmhook_settings.hooks.pre-commit.executions.format-backend]
@@ -96,12 +86,12 @@ type = "command"
 run = "cargo fmt"
 root = "backend"
 tags = ["backed", "style"]
-"###,
-        )
-        .expect("write doctavious.toml");
+"###;
 
-        let scm = GitScmRepository::init(&temp_path).expect("init git");
-        scm.add_all();
+        let temp_path = setup(config);
+        let c = CleanUp::new(Box::new(|| {
+            let _ = fs::remove_dir_all(&temp_path);
+        }));
 
         let result = execute(RunScmHookCommand {
             hook: "pre-commit".to_string(),
@@ -118,29 +108,19 @@ tags = ["backed", "style"]
 
     #[test]
     fn specified_files() {
-        let temp_dir = TempDir::new().unwrap();
-        let temp_path = temp_dir.into_path();
-
-        let c = CleanUp::new(|| {
-            let _ = fs::remove_dir_all(&temp_path);
-        });
-
-        copy_dir("./tests/fixtures/scmhook/", &temp_path).expect("copy test fixtures");
-        fs::write(
-            temp_path.join("doctavious.toml"),
-            r###"[scmhook_settings]
+        let config =             r###"[scmhook_settings]
 [scmhook_settings.hooks.pre-commit]
 name = "pre-commit"
 [scmhook_settings.hooks.pre-commit.executions.specified-files]
 name = "specified-files"
 type = "command"
 run = "echo '{files}' > test_specified_files.txt"
-"###,
-        )
-        .expect("write doctavious.toml");
+"###;
 
-        let scm = GitScmRepository::init(&temp_path).expect("init git");
-        scm.add_all();
+        let temp_path = setup(config);
+        let c = CleanUp::new(Box::new(|| {
+            let _ = fs::remove_dir_all(&temp_path);
+        }));
 
         let result = execute(RunScmHookCommand {
             hook: "pre-commit".to_string(),
@@ -159,29 +139,18 @@ run = "echo '{files}' > test_specified_files.txt"
 
     #[test]
     fn all_files() {
-        let temp_dir = TempDir::new().unwrap();
-        let temp_path = temp_dir.into_path();
-
-        let c = CleanUp::new(|| {
-            let _ = fs::remove_dir_all(&temp_path);
-        });
-
-        copy_dir("./tests/fixtures/scmhook/", &temp_path).expect("copy test fixtures");
-        fs::write(
-            temp_path.join("doctavious.toml"),
-            r###"[scmhook_settings]
+        let config = r###"[scmhook_settings]
 [scmhook_settings.hooks.pre-commit]
 name = "pre-commit"
 [scmhook_settings.hooks.pre-commit.executions.all-files]
 name = "all-files"
 type = "command"
 run = "echo '{files}' > test_all_files.txt"
-"###,
-        )
-        .expect("write doctavious.toml");
-
-        let scm = GitScmRepository::init(&temp_path).expect("init git");
-        scm.add_all();
+"###;
+        let temp_path = setup(config);
+        let c = CleanUp::new(Box::new(|| {
+            let _ = fs::remove_dir_all(&temp_path);
+        }));
 
         let result = execute(RunScmHookCommand {
             hook: "pre-commit".to_string(),
@@ -198,29 +167,19 @@ run = "echo '{files}' > test_all_files.txt"
 
     #[test]
     fn script() {
-        let temp_dir = TempDir::new().unwrap();
-        let temp_path = temp_dir.into_path();
-
-        let c = CleanUp::new(|| {
-            let _ = fs::remove_dir_all(&temp_path);
-        });
-
-        copy_dir("./tests/fixtures/scmhook/", &temp_path).expect("copy test fixtures");
-        fs::write(
-            temp_path.join("doctavious.toml"),
-            r###"[scmhook_settings]
+        let config = r###"[scmhook_settings]
 [scmhook_settings.hooks.pre-commit]
 name = "pre-commit"
 [scmhook_settings.hooks.pre-commit.executions.script]
 file_name = "good-script.sh"
 type = "script"
 runner = "bash"
-"###,
-        )
-        .expect("write doctavious.toml");
+"###;
 
-        let scm = GitScmRepository::init(&temp_path).expect("init git");
-        scm.add_all();
+        let temp_path = setup(config);
+        let c = CleanUp::new(Box::new(|| {
+            let _ = fs::remove_dir_all(&temp_path);
+        }));
 
         let result = execute(RunScmHookCommand {
             hook: "pre-commit".to_string(),
@@ -238,17 +197,7 @@ runner = "bash"
     // test run_only_executions
     #[test]
     fn run_only_executions() {
-        let temp_dir = TempDir::new().unwrap();
-        let temp_path = temp_dir.into_path();
-
-        let c = CleanUp::new(|| {
-            let _ = fs::remove_dir_all(&temp_path);
-        });
-
-        copy_dir("./tests/fixtures/scmhook/", &temp_path).expect("copy test fixtures");
-        fs::write(
-            temp_path.join("doctavious.toml"),
-            r###"[scmhook_settings]
+        let config = r###"[scmhook_settings]
 [scmhook_settings.hooks.pre-commit]
 name = "pre-commit"
 [scmhook_settings.hooks.pre-commit.executions.format-backend]
@@ -260,12 +209,11 @@ root = "backend"
 file_name = "good-script.sh"
 type = "script"
 runner = "bash"
-"###,
-        )
-        .expect("write doctavious.toml");
-
-        let scm = GitScmRepository::init(&temp_path).expect("init git");
-        scm.add_all();
+"###;
+        let temp_path = setup(config);
+        let c = CleanUp::new(Box::new(|| {
+            let _ = fs::remove_dir_all(&temp_path);
+        }));
 
         let result = execute(RunScmHookCommand {
             hook: "pre-commit".to_string(),
@@ -284,4 +232,19 @@ runner = "bash"
     // test tags
 
     // test force
+
+    fn setup<'a>(doctavous_config: &str) -> PathBuf {
+        let temp_dir = TempDir::new().unwrap();
+        let temp_path = temp_dir.into_path();
+
+        copy_dir("./tests/fixtures/scmhook/", &temp_path).expect("copy test fixtures");
+        fs::write(temp_path.join("doctavious.toml"), doctavous_config)
+            .expect("write doctavious.toml");
+
+        let scm = GitScmRepository::init(&temp_path).expect("init git");
+        scm.add_all();
+
+        temp_path
+    }
+
 }
