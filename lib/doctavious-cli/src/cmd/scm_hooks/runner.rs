@@ -9,7 +9,10 @@ use glob::{Paths, PatternError};
 use glob_match::glob_match;
 use regex::{Error, Regex, RegexBuilder};
 use scm::drivers::Scm;
-use scm::hooks::{HookCommand, HookScript, ScmHook, ScmHookConditionalExecution, ScmHookExecution};
+use scm::hooks::{
+    HookCommand, HookScript, ScmHook, ScmHookConditionalExecution,
+    ScmHookConditionalExecutionTagged, ScmHookExecution,
+};
 use scm::{ScmError, ScmRepository};
 use thiserror::Error;
 use tracing::{debug, info, warn};
@@ -82,6 +85,7 @@ pub struct ScmHookRunnerOptions<'a> {
     pub hook_name: String,
     pub files: Vec<PathBuf>,
     pub run_only_executions: Vec<String>,
+    pub force: bool,
 }
 
 pub struct ScmHookRunner<'a> {
@@ -269,20 +273,9 @@ impl<'a> ScmHookRunner<'a> {
             };
         }
 
-        // let ok = self.run(
-        //     script.name.as_str(),
-        //     &RunnableCommand {
-        //         program: script.runner.to_owned(),
-        //         args: Vec::from([path.to_string_lossy().to_string()]),
-        //     },
-        //     self.options.cwd,
-        // );
-
         let ok = self.run(
             name,
-            [script.runner.as_str(), path.to_string_lossy().as_ref()]
-                .join(" ")
-                .as_str(),
+            format!("{} {}", script.runner, path.to_string_lossy()).as_str(),
             self.options.cwd,
         );
 
@@ -404,17 +397,9 @@ impl<'a> ScmHookRunner<'a> {
         println!("run string: [{}]", run_string);
 
         Ok(run_string)
-        // let split: Vec<String> = run_string.split(' ').map(|s| s.to_string()).collect();
-        // Ok(RunnableCommand {
-        //     program: split[0].to_owned(),
-        //     args: split[1..].to_vec(),
-        // })
     }
 
     pub fn run(&self, name: &str, runnable: &str, root: &Path) -> bool {
-        // let mut command = Command::new(&runnable.program);
-        // command.current_dir(root);
-
         println!("root: {:?}", root);
         println!("runnable: {}", runnable);
 
@@ -423,22 +408,15 @@ impl<'a> ScmHookRunner<'a> {
                 .current_dir(root)
                 .arg("/C")
                 .arg(runnable)
-                // .arg(format!("{} {}", &runnable.program, runnable.args.join(" ")))
-                // .arg(&runnable.program)
-                // .arg(runnable.args.join(" "))
                 .output()
         } else {
             Command::new("sh")
                 .current_dir(root)
                 .arg("-c")
                 .arg(runnable)
-                // .arg(format!("{} {}", &runnable.program, runnable.args.join(" ")))
-                // .arg(&runnable.program)
-                // .arg(runnable.args.join(" "))
                 .output()
         };
 
-        // let output = command.args(&runnable.args).output();
         // TODO: log execution
         match &output {
             Ok(o) => {
@@ -466,6 +444,24 @@ impl ExecutionChecker {
         skip: &Option<ScmHookConditionalExecution>,
         only: &Option<ScmHookConditionalExecution>,
     ) -> bool {
+        match skip {
+            None => {}
+            Some(s) => match s {
+                ScmHookConditionalExecution::Bool(b) => {
+                    println!("skipping bool...{:?}", b);
+                }
+                ScmHookConditionalExecution::Tagged(t) => match t {
+                    ScmHookConditionalExecutionTagged::Ref(r) => {
+                        println!("skipping ref...{:?}", r);
+                    }
+                    ScmHookConditionalExecutionTagged::Run(r) => {
+                        println!("skipping run...{:?}", r);
+                    }
+                    _ => {}
+                },
+                _ => {}
+            },
+        }
         if let Some(skip) = skip {
             if Self::matches(skip) {
                 return true;
@@ -482,37 +478,44 @@ impl ExecutionChecker {
     fn matches(condition: &ScmHookConditionalExecution) -> bool {
         match condition {
             ScmHookConditionalExecution::Bool(b) => *b,
-            ScmHookConditionalExecution::Ref(refs) => {
-                for r in refs {
-                    match RegexBuilder::new(&r).build() {
-                        Ok(reg) => {
-                            // if reg.is_match()
-                        }
-                        Err(e) => {
-                            warn!("Invalid hook condition {r}: {e}")
-                        }
-                    }
-                }
-                todo!()
-            }
-            ScmHookConditionalExecution::Run(r) => {
-                for s in r {
-                    match s.split_once(" ") {
-                        None => warn!("Invalid hook condition run command {s}"),
-                        Some((cmd, args)) => {
-                            match Command::new(cmd).args(args.split(" ")).output() {
-                                Ok(output) => {
-                                    // TODO: how to know if this resulted in true
-                                    return true;
+            ScmHookConditionalExecution::Tagged(t) => {
+                match t {
+                    ScmHookConditionalExecutionTagged::Ref(refs) => {
+                        for r in refs {
+                            match RegexBuilder::new(&r).build() {
+                                Ok(reg) => {
+                                    // if reg.is_match()
                                 }
                                 Err(e) => {
-                                    warn!("Hook condition run command {s} failed: {e}")
+                                    warn!("Invalid hook condition {r}: {e}")
                                 }
                             }
                         }
+                        todo!()
+                    }
+                    ScmHookConditionalExecutionTagged::Run(r) => {
+                        for s in r {
+                            match s.split_once(" ") {
+                                None => warn!("Invalid hook condition run command {s}"),
+                                Some((cmd, args)) => {
+                                    match Command::new(cmd).args(args.split(" ")).output() {
+                                        Ok(output) => {
+                                            // TODO: how to know if this resulted in true
+                                            return true;
+                                        }
+                                        Err(e) => {
+                                            warn!("Hook condition run command {s} failed: {e}")
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        todo!()
+                    }
+                    _ => {
+                        todo!()
                     }
                 }
-                todo!()
             }
             _ => {
                 todo!()

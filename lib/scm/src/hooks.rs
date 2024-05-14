@@ -1,5 +1,9 @@
 use std::collections::HashMap;
+use std::fmt::Formatter;
 
+use serde::de::{Error, MapAccess, Visitor};
+// use serde;
+use serde::{Deserialize as serde_deser, Deserializer};
 use serde_derive::{Deserialize, Serialize};
 
 // list of prior art
@@ -60,22 +64,44 @@ pub struct HookScript {
 }
 
 // TODO: should this be non_exhaustive?
+// We want to support the following use cases for conditional executions:
+// 1. Provide a boolean
+// skip = true
+//
+// 2. Provide a list of either refs or commands to run
+// ```
+// [skip]
+// ref = ["main"]
+// ```
+//
+// Serde does not allow you to mix different tag representations for the same enum so in order to
+// achieve the above we needed to split the enum into two. The primary enum supports the boolean
+// use case which leverages serde's `untagged` support and the tagged references the second enum
+// which supports the second use case serde's default representation called externally tagged 
 #[non_exhaustive]
 #[remain::sorted]
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
 pub enum ScmHookConditionalExecution {
     Bool(bool),
-    // Rebase / Merge -- for git others?
-    Ref(Vec<String>), // whats the generic version for branch? ref?
+    Tagged(ScmHookConditionalExecutionTagged),
+}
+
+#[non_exhaustive]
+#[remain::sorted]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum ScmHookConditionalExecutionTagged {
+    // TODO: Rebase / Merge -- for git others?
+    Ref(Vec<String>), // scm refs / tags / etc
     Run(Vec<String>),
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct ScmHook {
-    // might not need this name here
+    // TODO: remove
     pub name: String,
 
-    // TODO: should be optional?
     /// A custom SCM command for files to be referenced in {files} template. See run and files.
     pub files: Option<String>,
 
