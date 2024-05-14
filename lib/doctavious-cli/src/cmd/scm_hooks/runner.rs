@@ -391,7 +391,16 @@ impl<'a> ScmHookRunner<'a> {
 
         let mut run_string = command.run.clone();
         for (key, tmpl) in template_files.templates {
-            run_string = run_string.replace(key, &tmpl);
+            if let Some(index) = run_string.find(key) {
+                if tmpl.is_empty() {
+                    return Err(ScmHookRunnerError::Skip(format!(
+                        "no files found to substitute for {}",
+                        key
+                    )));
+                } else {
+                    run_string.replace_range(index..index + key.len(), &tmpl);
+                }
+            }
         }
 
         println!("run string: [{}]", run_string);
