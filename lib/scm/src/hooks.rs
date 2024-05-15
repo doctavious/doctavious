@@ -1,8 +1,6 @@
 use std::collections::HashMap;
-use std::fmt::Formatter;
 
 use serde::de::{Error, MapAccess, Visitor};
-// use serde;
 use serde::{Deserialize as serde_deser, Deserializer};
 use serde_derive::{Deserialize, Serialize};
 
@@ -41,13 +39,11 @@ pub struct HookScript {
     pub file_name: String,
     pub runner: String,
 
-    // TODO: what type should this be? Probably enum if we are expecting different types
     /// You can skip all or specific commands and scripts using skip option.
     /// You can also skip when merging, rebasing, or being on a specific branch.
     /// Globs are available for branches.
     pub skip: Option<ScmHookConditionalExecution>,
 
-    // TODO: optional fields
     /// You can force a command, script, or the whole hook to execute only in certain conditions.
     /// This option acts like the opposite of skip. It accepts the same values but skips execution
     /// only if the condition is not satisfied.
@@ -59,25 +55,27 @@ pub struct HookScript {
     #[serde(default)]
     pub tags: Vec<String>,
 
-    // You can specify a text to show when the script fails.
+    /// Custom text to show when the script fails.
     pub fail_text: Option<String>,
 }
 
-// TODO: should this be non_exhaustive?
-// We want to support the following use cases for conditional executions:
-// 1. Provide a boolean
-// skip = true
-//
-// 2. Provide a list of either refs or commands to run
-// ```
-// [skip]
-// ref = ["main"]
-// ```
-//
-// Serde does not allow you to mix different tag representations for the same enum so in order to
-// achieve the above we needed to split the enum into two. The primary enum supports the boolean
-// use case which leverages serde's `untagged` support and the tagged references the second enum
-// which supports the second use case serde's default representation called externally tagged 
+/// Holds the conditions used to determine if a hook or execution should be executed.
+///
+/// We want to support the following use cases for conditional executions:
+/// 1. Provide a boolean
+/// skip = true
+///
+/// 2. Provide a list of either refs or commands to run
+/// ```toml
+/// [skip]
+/// ref = ["main"]
+/// ```
+///
+/// Serde does not allow you to mix different tag representations for the same enum so in order to
+/// achieve the above we needed to split the enum into two. This is the primary enum which supports
+/// the boolean use case which leverages serde's `untagged` support.
+/// The second, `ScmHookConditionalExecutionTagged`, nested in the `Tagged` variant allows us to
+/// support the second use case leveraging serde's default representation called externally tagged
 #[non_exhaustive]
 #[remain::sorted]
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -99,9 +97,6 @@ pub enum ScmHookConditionalExecutionTagged {
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct ScmHook {
-    // TODO: remove
-    pub name: String,
-
     /// A custom SCM command for files to be referenced in {files} template. See run and files.
     pub files: Option<String>,
 

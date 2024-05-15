@@ -79,8 +79,6 @@ mod tests {
     #[test]
     fn execute_hook() {
         let config = r###"[scmhook_settings]
-[scmhook_settings.hooks.pre-commit]
-name = "pre-commit"
 [scmhook_settings.hooks.pre-commit.executions.format-backend]
 name = "format-backend"
 type = "command"
@@ -110,8 +108,6 @@ tags = ["backed", "style"]
     #[test]
     fn specified_files() {
         let config = r###"[scmhook_settings]
-[scmhook_settings.hooks.pre-commit]
-name = "pre-commit"
 [scmhook_settings.hooks.pre-commit.executions.specified-files]
 name = "specified-files"
 type = "command"
@@ -141,8 +137,6 @@ run = "echo '{files}' > test_specified_files.txt"
     #[test]
     fn all_files() {
         let config = r###"[scmhook_settings]
-[scmhook_settings.hooks.pre-commit]
-name = "pre-commit"
 [scmhook_settings.hooks.pre-commit.executions.all-files]
 name = "all-files"
 type = "command"
@@ -169,8 +163,6 @@ run = "echo '{files}' > test_all_files.txt"
     #[test]
     fn script() {
         let config = r###"[scmhook_settings]
-[scmhook_settings.hooks.pre-commit]
-name = "pre-commit"
 [scmhook_settings.hooks.pre-commit.executions.script]
 file_name = "good-script.sh"
 type = "script"
@@ -198,8 +190,6 @@ runner = "bash"
     #[test]
     fn run_only_executions() {
         let config = r###"[scmhook_settings]
-[scmhook_settings.hooks.pre-commit]
-name = "pre-commit"
 [scmhook_settings.hooks.pre-commit.executions.format-backend]
 name = "format-backend"
 type = "command"
@@ -232,8 +222,6 @@ runner = "bash"
     #[test]
     fn force() {
         let config = r###"[scmhook_settings]
-[scmhook_settings.hooks.pre-commit]
-name = "pre-commit"
 [scmhook_settings.hooks.pre-commit.executions.format-backend]
 name = "format-backend"
 type = "command"
