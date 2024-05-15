@@ -70,6 +70,7 @@ mod tests {
     use common::fs::copy_dir;
     use doctavious_cli::CliResult;
     use scm::drivers::git::GitScmRepository;
+    use serde::{Deserialize, Serialize};
     use tempfile::TempDir;
     use testing::cleanup::CleanUp;
 
@@ -108,7 +109,7 @@ tags = ["backed", "style"]
 
     #[test]
     fn specified_files() {
-        let config =             r###"[scmhook_settings]
+        let config = r###"[scmhook_settings]
 [scmhook_settings.hooks.pre-commit]
 name = "pre-commit"
 [scmhook_settings.hooks.pre-commit.executions.specified-files]
@@ -194,7 +195,6 @@ runner = "bash"
         insta::assert_snapshot!(fs::read_to_string(&temp_path.join("script_output.txt")).unwrap());
     }
 
-    // test run_only_executions
     #[test]
     fn run_only_executions() {
         let config = r###"[scmhook_settings]
@@ -229,11 +229,52 @@ runner = "bash"
         assert!(!&temp_path.join("script_output.txt").exists())
     }
 
-    // test tags
+    #[test]
+    fn force() {
+        let config = r###"[scmhook_settings]
+[scmhook_settings.hooks.pre-commit]
+name = "pre-commit"
+[scmhook_settings.hooks.pre-commit.executions.format-backend]
+name = "format-backend"
+type = "command"
+run = "cargo fmt"
+root = "backend"
+skip = true
+"###;
 
-    // test force
+        let temp_path = setup(config);
+        let c = CleanUp::new(Box::new(|| {
+            let _ = fs::remove_dir_all(&temp_path);
+        }));
 
-    fn setup<'a>(doctavous_config: &str) -> PathBuf {
+        // first confirm that we skip execution...
+        let result = execute(RunScmHookCommand {
+            hook: "pre-commit".to_string(),
+            cwd: Some(temp_path.clone()),
+            file: None,
+            all_files: false,
+            run_only_executions: None,
+            force: false,
+        });
+
+        assert!(result.is_ok());
+        insta::assert_snapshot!(fs::read_to_string(&temp_path.join("backend/src/lib.rs")).unwrap());
+
+        // then confirm that execution is run when force is set to true...
+        let result = execute(RunScmHookCommand {
+            hook: "pre-commit".to_string(),
+            cwd: Some(temp_path.clone()),
+            file: None,
+            all_files: false,
+            run_only_executions: None,
+            force: true,
+        });
+
+        assert!(result.is_ok());
+        insta::assert_snapshot!(fs::read_to_string(&temp_path.join("backend/src/lib.rs")).unwrap());
+    }
+
+    fn setup(doctavous_config: &str) -> PathBuf {
         let temp_dir = TempDir::new().unwrap();
         let temp_path = temp_dir.into_path();
 
@@ -246,5 +287,4 @@ runner = "bash"
 
         temp_path
     }
-
 }

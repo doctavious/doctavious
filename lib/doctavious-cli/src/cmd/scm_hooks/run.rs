@@ -2,6 +2,7 @@ use std::path::{Path, PathBuf};
 
 use scm::drivers::Scm;
 use scm::{ScmError, ScmRepository};
+use thiserror::Error;
 use tracing::info;
 
 use crate::cmd::scm_hooks::ensure_hooks;
@@ -12,20 +13,18 @@ use crate::settings::{load_settings, SettingErrors, Settings};
 use crate::{CliResult, DoctaviousCliError};
 
 #[remain::sorted]
+#[derive(Debug, Error)]
+pub enum DoctaviousScmHookRunError {
+    #[error("{0}")]
+    ConflictingOptions(String),
+}
+
+#[remain::sorted]
 pub enum ScmHookRunFiles {
     All,
     Specific(Vec<PathBuf>),
 }
 
-// staged files?
-
-// force - force execution of commands that can be skipped
-// no-tty - run hook non-interactively, disable spinner
-// all-files - run hooks on all files
-// files-from-stdin - get files from standard input, null-separated
-// files - run on specified files, comma-separated
-// commands - run only specified commands
-// hook_name
 pub fn run(
     cwd: &Path,
     hook_name: &str,
@@ -72,6 +71,7 @@ pub fn run(
         hook_name: hook_name.to_string(),
         files,
         run_only_executions,
+        force,
     });
 
     let results = runner.run_all();

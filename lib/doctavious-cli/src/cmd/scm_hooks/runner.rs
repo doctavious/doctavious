@@ -199,16 +199,15 @@ impl<'a> ScmHookRunner<'a> {
 
     // TODO: probably need to pass in scripts dir
     pub fn run_all(&self) -> Vec<ScmHookRunnerResult<ScmHookRunnerOutcome>> {
-        let mut results = Vec::new();
-        if ExecutionChecker::check(&self.options.hook.skip, &self.options.hook.only) {
+        return if self.options.force
+            || ExecutionChecker::check(&self.options.hook.skip, &self.options.hook.only)
+        {
+            self.run_executions()
+        } else {
             // TODO: should logging skips be a flag?
             info!("{} skip hook setting", self.options.hook_name);
-            return results;
-        }
-
-        results.extend(self.run_executions());
-
-        results
+            Vec::new()
+        };
     }
 
     fn run_executions(&self) -> Vec<ScmHookRunnerResult<ScmHookRunnerOutcome>> {
@@ -295,33 +294,33 @@ impl<'a> ScmHookRunner<'a> {
         script: &HookScript,
         path: &Path,
     ) -> Result<(), ScmHookRunnerError> {
-        if ExecutionChecker::check(&script.skip, &script.only) {
-            return Err(ScmHookRunnerError::Skip(String::from("settings")));
-        }
+        if self.options.force || ExecutionChecker::check(&script.skip, &script.only) {
+            // TODO: convert to hashset?
+            // TODO: is there a way to avoid the &Vec<String> and the &String for contains?
+            if let Some(exclude_tags) = &self.options.hook.exclude_tags {
+                if exclude_tags.contains(&name.to_string()) {
+                    return Err(ScmHookRunnerError::Skip(String::from("name")));
+                }
 
-        // TODO: convert to hashset?
-        // TODO: is there a way to avoid the &Vec<String> and the &String for contains?
-        if let Some(exclude_tags) = &self.options.hook.exclude_tags {
-            if exclude_tags.contains(&name.to_string()) {
-                return Err(ScmHookRunnerError::Skip(String::from("name")));
-            }
-
-            for tag in &script.tags {
-                if exclude_tags.contains(tag) {
-                    return Err(ScmHookRunnerError::Skip(String::from("tags")));
+                for tag in &script.tags {
+                    if exclude_tags.contains(tag) {
+                        return Err(ScmHookRunnerError::Skip(String::from("tags")));
+                    }
                 }
             }
+
+            if !path.is_file() {
+                debug!("Skipping file: {path:?} is not a file");
+                return Err(ScmHookRunnerError::Skip(String::from("not a file")));
+            }
+
+            // determine if executable -- only for linux
+            // will probably need to extract validation into method and have platform specific implementations
+
+            return Ok(());
         }
 
-        if !path.is_file() {
-            debug!("Skipping file: {path:?} is not a file");
-            return Err(ScmHookRunnerError::Skip(String::from("not a file")));
-        }
-
-        // determine if executable -- only for linux
-        // will probably need to extract validation into method and have platform specific implementations
-
-        Ok(())
+        Err(ScmHookRunnerError::Skip(String::from("settings")))
     }
 
     fn run_command(&self, command: &HookCommand) -> ScmHookRunnerResult<ScmHookRunnerOutcome> {
@@ -356,24 +355,24 @@ impl<'a> ScmHookRunner<'a> {
     }
 
     fn should_execute_command(&self, command: &HookCommand) -> Result<(), ScmHookRunnerError> {
-        if ExecutionChecker::check(&command.skip, &command.only) {
-            return Err(ScmHookRunnerError::Skip(String::from("settings")));
-        }
+        if self.options.force || ExecutionChecker::check(&command.skip, &command.only) {
+            // TODO: convert to hashset?
+            if let Some(exclude_tags) = &self.options.hook.exclude_tags {
+                if exclude_tags.contains(&command.name) {
+                    return Err(ScmHookRunnerError::Skip(String::from("name")));
+                }
 
-        // TODO: convert to hashset?
-        if let Some(exclude_tags) = &self.options.hook.exclude_tags {
-            if exclude_tags.contains(&command.name) {
-                return Err(ScmHookRunnerError::Skip(String::from("name")));
-            }
-
-            for tag in &command.tags {
-                if exclude_tags.contains(tag) {
-                    return Err(ScmHookRunnerError::Skip(String::from("tags")));
+                for tag in &command.tags {
+                    if exclude_tags.contains(tag) {
+                        return Err(ScmHookRunnerError::Skip(String::from("tags")));
+                    }
                 }
             }
+
+            return Ok(());
         }
 
-        Ok(())
+        Err(ScmHookRunnerError::Skip(String::from("settings")))
     }
 
     fn build_run_command(&self, command: &HookCommand) -> Result<String, ScmHookRunnerError> {
@@ -409,9 +408,6 @@ impl<'a> ScmHookRunner<'a> {
     }
 
     pub fn run(&self, name: &str, runnable: &str, root: &Path) -> bool {
-        println!("root: {:?}", root);
-        println!("runnable: {}", runnable);
-
         let output = if cfg!(target_os = "windows") {
             Command::new("cmd")
                 .current_dir(root)
@@ -449,39 +445,24 @@ struct RunnableCommand {
 struct ExecutionChecker;
 
 impl ExecutionChecker {
+    /// Check to see if execution should run
+    ///
+    /// return true if execution should run and false if execution should be skipped
     pub fn check(
         skip: &Option<ScmHookConditionalExecution>,
         only: &Option<ScmHookConditionalExecution>,
     ) -> bool {
-        match skip {
-            None => {}
-            Some(s) => match s {
-                ScmHookConditionalExecution::Bool(b) => {
-                    println!("skipping bool...{:?}", b);
-                }
-                ScmHookConditionalExecution::Tagged(t) => match t {
-                    ScmHookConditionalExecutionTagged::Ref(r) => {
-                        println!("skipping ref...{:?}", r);
-                    }
-                    ScmHookConditionalExecutionTagged::Run(r) => {
-                        println!("skipping run...{:?}", r);
-                    }
-                    _ => {}
-                },
-                _ => {}
-            },
-        }
         if let Some(skip) = skip {
             if Self::matches(skip) {
-                return true;
+                return false;
             }
         }
 
         if let Some(only) = only {
-            return !Self::matches(only);
+            return Self::matches(only);
         }
 
-        false
+        true
     }
 
     fn matches(condition: &ScmHookConditionalExecution) -> bool {
