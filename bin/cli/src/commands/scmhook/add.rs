@@ -47,6 +47,25 @@ mod tests {
     use crate::commands::scmhook::add::{execute, AddScmHook};
 
     #[test]
+    fn should_fail_if_scm_not_initialized() {
+        let temp_dir = TempDir::new().unwrap();
+        let temp_path = temp_dir.into_path();
+
+        let result = execute(AddScmHook {
+            cwd: Some(temp_path.clone()),
+            name: "pre-commit".to_string(),
+            dir: false,
+            force: false,
+        });
+
+        assert!(result.is_err());
+        assert_eq!(
+            "SCM error: Could not find supported SCM",
+            result.unwrap_err().to_string()
+        );
+    }
+
+    #[test]
     fn should_fail_with_invalid_hook() {
         let (temp_path, _) = setup(None);
 
