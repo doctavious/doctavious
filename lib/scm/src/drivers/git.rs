@@ -10,7 +10,6 @@ use git2::{
 use indexmap::IndexMap;
 use regex::Regex;
 
-use crate::drivers::Scm;
 use crate::{ScmCommit, ScmRepository, ScmResult, ScmSignature, GIT};
 
 // TODO: Oid strut
@@ -24,6 +23,7 @@ use crate::{ScmCommit, ScmRepository, ScmResult, ScmSignature, GIT};
 // TODO: find_last_commit
 // TODO: tags
 
+// TODO: should we make this an enum?
 const HOOK_NAMES: [&str; 21] = [
     "applypatch-msg",
     "pre-applypatch",
@@ -305,12 +305,11 @@ impl GitScmRepository {
         S: AsRef<OsStr>,
     {
         let mut command = Command::new("git");
-        if let Some(parent) = self.inner.path().parent() {
-            command.args(["-C", &parent.to_string_lossy()]);
+        if let Some(git_workdir) = self.inner.workdir() {
+            command.current_dir(git_workdir);
         }
 
         let output = command.args(args).output()?.stdout;
-
         let files: Vec<_> = output
             .split(|&b| b == b'\n')
             .filter(|&x| !x.is_empty())
@@ -444,12 +443,23 @@ impl ScmRepository for GitScmRepository {
     }
 
     fn hooks_path(&self) -> ScmResult<PathBuf> {
-        let output = Command::new("git")
+        let mut command = Command::new("git");
+        if let Some(git_workdir) = self.inner.workdir() {
+            command.current_dir(git_workdir);
+        }
+
+        let output = command
             .args(["rev-parse", "--git-path", "hooks"])
             .output()?
             .stdout;
 
-        Ok(PathBuf::from(String::from_utf8(output)?.trim_end()))
+        Ok(self
+            .inner
+            .workdir()
+            .ok_or(git2::Error::from_str(
+                "Cant get hooks path from bare repository",
+            ))?
+            .join(String::from_utf8(output)?.trim_end()))
     }
 
     fn all_files(&self) -> ScmResult<Vec<PathBuf>> {

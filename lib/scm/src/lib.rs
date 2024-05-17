@@ -134,15 +134,24 @@ pub trait ScmRepository {
 
 #[cfg(test)]
 mod tests {
+    use std::fs;
     use std::path::Path;
 
     use crate::drivers::Scm;
     use crate::ScmRepository;
 
     #[test]
-    fn hook_path() {
-        let scm = Scm::get(Path::new("../..")).unwrap();
-        let p = scm.hooks_path().unwrap();
-        assert_eq!("../../.git/hooks", p.to_string_lossy());
+    fn hooks_path() {
+        let base_path = Path::new("../..");
+        let scm = Scm::get(base_path).unwrap();
+        let hooks_path = scm.hooks_path().unwrap();
+
+        assert_eq!(
+            ".git/hooks",
+            hooks_path
+                .strip_prefix(fs::canonicalize(&Path::new("../..")).unwrap())
+                .unwrap()
+                .to_string_lossy()
+        );
     }
 }
