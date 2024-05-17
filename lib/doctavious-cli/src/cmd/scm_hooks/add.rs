@@ -35,9 +35,9 @@ pub fn add(
 
     if create_hook_script_dir {
         fs::create_dir_all(
-            PathBuf::from(DEFAULT_CONFIG_DIR)
+            cwd.join(DEFAULT_CONFIG_DIR)
                 .join("scmhooks")
-                .join(hook_name),
+                .join(hook_name)
         )?;
     }
 
