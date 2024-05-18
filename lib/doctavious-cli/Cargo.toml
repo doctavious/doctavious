@@ -11,6 +11,7 @@ cifrs = { path = "../../lib/cifrs" }
 # TODO: see if we need bincode
 bincode = { workspace = true }
 chrono = { workspace = true }
+common = { path = "../../lib/common" }
 # TODO: see if we need crc32c
 crc32c = { workspace = true }
 directories = { workspace = true }
