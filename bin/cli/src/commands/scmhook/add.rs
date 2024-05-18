@@ -104,7 +104,6 @@ mod tests {
     fn should_add_with_doctavious_configured() {
         let config = r###"[scmhook_settings]
 [scmhook_settings.hooks.pre-commit.executions.format-backend]
-name = "format-backend"
 type = "command"
 run = "cargo fmt"
 root = "backend"
@@ -120,7 +119,11 @@ root = "backend"
         });
 
         assert!(result.is_ok());
-        assert!(!scm.hooks_path().unwrap().join("pre-commit").exists());
+        let pre_commit_path = scm.hooks_path().unwrap().join("pre-commit");
+        assert!(pre_commit_path.exists());
+        assert!(fs::read_to_string(pre_commit_path)
+            .unwrap()
+            .contains("doctavious"));
     }
 
     #[test]
@@ -199,12 +202,15 @@ root = "backend"
             force: false,
         });
 
-        println!("{:?}", result);
         assert!(result.is_err());
         assert_eq!(
             "SCM error: Can't rename pre-commit to pre-commit.old as file already exists. If you wish to overwrite use 'force' option",
             result.unwrap_err().to_string()
-        )
+        );
+
+        let hooks_path = scm.hooks_path().unwrap();
+        assert!(hooks_path.join("pre-commit").exists());
+        assert!(hooks_path.join("pre-commit.old").exists());
     }
 
     #[test]
