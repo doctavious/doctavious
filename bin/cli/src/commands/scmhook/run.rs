@@ -80,7 +80,6 @@ mod tests {
     fn execute_hook() {
         let config = r###"[scmhook_settings]
 [scmhook_settings.hooks.pre-commit.executions.format-backend]
-name = "format-backend"
 type = "command"
 run = "cargo fmt"
 root = "backend"
@@ -191,7 +190,6 @@ runner = "bash"
     fn run_only_executions() {
         let config = r###"[scmhook_settings]
 [scmhook_settings.hooks.pre-commit.executions.format-backend]
-name = "format-backend"
 type = "command"
 run = "cargo fmt"
 root = "backend"
@@ -223,7 +221,6 @@ runner = "bash"
     fn force() {
         let config = r###"[scmhook_settings]
 [scmhook_settings.hooks.pre-commit.executions.format-backend]
-name = "format-backend"
 type = "command"
 run = "cargo fmt"
 root = "backend"

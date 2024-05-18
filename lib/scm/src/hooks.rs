@@ -151,9 +151,6 @@ pub struct ScmHook {
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct HookCommand {
-    // might not need this
-    pub name: String,
-
     /// This is a mandatory option for a command. This is actually a command that is executed for the hook.
     /// You can use files templates that will be substituted with the appropriate files on execution:
     /// {files} - custom files command result.

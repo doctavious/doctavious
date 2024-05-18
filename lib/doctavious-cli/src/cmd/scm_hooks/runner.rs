@@ -235,7 +235,7 @@ impl<'a> ScmHookRunner<'a> {
                     }
                     Some(execution) => {
                         results.push(match execution {
-                            ScmHookExecution::Command(command) => self.run_command(command),
+                            ScmHookExecution::Command(command) => self.run_command(name, command),
                             ScmHookExecution::Script(script) => {
                                 // TODO: constant for hooks directory
                                 let path = PathBuf::from(self.options.cwd)
@@ -323,15 +323,19 @@ impl<'a> ScmHookRunner<'a> {
         Err(ScmHookRunnerError::Skip(String::from("settings")))
     }
 
-    fn run_command(&self, command: &HookCommand) -> ScmHookRunnerResult<ScmHookRunnerOutcome> {
-        if let Err(error) = self.should_execute_command(command) {
+    fn run_command(
+        &self,
+        name: &str,
+        command: &HookCommand,
+    ) -> ScmHookRunnerResult<ScmHookRunnerOutcome> {
+        if let Err(error) = self.should_execute_command(name, command) {
             // TODO: log error
             return match error {
                 ScmHookRunnerError::Skip(reason) => {
-                    Ok(ScmHookRunnerOutcome::skipped(command.name.to_owned()))
+                    Ok(ScmHookRunnerOutcome::skipped(name.to_owned()))
                 }
                 _ => Ok(ScmHookRunnerOutcome::failed(
-                    command.name.to_owned(),
+                    name.to_owned(),
                     Some(error.to_string()),
                 )),
             };
@@ -343,22 +347,26 @@ impl<'a> ScmHookRunner<'a> {
             working_dir = working_dir.join(root);
         }
 
-        let ok = self.run(command.name.as_str(), &runnable, &working_dir);
+        let ok = self.run(name, &runnable, &working_dir);
         if ok {
-            Ok(ScmHookRunnerOutcome::succeeded(command.name.to_owned()))
+            Ok(ScmHookRunnerOutcome::succeeded(name.to_owned()))
         } else {
             Ok(ScmHookRunnerOutcome::failed(
-                command.name.to_owned(),
+                name.to_owned(),
                 command.fail_text.to_owned(),
             ))
         }
     }
 
-    fn should_execute_command(&self, command: &HookCommand) -> Result<(), ScmHookRunnerError> {
+    fn should_execute_command(
+        &self,
+        name: &str,
+        command: &HookCommand,
+    ) -> Result<(), ScmHookRunnerError> {
         if self.options.force || ExecutionChecker::check(&command.skip, &command.only) {
             // TODO: convert to hashset?
             if let Some(exclude_tags) = &self.options.hook.exclude_tags {
-                if exclude_tags.contains(&command.name) {
+                if exclude_tags.contains(&name.to_string()) {
                     return Err(ScmHookRunnerError::Skip(String::from("name")));
                 }
 
