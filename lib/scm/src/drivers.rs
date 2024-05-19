@@ -131,6 +131,14 @@ impl ScmRepository for Scm {
         }
     }
 
+    fn is_hook_file_sample(&self, path: &Path) -> bool {
+        match self {
+            Scm::Git(r) => r.is_hook_file_sample(),
+            Scm::Hg(r) => r.is_hook_file_sample(),
+            Scm::Svn(r) => r.is_hook_file_sample(),
+        }
+    }
+
     fn all_files(&self) -> ScmResult<Vec<PathBuf>> {
         match self {
             Scm::Git(r) => r.all_files(),

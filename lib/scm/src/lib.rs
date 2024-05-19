@@ -117,6 +117,8 @@ pub trait ScmRepository {
 
     fn hooks_path(&self) -> ScmResult<PathBuf>;
 
+    fn is_hook_file_sample(&self, path: &Path) -> bool;
+
     fn all_files(&self) -> ScmResult<Vec<PathBuf>>;
 
     // TODO: better name than staged. What do you call files in SVN that are added but not committed?

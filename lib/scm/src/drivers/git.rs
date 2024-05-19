@@ -11,6 +11,7 @@ use indexmap::IndexMap;
 use regex::Regex;
 
 use crate::{ScmCommit, ScmRepository, ScmResult, ScmSignature, GIT};
+use crate::drivers::Scm;
 
 // TODO: Oid strut
 
@@ -460,6 +461,10 @@ impl ScmRepository for GitScmRepository {
                 "Cant get hooks path from bare repository",
             ))?
             .join(String::from_utf8(output)?.trim_end()))
+    }
+
+    fn is_hook_file_sample(&self, path: &Path) -> bool {
+        path.ends_with(".sample")
     }
 
     fn all_files(&self) -> ScmResult<Vec<PathBuf>> {

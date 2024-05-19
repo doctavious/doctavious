@@ -59,6 +59,10 @@ impl ScmRepository for SvnScmRepository {
         todo!()
     }
 
+    fn is_hook_file_sample(&self, path: &Path) -> bool {
+        path.ends_with(".tmpl")
+    }
+
     fn all_files(&self) -> ScmResult<Vec<PathBuf>> {
         todo!()
     }

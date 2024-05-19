@@ -63,6 +63,10 @@ impl ScmRepository for HgScmRepository {
         todo!()
     }
 
+    fn is_hook_file_sample(&self, path: &Path) -> bool {
+        todo!()
+    }
+
     fn all_files(&self) -> ScmResult<Vec<PathBuf>> {
         todo!()
     }

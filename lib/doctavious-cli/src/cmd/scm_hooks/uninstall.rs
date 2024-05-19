@@ -36,7 +36,11 @@ fn delete_hooks(cwd: &Path, force: bool) -> CliResult<()> {
             continue;
         }
 
-        // TODO: Do we want to keep sample hooks? Where should that logic live? In the scm interface?
+        if scm.is_hook_file_sample(&path) {
+            debug!("skipping {path:?}...is a sample file");
+            continue;
+        }
+
         if !force && !is_doctavious_scm_hook_file(&path)? {
             debug!(
                 "skipping {path:?}...not a doctavious hook file. To remove please use force option"
