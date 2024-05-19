@@ -6,6 +6,7 @@ use scm::drivers::Scm;
 use scm::hooks::OLD_HOOK_POSTFIX;
 use scm::ScmRepository;
 use tracing::{debug, error};
+use common::path::append_to_path;
 
 use crate::cmd::scm_hooks::is_doctavious_scm_hook_file;
 use crate::settings::{load_settings, persist_settings, SettingErrors, Settings};
@@ -48,7 +49,7 @@ fn delete_hooks(cwd: &Path, force: bool) -> CliResult<()> {
             Err(e) => error!("Failed removing {path:?}: {e}"),
         }
 
-        let old_hook = path.join(OLD_HOOK_POSTFIX);
+        let old_hook = append_to_path(&path, OLD_HOOK_POSTFIX);
         if old_hook.exists() {
             match fs::rename(&old_hook, &path) {
                 Ok(_) => debug!("{old_hook:?} renamed to {path:?}"),

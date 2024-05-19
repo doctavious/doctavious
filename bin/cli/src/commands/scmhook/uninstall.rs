@@ -27,3 +27,142 @@ pub(crate) fn execute(command: UninstallScmHook) -> CliResult<Option<String>> {
 
     Ok(None)
 }
+
+#[cfg(test)]
+mod tests {
+    use std::fs;
+    use std::path::PathBuf;
+    use tempfile::TempDir;
+    use common::fs::copy_dir;
+    use scm::drivers::git::GitScmRepository;
+    use scm::{HOOK_TEMPLATE, ScmRepository};
+    use crate::commands::scmhook::uninstall::{execute, UninstallScmHook};
+
+    #[test]
+    fn should_only_delete_doctavious_hooks() {
+        let config = "";
+
+        let (temp_path, scm) = setup(Some(config));
+        let scm_hooks_path = scm.hooks_path().unwrap();
+        let pre_commit_path = scm_hooks_path.join("pre-commit");
+        let post_commit_path = scm_hooks_path.join("post-commit");
+        fs::write(&pre_commit_path, "some hook content").unwrap();
+        fs::write(&post_commit_path, HOOK_TEMPLATE).unwrap();
+
+        let result = execute(UninstallScmHook {
+            cwd: Some(temp_path),
+            force: false,
+            remove_settings: false,
+        });
+
+        assert!(result.is_ok());
+
+        let hooks_path = scm.hooks_path().unwrap();
+        assert!(hooks_path.join("pre-commit").exists());
+        assert!(!hooks_path.join("post-commit").exists());
+        // TODO: confirm config
+    }
+
+    #[test]
+    fn should_delete_all_hooks_when_forced() {
+        let config = "";
+
+        let (temp_path, scm) = setup(Some(config));
+        let scm_hooks_path = scm.hooks_path().unwrap();
+        let pre_commit_path = scm_hooks_path.join("pre-commit");
+        let post_commit_path = scm_hooks_path.join("post-commit");
+        fs::write(&pre_commit_path, "some hook content").unwrap();
+        fs::write(&post_commit_path, HOOK_TEMPLATE).unwrap();
+
+        let result = execute(UninstallScmHook {
+            cwd: Some(temp_path),
+            force: true,
+            remove_settings: false,
+        });
+
+        assert!(result.is_ok());
+
+        let hooks_path = scm.hooks_path().unwrap();
+        assert!(!hooks_path.join("pre-commit").exists());
+        assert!(!hooks_path.join("post-commit").exists());
+        // TODO: confirm config
+    }
+
+    // TODO: uninstall with remove_settings
+    #[test]
+    fn should_delete_config_when_remove_settings_true() {
+        let config = "";
+
+        let (temp_path, scm) = setup(Some(config));
+        let scm_hooks_path = scm.hooks_path().unwrap();
+        let pre_commit_path = scm_hooks_path.join("pre-commit");
+        let post_commit_path = scm_hooks_path.join("post-commit");
+        fs::write(&pre_commit_path, "some hook content").unwrap();
+        fs::write(&post_commit_path, HOOK_TEMPLATE).unwrap();
+
+        let result = execute(UninstallScmHook {
+            cwd: Some(temp_path),
+            force: true,
+            remove_settings: false,
+        });
+
+        assert!(result.is_ok());
+
+        let hooks_path = scm.hooks_path().unwrap();
+        assert!(!hooks_path.join("pre-commit").exists());
+        assert!(!hooks_path.join("post-commit").exists());
+        // TODO: confirm config
+    }
+
+    #[test]
+    fn should_recover_old_files() {
+        let config = "";
+
+        let (temp_path, scm) = setup(Some(config));
+        let scm_hooks_path = scm.hooks_path().unwrap();
+        let pre_commit_path = scm_hooks_path.join("pre-commit");
+        fs::write(&pre_commit_path, "some hook content").unwrap();
+
+        let post_commit_path = scm_hooks_path.join("post-commit");
+        fs::write(&post_commit_path, HOOK_TEMPLATE).unwrap();
+
+        let post_commit_old_path = scm_hooks_path.join("post-commit.old");
+        fs::write(&post_commit_old_path, "old hook content").unwrap();
+
+        let result = execute(UninstallScmHook {
+            cwd: Some(temp_path),
+            force: false,
+            remove_settings: false,
+        });
+
+        assert!(result.is_ok());
+
+        let hooks_path = scm.hooks_path().unwrap();
+        assert!(hooks_path.join("pre-commit").exists());
+
+        let post_commit_path = hooks_path.join("post-commit");
+        assert!(post_commit_path.exists());
+        assert_eq!(
+            "old hook content",
+            fs::read_to_string(post_commit_path).unwrap()
+        );
+        assert!(!hooks_path.join("post-commit.old").exists());
+        // TODO: confirm config
+    }
+
+
+    fn setup(doctavous_config: Option<&str>) -> (PathBuf, GitScmRepository) {
+        let temp_dir = TempDir::new().unwrap();
+        let temp_path = temp_dir.into_path();
+
+        copy_dir("./tests/fixtures/scmhook/", &temp_path).expect("copy test fixtures");
+        if let Some(config) = doctavous_config {
+            fs::write(temp_path.join("doctavious.toml"), config).expect("write doctavious.toml");
+        }
+
+        let scm = GitScmRepository::init(&temp_path).expect("init git");
+        scm.add_all();
+
+        (temp_path, scm)
+    }
+}
