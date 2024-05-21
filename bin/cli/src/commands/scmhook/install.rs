@@ -34,11 +34,15 @@ mod tests {
     use scm::hooks::OLD_HOOK_POSTFIX;
     use scm::{ScmRepository, HOOK_TEMPLATE};
     use tempfile::TempDir;
+    use testing::cleanup::CleanUp;
 
     use crate::commands::scmhook::install::{execute, InstallScmHook};
 
-    #[test]
-    fn should_install_without_doctavious_config() {}
+    // #[test]
+    // fn should_install_without_doctavious_config() {
+    //     // TODO: implement
+    //     todo!()
+    // }
 
     #[test]
     fn should_install_with_existing_doctavious_config() {
@@ -53,6 +57,9 @@ run = "echo 'Done!'"
 "###;
 
         let (temp_path, scm) = setup(Some(config));
+        let c = CleanUp::new(Box::new(|| {
+            let _ = fs::remove_dir_all(&temp_path);
+        }));
 
         let result = execute(InstallScmHook {
             cwd: Some(temp_path.clone()),
@@ -78,6 +85,10 @@ run = "echo 'Done!'"
 "###;
 
         let (temp_path, scm) = setup(Some(config));
+        let c = CleanUp::new(Box::new(|| {
+            let _ = fs::remove_dir_all(&temp_path);
+        }));
+
         let scm_hooks_path = scm.hooks_path().unwrap();
         let pre_commit_path = scm_hooks_path.join("pre-commit");
         fs::write(&pre_commit_path, "some hook content").unwrap();
@@ -116,6 +127,10 @@ run = "echo 'Done!'"
 "###;
 
         let (temp_path, scm) = setup(Some(config));
+        let c = CleanUp::new(Box::new(|| {
+            let _ = fs::remove_dir_all(&temp_path);
+        }));
+
         let scm_hooks_path = scm.hooks_path().unwrap();
         let pre_commit_path = scm_hooks_path.join("pre-commit");
         fs::write(&pre_commit_path, HOOK_TEMPLATE).unwrap();
@@ -149,6 +164,10 @@ run = "echo 'Done!'"
 "###;
 
         let (temp_path, scm) = setup(Some(config));
+        let c = CleanUp::new(Box::new(|| {
+            let _ = fs::remove_dir_all(&temp_path);
+        }));
+
         let scm_hooks_path = scm.hooks_path().unwrap();
         let pre_commit_path = scm_hooks_path.join("pre-commit");
         let old_pre_commit_path = common::path::append_to_path(&pre_commit_path, OLD_HOOK_POSTFIX);
@@ -185,6 +204,10 @@ run = "echo 'Done!'"
 "###;
 
         let (temp_path, scm) = setup(Some(config));
+        let c = CleanUp::new(Box::new(|| {
+            let _ = fs::remove_dir_all(&temp_path);
+        }));
+
         let scm_hooks_path = scm.hooks_path().unwrap();
         let pre_commit_path = scm_hooks_path.join("pre-commit");
         let old_pre_commit_path = common::path::append_to_path(&pre_commit_path, OLD_HOOK_POSTFIX);

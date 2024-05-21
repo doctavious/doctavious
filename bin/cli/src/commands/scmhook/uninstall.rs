@@ -32,17 +32,22 @@ pub(crate) fn execute(command: UninstallScmHook) -> CliResult<Option<String>> {
 mod tests {
     use std::fs;
     use std::path::PathBuf;
-    use tempfile::TempDir;
+
     use common::fs::copy_dir;
     use scm::drivers::git::GitScmRepository;
-    use scm::{HOOK_TEMPLATE, ScmRepository};
+    use scm::{ScmRepository, HOOK_TEMPLATE};
+    use tempfile::TempDir;
+    use testing::cleanup::CleanUp;
+
     use crate::commands::scmhook::uninstall::{execute, UninstallScmHook};
 
     #[test]
     fn should_only_delete_doctavious_hooks() {
-        let config = "";
+        let (temp_path, scm) = setup(Some(""));
+        let c = CleanUp::new(Box::new(|| {
+            let _ = fs::remove_dir_all(&temp_path);
+        }));
 
-        let (temp_path, scm) = setup(Some(config));
         let scm_hooks_path = scm.hooks_path().unwrap();
         let pre_commit_path = scm_hooks_path.join("pre-commit");
         let post_commit_path = scm_hooks_path.join("post-commit");
@@ -50,7 +55,7 @@ mod tests {
         fs::write(&post_commit_path, HOOK_TEMPLATE).unwrap();
 
         let result = execute(UninstallScmHook {
-            cwd: Some(temp_path),
+            cwd: Some(temp_path.clone()),
             force: false,
             remove_settings: false,
         });
@@ -65,9 +70,11 @@ mod tests {
 
     #[test]
     fn should_delete_all_hooks_when_forced() {
-        let config = "";
+        let (temp_path, scm) = setup(Some(""));
+        let c = CleanUp::new(Box::new(|| {
+            let _ = fs::remove_dir_all(&temp_path);
+        }));
 
-        let (temp_path, scm) = setup(Some(config));
         let scm_hooks_path = scm.hooks_path().unwrap();
         let pre_commit_path = scm_hooks_path.join("pre-commit");
         let post_commit_path = scm_hooks_path.join("post-commit");
@@ -75,7 +82,7 @@ mod tests {
         fs::write(&post_commit_path, HOOK_TEMPLATE).unwrap();
 
         let result = execute(UninstallScmHook {
-            cwd: Some(temp_path),
+            cwd: Some(temp_path.clone()),
             force: true,
             remove_settings: false,
         });
@@ -91,9 +98,11 @@ mod tests {
     // TODO: uninstall with remove_settings
     #[test]
     fn should_delete_config_when_remove_settings_true() {
-        let config = "";
+        let (temp_path, scm) = setup(Some(""));
+        let c = CleanUp::new(Box::new(|| {
+            let _ = fs::remove_dir_all(&temp_path);
+        }));
 
-        let (temp_path, scm) = setup(Some(config));
         let scm_hooks_path = scm.hooks_path().unwrap();
         let pre_commit_path = scm_hooks_path.join("pre-commit");
         let post_commit_path = scm_hooks_path.join("post-commit");
@@ -101,7 +110,7 @@ mod tests {
         fs::write(&post_commit_path, HOOK_TEMPLATE).unwrap();
 
         let result = execute(UninstallScmHook {
-            cwd: Some(temp_path),
+            cwd: Some(temp_path.clone()),
             force: true,
             remove_settings: false,
         });
@@ -116,9 +125,11 @@ mod tests {
 
     #[test]
     fn should_recover_old_files() {
-        let config = "";
+        let (temp_path, scm) = setup(Some(""));
+        let c = CleanUp::new(Box::new(|| {
+            let _ = fs::remove_dir_all(&temp_path);
+        }));
 
-        let (temp_path, scm) = setup(Some(config));
         let scm_hooks_path = scm.hooks_path().unwrap();
         let pre_commit_path = scm_hooks_path.join("pre-commit");
         fs::write(&pre_commit_path, "some hook content").unwrap();
@@ -130,7 +141,7 @@ mod tests {
         fs::write(&post_commit_old_path, "old hook content").unwrap();
 
         let result = execute(UninstallScmHook {
-            cwd: Some(temp_path),
+            cwd: Some(temp_path.clone()),
             force: false,
             remove_settings: false,
         });
@@ -149,7 +160,6 @@ mod tests {
         assert!(!hooks_path.join("post-commit.old").exists());
         // TODO: confirm config
     }
-
 
     fn setup(doctavous_config: Option<&str>) -> (PathBuf, GitScmRepository) {
         let temp_dir = TempDir::new().unwrap();
