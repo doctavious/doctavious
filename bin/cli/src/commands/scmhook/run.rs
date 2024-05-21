@@ -70,10 +70,12 @@ mod tests {
     use common::fs::copy_dir;
     use doctavious_cli::CliResult;
     use scm::drivers::git::GitScmRepository;
+    use scm::hooks::OLD_HOOK_POSTFIX;
     use serde::{Deserialize, Serialize};
     use tempfile::TempDir;
     use testing::cleanup::CleanUp;
 
+    use crate::commands::scmhook::install::InstallScmHook;
     use crate::commands::scmhook::run::{execute, RunScmHookCommand};
 
     #[test]
@@ -257,6 +259,39 @@ skip = true
 
         assert!(result.is_ok());
         insta::assert_snapshot!(fs::read_to_string(&temp_path.join("backend/src/lib.rs")).unwrap());
+    }
+
+    #[test]
+    fn should_handle_parallel_processing() {
+        let config = r###"[scmhook_settings]
+[scmhook_settings.hooks.pre-commit.executions.format-backend]
+type = "command"
+run = "cargo fmt"
+root = "backend"
+[scmhook_settings.hooks.pre-commit.executions.script]
+file_name = "good-script.sh"
+type = "script"
+runner = "bash"
+"###;
+
+        let temp_path = setup(config);
+        let c = CleanUp::new(Box::new(|| {
+            let _ = fs::remove_dir_all(&temp_path);
+        }));
+
+        let result = execute(RunScmHookCommand {
+            hook: "pre-commit".to_string(),
+            cwd: Some(temp_path.clone()),
+            file: None,
+            all_files: false,
+            run_only_executions: None,
+            force: true,
+        });
+
+        assert!(result.is_ok());
+        insta::assert_snapshot!(fs::read_to_string(&temp_path.join("backend/src/lib.rs")).unwrap());
+        assert!(&temp_path.join("script_output.txt").exists());
+        insta::assert_snapshot!(fs::read_to_string(&temp_path.join("script_output.txt")).unwrap());
     }
 
     fn setup(doctavous_config: &str) -> PathBuf {

@@ -4,9 +4,9 @@ use std::process::Command;
 use std::string::FromUtf8Error;
 use std::{fs, io};
 
-use cifrs::PrintCommand;
 use glob::{Paths, PatternError};
 use glob_match::glob_match;
+use rayon::prelude::{IntoParallelIterator, ParallelIterator};
 use regex::{Error, Regex, RegexBuilder};
 use scm::drivers::Scm;
 use scm::hooks::{
@@ -80,7 +80,9 @@ impl ScmHookRunnerOutcome {
 
 pub struct ScmHookRunnerOptions<'a> {
     pub cwd: &'a Path,
-    pub scm: &'a Scm,
+    // would like to pass this in however underlying git_repository is not marked as `Send` so unable
+    // to given we support parallel execution.
+    // pub scm: &'a Scm,
     pub hook: &'a ScmHook,
     pub hook_name: String,
     pub files: Vec<PathBuf>,
@@ -223,34 +225,45 @@ impl<'a> ScmHookRunner<'a> {
         // TODO: do we want to have a sort priority for commands?
 
         let mut results = Vec::new();
-        for name in runnable_executions {
-            if self.options.hook.parallel {
-                // TODO: implement parallel processing
-                unimplemented!()
-            } else {
-                match self.options.hook.executions.get(name) {
-                    None => {
-                        // shouldn't get here...
-                        warn!("Unable to find execution {name}");
-                    }
-                    Some(execution) => {
-                        results.push(match execution {
-                            ScmHookExecution::Command(command) => self.run_command(name, command),
-                            ScmHookExecution::Script(script) => {
-                                // TODO: constant for hooks directory
-                                let path = PathBuf::from(self.options.cwd)
-                                    .join(".doctavious/scm_hooks")
-                                    .join(&self.options.hook_name)
-                                    .join(&script.file_name);
-                                self.run_script(name.as_str(), script, &path)
-                            }
-                        });
-                    }
+        if self.options.hook.parallel {
+            results.extend(
+                runnable_executions
+                    .into_par_iter()
+                    .filter_map(|e| self.handle_execution(e))
+                    .collect::<Vec<ScmHookRunnerResult<ScmHookRunnerOutcome>>>(),
+            );
+        } else {
+            for name in runnable_executions {
+                if let Some(result) = self.handle_execution(name) {
+                    results.push(result);
                 }
             }
         }
 
         results
+    }
+
+    fn handle_execution(&self, name: &String) -> Option<ScmHookRunnerResult<ScmHookRunnerOutcome>> {
+        return match self.options.hook.executions.get(name) {
+            None => {
+                // shouldn't get here...
+                warn!("Unable to find execution {name}");
+                None
+            }
+            Some(execution) => {
+                match execution {
+                    ScmHookExecution::Command(command) => Some(self.run_command(name, command)),
+                    ScmHookExecution::Script(script) => {
+                        // TODO: constant for hooks directory
+                        let path = PathBuf::from(self.options.cwd)
+                            .join(".doctavious/scm_hooks")
+                            .join(&self.options.hook_name)
+                            .join(&script.file_name);
+                        Some(self.run_script(name.as_str(), script, &path))
+                    }
+                }
+            }
+        };
     }
 
     fn run_script(
@@ -392,8 +405,8 @@ impl<'a> ScmHookRunner<'a> {
                 // replace positional args
                 files_cmd = Some("".to_string());
             }
-
-            TemplateFiles::from_scm(command, self.options.scm, files_cmd)?
+            let scm = Scm::get(self.options.cwd)?;
+            TemplateFiles::from_scm(command, &scm, files_cmd)?
         };
 
         let mut run_string = command.run.clone();

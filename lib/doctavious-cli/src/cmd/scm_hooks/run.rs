@@ -66,7 +66,6 @@ pub fn run(
 
     let runner = ScmHookRunner::new(ScmHookRunnerOptions {
         cwd,
-        scm: &scm,
         hook,
         hook_name: hook_name.to_string(),
         files,

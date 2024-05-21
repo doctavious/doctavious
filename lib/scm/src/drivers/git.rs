@@ -10,8 +10,8 @@ use git2::{
 use indexmap::IndexMap;
 use regex::Regex;
 
-use crate::{ScmCommit, ScmRepository, ScmResult, ScmSignature, GIT};
 use crate::drivers::Scm;
+use crate::{ScmCommit, ScmRepository, ScmResult, ScmSignature, GIT};
 
 // TODO: Oid strut
 
