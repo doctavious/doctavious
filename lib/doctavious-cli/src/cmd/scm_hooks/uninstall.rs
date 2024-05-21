@@ -2,11 +2,11 @@ use std::borrow::Cow;
 use std::fs;
 use std::path::Path;
 
+use common::path::append_to_path;
 use scm::drivers::Scm;
 use scm::hooks::OLD_HOOK_POSTFIX;
 use scm::ScmRepository;
 use tracing::{debug, error};
-use common::path::append_to_path;
 
 use crate::cmd::scm_hooks::is_doctavious_scm_hook_file;
 use crate::settings::{load_settings, persist_settings, SettingErrors, Settings};

@@ -37,7 +37,7 @@ pub fn add(
         fs::create_dir_all(
             cwd.join(DEFAULT_CONFIG_DIR)
                 .join("scmhooks")
-                .join(hook_name)
+                .join(hook_name),
         )?;
     }
 
