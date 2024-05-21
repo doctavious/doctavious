@@ -133,9 +133,9 @@ impl ScmRepository for Scm {
 
     fn is_hook_file_sample(&self, path: &Path) -> bool {
         match self {
-            Scm::Git(r) => r.is_hook_file_sample(),
-            Scm::Hg(r) => r.is_hook_file_sample(),
-            Scm::Svn(r) => r.is_hook_file_sample(),
+            Scm::Git(r) => r.is_hook_file_sample(path),
+            Scm::Hg(r) => r.is_hook_file_sample(path),
+            Scm::Svn(r) => r.is_hook_file_sample(path),
         }
     }
 
