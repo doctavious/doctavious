@@ -52,7 +52,7 @@ mod tests {
     fn should_fail_if_scm_not_initialized() {
         let temp_dir = TempDir::new().unwrap();
         let temp_path = temp_dir.into_path();
-        let c = CleanUp::new(Box::new(|| {
+        let _c = CleanUp::new(Box::new(|| {
             let _ = fs::remove_dir_all(&temp_path);
         }));
 
@@ -73,7 +73,7 @@ mod tests {
     #[test]
     fn should_fail_with_invalid_hook() {
         let (temp_path, _) = setup(None);
-        let c = CleanUp::new(Box::new(|| {
+        let _c = CleanUp::new(Box::new(|| {
             let _ = fs::remove_dir_all(&temp_path);
         }));
 
@@ -94,7 +94,7 @@ mod tests {
     #[test]
     fn should_add_without_doctavious_configuration() {
         let (temp_path, scm) = setup(None);
-        let c = CleanUp::new(Box::new(|| {
+        let _c = CleanUp::new(Box::new(|| {
             let _ = fs::remove_dir_all(&temp_path);
         }));
 
@@ -120,7 +120,7 @@ root = "backend"
 "###;
 
         let (temp_path, scm) = setup(Some(config));
-        let c = CleanUp::new(Box::new(|| {
+        let _c = CleanUp::new(Box::new(|| {
             let _ = fs::remove_dir_all(&temp_path);
         }));
 
@@ -142,7 +142,7 @@ root = "backend"
     #[test]
     fn should_create_hooks_script_configuration_directory() {
         let (temp_path, scm) = setup(None);
-        let c = CleanUp::new(Box::new(|| {
+        let _c = CleanUp::new(Box::new(|| {
             let _ = fs::remove_dir_all(&temp_path);
         }));
 
@@ -161,7 +161,7 @@ root = "backend"
     #[test]
     fn should_replace_existing_hook() {
         let (temp_path, scm) = setup(None);
-        let c = CleanUp::new(Box::new(|| {
+        let _c = CleanUp::new(Box::new(|| {
             let _ = fs::remove_dir_all(&temp_path);
         }));
 
@@ -187,7 +187,7 @@ root = "backend"
     #[test]
     fn should_replace_existing_doctavious_hook() {
         let (temp_path, scm) = setup(None);
-        let c = CleanUp::new(Box::new(|| {
+        let _c = CleanUp::new(Box::new(|| {
             let _ = fs::remove_dir_all(&temp_path);
         }));
 
@@ -213,7 +213,7 @@ root = "backend"
     #[test]
     fn should_fail_with_existing_old_hook() {
         let (temp_path, scm) = setup(None);
-        let c = CleanUp::new(Box::new(|| {
+        let _c = CleanUp::new(Box::new(|| {
             let _ = fs::remove_dir_all(&temp_path);
         }));
 
@@ -244,7 +244,7 @@ root = "backend"
     #[test]
     fn should_replace_hook_and_overwrite_old_with_force() {
         let (temp_path, scm) = setup(None);
-        let c = CleanUp::new(Box::new(|| {
+        let _c = CleanUp::new(Box::new(|| {
             let _ = fs::remove_dir_all(&temp_path);
         }));
 

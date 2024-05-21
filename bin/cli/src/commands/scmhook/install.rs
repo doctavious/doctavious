@@ -38,11 +38,7 @@ mod tests {
 
     use crate::commands::scmhook::install::{execute, InstallScmHook};
 
-    // #[test]
-    // fn should_install_without_doctavious_config() {
-    //     // TODO: implement
-    //     todo!()
-    // }
+    // TODO: should_install_without_doctavious_config
 
     #[test]
     fn should_install_with_existing_doctavious_config() {
@@ -57,7 +53,7 @@ run = "echo 'Done!'"
 "###;
 
         let (temp_path, scm) = setup(Some(config));
-        let c = CleanUp::new(Box::new(|| {
+        let _c = CleanUp::new(Box::new(|| {
             let _ = fs::remove_dir_all(&temp_path);
         }));
 
@@ -85,7 +81,7 @@ run = "echo 'Done!'"
 "###;
 
         let (temp_path, scm) = setup(Some(config));
-        let c = CleanUp::new(Box::new(|| {
+        let _c = CleanUp::new(Box::new(|| {
             let _ = fs::remove_dir_all(&temp_path);
         }));
 
@@ -127,7 +123,7 @@ run = "echo 'Done!'"
 "###;
 
         let (temp_path, scm) = setup(Some(config));
-        let c = CleanUp::new(Box::new(|| {
+        let _c = CleanUp::new(Box::new(|| {
             let _ = fs::remove_dir_all(&temp_path);
         }));
 
@@ -164,7 +160,7 @@ run = "echo 'Done!'"
 "###;
 
         let (temp_path, scm) = setup(Some(config));
-        let c = CleanUp::new(Box::new(|| {
+        let _c = CleanUp::new(Box::new(|| {
             let _ = fs::remove_dir_all(&temp_path);
         }));
 
@@ -204,7 +200,7 @@ run = "echo 'Done!'"
 "###;
 
         let (temp_path, scm) = setup(Some(config));
-        let c = CleanUp::new(Box::new(|| {
+        let _c = CleanUp::new(Box::new(|| {
             let _ = fs::remove_dir_all(&temp_path);
         }));
 

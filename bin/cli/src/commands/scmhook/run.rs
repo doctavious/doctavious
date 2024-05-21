@@ -89,7 +89,7 @@ tags = ["backed", "style"]
 "###;
 
         let temp_path = setup(config);
-        let c = CleanUp::new(Box::new(|| {
+        let _c = CleanUp::new(Box::new(|| {
             let _ = fs::remove_dir_all(&temp_path);
         }));
 
@@ -116,7 +116,7 @@ run = "echo '{files}' > test_specified_files.txt"
 "###;
 
         let temp_path = setup(config);
-        let c = CleanUp::new(Box::new(|| {
+        let _c = CleanUp::new(Box::new(|| {
             let _ = fs::remove_dir_all(&temp_path);
         }));
 
@@ -144,7 +144,7 @@ type = "command"
 run = "echo '{files}' > test_all_files.txt"
 "###;
         let temp_path = setup(config);
-        let c = CleanUp::new(Box::new(|| {
+        let _c = CleanUp::new(Box::new(|| {
             let _ = fs::remove_dir_all(&temp_path);
         }));
 
@@ -171,7 +171,7 @@ runner = "bash"
 "###;
 
         let temp_path = setup(config);
-        let c = CleanUp::new(Box::new(|| {
+        let _c = CleanUp::new(Box::new(|| {
             let _ = fs::remove_dir_all(&temp_path);
         }));
 
@@ -201,7 +201,7 @@ type = "script"
 runner = "bash"
 "###;
         let temp_path = setup(config);
-        let c = CleanUp::new(Box::new(|| {
+        let _c = CleanUp::new(Box::new(|| {
             let _ = fs::remove_dir_all(&temp_path);
         }));
 
@@ -230,7 +230,7 @@ skip = true
 "###;
 
         let temp_path = setup(config);
-        let c = CleanUp::new(Box::new(|| {
+        let _c = CleanUp::new(Box::new(|| {
             let _ = fs::remove_dir_all(&temp_path);
         }));
 
@@ -275,7 +275,7 @@ runner = "bash"
 "###;
 
         let temp_path = setup(config);
-        let c = CleanUp::new(Box::new(|| {
+        let _c = CleanUp::new(Box::new(|| {
             let _ = fs::remove_dir_all(&temp_path);
         }));
 

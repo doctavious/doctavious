@@ -44,7 +44,7 @@ mod tests {
     #[test]
     fn should_only_delete_doctavious_hooks() {
         let (temp_path, scm) = setup(Some(""));
-        let c = CleanUp::new(Box::new(|| {
+        let _c = CleanUp::new(Box::new(|| {
             let _ = fs::remove_dir_all(&temp_path);
         }));
 
@@ -71,7 +71,7 @@ mod tests {
     #[test]
     fn should_delete_all_hooks_when_forced() {
         let (temp_path, scm) = setup(Some(""));
-        let c = CleanUp::new(Box::new(|| {
+        let _c = CleanUp::new(Box::new(|| {
             let _ = fs::remove_dir_all(&temp_path);
         }));
 
@@ -99,7 +99,7 @@ mod tests {
     #[test]
     fn should_delete_config_when_remove_settings_true() {
         let (temp_path, scm) = setup(Some(""));
-        let c = CleanUp::new(Box::new(|| {
+        let _c = CleanUp::new(Box::new(|| {
             let _ = fs::remove_dir_all(&temp_path);
         }));
 
@@ -126,7 +126,7 @@ mod tests {
     #[test]
     fn should_recover_old_files() {
         let (temp_path, scm) = setup(Some(""));
-        let c = CleanUp::new(Box::new(|| {
+        let _c = CleanUp::new(Box::new(|| {
             let _ = fs::remove_dir_all(&temp_path);
         }));
 
