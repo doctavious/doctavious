@@ -1,4 +1,5 @@
 use std::path::{Path, PathBuf};
+use std::process::Command;
 
 use indexmap::IndexMap;
 
@@ -64,6 +65,10 @@ impl ScmRepository for HgScmRepository {
     }
 
     fn is_hook_file_sample(&self, path: &Path) -> bool {
+        todo!()
+    }
+
+    fn info_path(&self) -> ScmResult<PathBuf> {
         todo!()
     }
 

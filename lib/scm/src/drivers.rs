@@ -139,6 +139,14 @@ impl ScmRepository for Scm {
         }
     }
 
+    fn info_path(&self) -> ScmResult<PathBuf> {
+        match self {
+            Scm::Git(r) => r.info_path(),
+            Scm::Hg(r) => r.info_path(),
+            Scm::Svn(r) => r.info_path(),
+        }
+    }
+
     fn all_files(&self) -> ScmResult<Vec<PathBuf>> {
         match self {
             Scm::Git(r) => r.all_files(),

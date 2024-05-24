@@ -2,7 +2,7 @@ use std::path::Path;
 
 use scm::drivers::Scm;
 
-use crate::cmd::scm_hooks::{add_hook, clean_hook};
+use crate::cmd::scm_hooks::ensure_hooks;
 use crate::settings::{load_settings, SettingErrors, Settings};
 use crate::{CliResult, DoctaviousCliError};
 
@@ -18,13 +18,5 @@ pub fn install(cwd: &Path, force: bool) -> CliResult<()> {
     };
 
     let scm = Scm::get(cwd)?;
-    let hooks_path = scm.ensure_hooks_directory()?;
-
-    for (key, value) in scm_settings.hooks.iter() {
-        let hook_path = hooks_path.join(key);
-        clean_hook(&key, &hook_path, force)?;
-        add_hook(&key, &hook_path)?;
-    }
-
-    Ok(())
+    ensure_hooks(&scm_settings, &scm, false, force)
 }

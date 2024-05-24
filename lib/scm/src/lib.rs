@@ -15,7 +15,8 @@ use thiserror::Error;
 pub const HOOK_TEMPLATE: &[u8; 252] = include_bytes!("hooks/hook.tmpl");
 lazy_static! {
     pub static ref DOCTAVIOUS_SCM_HOOK_CONTENT_REGEX: Regex = Regex::new("DOCTAVIOUS").unwrap();
-    pub static ref HOOK_TEMPLATE_CHECKSUM: u32 = crc32c::crc32c(HOOK_TEMPLATE);
+    // pub static ref HOOK_TEMPLATE_CHECKSUM: u32 = crc32c::crc32c(HOOK_TEMPLATE);
+    pub static ref HOOK_TEMPLATE_CHECKSUM: String = format!("{:x}", md5::compute(HOOK_TEMPLATE));
 }
 
 #[remain::sorted]
@@ -118,6 +119,8 @@ pub trait ScmRepository {
     fn hooks_path(&self) -> ScmResult<PathBuf>;
 
     fn is_hook_file_sample(&self, path: &Path) -> bool;
+
+    fn info_path(&self) -> ScmResult<PathBuf>;
 
     fn all_files(&self) -> ScmResult<Vec<PathBuf>>;
 

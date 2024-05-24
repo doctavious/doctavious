@@ -6,6 +6,7 @@ use std::path::{Path, PathBuf};
 use std::sync::OnceLock;
 
 use directories::ProjectDirs;
+use indexmap::IndexMap;
 use scm::hooks::ScmHook;
 use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
@@ -185,7 +186,7 @@ pub struct TilSettings {
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct ScmHookSettings {
-    pub hooks: HashMap<String, ScmHook>,
+    pub hooks: IndexMap<String, ScmHook>,
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]

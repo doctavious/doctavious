@@ -15,7 +15,10 @@ use crc32c::crc32c;
 use minijinja::{AutoEscape, Environment};
 use scm::drivers::Scm;
 use scm::hooks::OLD_HOOK_POSTFIX;
-use scm::{ScmError, ScmRepository, DOCTAVIOUS_SCM_HOOK_CONTENT_REGEX, HOOK_TEMPLATE};
+use scm::{
+    ScmError, ScmRepository, DOCTAVIOUS_SCM_HOOK_CONTENT_REGEX, HOOK_TEMPLATE,
+    HOOK_TEMPLATE_CHECKSUM,
+};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use serde_json::json;
 use tracing::info;
@@ -88,9 +91,21 @@ pub(crate) fn add_hook(hook: &str, path: &Path) -> CliResult<()> {
     Ok(options.open(path)?.write_all(file.as_bytes())?)
 }
 
-/// Ensures that SCM hook files are doctavious hooks
-fn ensure_hooks(settings: &ScmHookSettings, scm: &Scm, force: bool) -> CliResult<()> {
-    // TODO: compare checksum - is this better performance than just writing out files
+/// Ensures that SCM hook files are Doctavious hooks
+///
+/// Rather than always (re)writing hook files we decided to optionally update them based on two
+/// main scenarios:
+/// 1. Doctavious is updated and the latest version contains a change to the hook template
+/// 2. SCM settings are updated, so we want to make sure all hooks are installed/updated
+fn ensure_hooks(
+    settings: &ScmHookSettings,
+    scm: &Scm,
+    check_synchronized: bool,
+    force: bool,
+) -> CliResult<()> {
+    if check_synchronized && hooks_synchronized(settings, scm)? {
+        return Ok(());
+    }
 
     let hooks_path = scm.ensure_hooks_directory()?;
     let mut synced = Vec::with_capacity(settings.hooks.len());
@@ -101,7 +116,13 @@ fn ensure_hooks(settings: &ScmHookSettings, scm: &Scm, force: bool) -> CliResult
         synced.push(name.clone());
     }
 
-    // TODO: add checksum file
+    // hate having to do this here again
+    let settings_checksum = config_checksum(settings)?;
+    add_checksum(
+        HOOK_TEMPLATE_CHECKSUM.as_str(),
+        settings_checksum.as_str(),
+        scm,
+    )?;
 
     // TODO: log created hooks
 
@@ -109,28 +130,41 @@ fn ensure_hooks(settings: &ScmHookSettings, scm: &Scm, force: bool) -> CliResult
 }
 
 fn hooks_synchronized(settings: &ScmHookSettings, scm: &Scm) -> CliResult<bool> {
-    let checksum_file_path = checksum_file(scm)?;
-    let checksum_file = fs::File::open(checksum_file_path)?;
-    let checksum_file_reader = BufReader::new(checksum_file);
+    let checksum_file = fs::File::open(checksum_file(scm)?)?;
+    let reader = BufReader::new(checksum_file);
+    if let Some(Ok(line)) = reader.lines().next() {
+        if line.is_empty() {
+            return Ok(false);
+        }
 
-    // let line = checksum_file_reader.lines().next()??;
-    // if line.is_empty() {
-    //     return Ok(false);
-    // }
+        if let Some((stored_hook_checksum, stored_settings_checksum)) = line.split_once('|') {
+            if HOOK_TEMPLATE_CHECKSUM.to_string() != stored_hook_checksum {
+                return Ok(false);
+            }
 
-    // dont need timestamp
-    // if let Some((stored_checksum, stored_timestamp)) = line.split_once(' ') {
-    //
-    // } else {
-    //     return Ok(false);
-    // }
+            let settings_checksum = config_checksum(settings)?;
+            if settings_checksum == stored_settings_checksum {
+                return Ok(true);
+            }
+        }
+    }
 
-    // let bytes = bincode::serialize(settings)?;
-    // let checksum = crc32c::crc32c(&bytes);
+    Ok(false)
+}
 
-    Ok(true)
+fn add_checksum(hook_checksum: &str, checksum: &str, scm: &Scm) -> CliResult<()> {
+    fs::write(checksum_file(scm)?, format!("{hook_checksum}|{checksum}"))?;
+
+    Ok(())
+}
+
+fn config_checksum(settings: &ScmHookSettings) -> CliResult<String> {
+    Ok(format!(
+        "{:x}",
+        md5::compute(serde_json::to_string(settings)?.as_bytes())
+    ))
 }
 
 fn checksum_file(scm: &Scm) -> CliResult<PathBuf> {
-    Ok(scm.hooks_path()?.join("doctavious.checksum"))
+    Ok(scm.info_path()?.join("doctavious.synchronization"))
 }

@@ -63,6 +63,10 @@ impl ScmRepository for SvnScmRepository {
         path.ends_with(".tmpl")
     }
 
+    fn info_path(&self) -> ScmResult<PathBuf> {
+        todo!()
+    }
+
     fn all_files(&self) -> ScmResult<Vec<PathBuf>> {
         todo!()
     }

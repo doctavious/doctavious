@@ -3,7 +3,7 @@ use std::path::{Path, PathBuf};
 use scm::drivers::Scm;
 use scm::{ScmError, ScmRepository};
 use thiserror::Error;
-use tracing::info;
+use tracing::{info, warn};
 
 use crate::cmd::scm_hooks::ensure_hooks;
 use crate::cmd::scm_hooks::runner::{
@@ -30,6 +30,7 @@ pub fn run(
     hook_name: &str,
     files: Option<ScmHookRunFiles>,
     run_only_executions: Vec<String>,
+    synchronize_hooks: bool,
     force: bool,
 ) -> CliResult<()> {
     let settings: Settings = load_settings(cwd)?.into_owned();
@@ -43,7 +44,12 @@ pub fn run(
     };
 
     let scm = Scm::get(cwd)?;
-    ensure_hooks(&scm_settings, &scm, force)?;
+    if synchronize_hooks {
+        // TODO: do we want to return error?
+        if ensure_hooks(&scm_settings, &scm, true, force).is_err() {
+            warn!("There was a problem synchronizing hooks. Try running 'doctavious scmhook install' manually")
+        }
+    }
 
     let Some(hook) = scm_settings.hooks.get(hook_name) else {
         return Err(DoctaviousCliError::ScmError(ScmError::UnsupportedHook(

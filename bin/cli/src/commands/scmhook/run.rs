@@ -34,6 +34,10 @@ pub(crate) struct RunScmHookCommand {
     #[arg(long = "executions", short = 'e')]
     pub run_only_executions: Option<Vec<String>>,
 
+    /// Skip synchronization (installing/updating) hooks
+    #[arg(long, action)]
+    pub skip_auto_synchronize: bool,
+
     /// Force execution of commands that can be skipped
     #[arg(long, short, action)]
     pub force: bool,
@@ -56,6 +60,7 @@ pub(crate) fn execute(command: RunScmHookCommand) -> CliResult<Option<String>> {
         &command.hook,
         files,
         command.run_only_executions.unwrap_or_default(),
+        !command.skip_auto_synchronize,
         command.force,
     )?;
 
@@ -99,6 +104,7 @@ tags = ["backed", "style"]
             file: None,
             all_files: false,
             run_only_executions: None,
+            skip_auto_synchronize: false,
             force: false,
         });
 
@@ -126,6 +132,7 @@ run = "echo '{files}' > test_specified_files.txt"
             file: Some(vec![PathBuf::from("/backend/src/lib.rs")]),
             all_files: false,
             run_only_executions: None,
+            skip_auto_synchronize: false,
             force: false,
         });
 
@@ -154,6 +161,7 @@ run = "echo '{files}' > test_all_files.txt"
             file: None,
             all_files: true,
             run_only_executions: None,
+            skip_auto_synchronize: false,
             force: false,
         });
 
@@ -181,6 +189,7 @@ runner = "bash"
             file: None,
             all_files: false,
             run_only_executions: None,
+            skip_auto_synchronize: false,
             force: false,
         });
 
@@ -211,6 +220,7 @@ runner = "bash"
             file: None,
             all_files: false,
             run_only_executions: Some(vec!["format-backend".to_string()]),
+            skip_auto_synchronize: false,
             force: false,
         });
 
@@ -241,6 +251,7 @@ skip = true
             file: None,
             all_files: false,
             run_only_executions: None,
+            skip_auto_synchronize: false,
             force: false,
         });
 
@@ -254,6 +265,7 @@ skip = true
             file: None,
             all_files: false,
             run_only_executions: None,
+            skip_auto_synchronize: false,
             force: true,
         });
 
@@ -285,6 +297,7 @@ runner = "bash"
             file: None,
             all_files: false,
             run_only_executions: None,
+            skip_auto_synchronize: false,
             force: true,
         });
 

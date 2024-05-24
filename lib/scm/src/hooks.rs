@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 
+use indexmap::IndexMap;
 use serde::de::{Error, MapAccess, Visitor};
 use serde::{Deserialize as serde_deser, Deserializer};
 use serde_derive::{Deserialize, Serialize};
@@ -118,7 +119,7 @@ pub struct ScmHook {
 
     pub only: Option<ScmHookConditionalExecution>,
 
-    pub executions: HashMap<String, ScmHookExecution>,
+    pub executions: IndexMap<String, ScmHookExecution>,
 }
 
 // select specific file groups
@@ -189,7 +190,7 @@ pub struct HookCommand {
 
     /// You can specify some ENV variables for the command or script.
     #[serde(default)]
-    pub env: HashMap<String, String>,
+    pub env: IndexMap<String, String>,
 
     /// You can change the CWD for the command you execute using root option.
     /// This is useful when you execute some npm or yarn command but the package.json is in another directory.

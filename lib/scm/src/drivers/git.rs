@@ -457,14 +457,30 @@ impl ScmRepository for GitScmRepository {
         Ok(self
             .inner
             .workdir()
-            .ok_or(git2::Error::from_str(
-                "Cant get hooks path from bare repository",
-            ))?
+            .ok_or(git2::Error::from_str("Cant get hooks path from repository"))?
             .join(String::from_utf8(output)?.trim_end()))
     }
 
     fn is_hook_file_sample(&self, path: &Path) -> bool {
         path.ends_with(".sample")
+    }
+
+    fn info_path(&self) -> ScmResult<PathBuf> {
+        let mut command = Command::new("git");
+        if let Some(git_workdir) = self.inner.workdir() {
+            command.current_dir(git_workdir);
+        }
+
+        let output = command
+            .args(["rev-parse", "--git-path", "info"])
+            .output()?
+            .stdout;
+
+        Ok(self
+            .inner
+            .workdir()
+            .ok_or(git2::Error::from_str("Cant get info path from repository"))?
+            .join(String::from_utf8(output)?.trim_end()))
     }
 
     fn all_files(&self) -> ScmResult<Vec<PathBuf>> {

@@ -32,7 +32,7 @@ mod tests {
     use common::fs::copy_dir;
     use scm::drivers::git::GitScmRepository;
     use scm::hooks::OLD_HOOK_POSTFIX;
-    use scm::{ScmRepository, HOOK_TEMPLATE};
+    use scm::{ScmRepository, HOOK_TEMPLATE, HOOK_TEMPLATE_CHECKSUM};
     use tempfile::TempDir;
     use testing::cleanup::CleanUp;
 
@@ -66,6 +66,16 @@ run = "echo 'Done!'"
         assert!(result.is_ok());
         assert!(hooks_path.join("pre-commit").exists());
         assert!(hooks_path.join("post-commit").exists());
+
+        let synchronization_file = scm.info_path().unwrap().join("doctavious.synchronization");
+        assert!(synchronization_file.exists());
+        assert_eq!(
+            format!(
+                "{}|ae6e1c36d1f298f4692eed15be33a2ae",
+                HOOK_TEMPLATE_CHECKSUM.as_str()
+            ),
+            fs::read_to_string(synchronization_file).unwrap()
+        );
     }
 
     #[test]
@@ -108,6 +118,11 @@ run = "echo 'Done!'"
             fs::read_to_string(&old_hook_path).unwrap()
         );
         assert!(hooks_path.join("post-commit").exists());
+        assert!(scm
+            .info_path()
+            .unwrap()
+            .join("doctavious.synchronization")
+            .exists());
     }
 
     #[test]
@@ -148,6 +163,59 @@ run = "echo 'Done!'"
     }
 
     #[test]
+    fn should_update_stale_synchronization_file() {
+        for (hook_template_checksum, settings_checksum) in vec![
+            ("123abc", "ae6e1c36d1f298f4692eed15be33a2ae"), // stale hook template checksum
+            (HOOK_TEMPLATE_CHECKSUM.as_str(), "123abc"),    // stale settings checksum
+        ] {
+            let config = r###"[scmhook_settings]
+[scmhook_settings.hooks.pre-commit.executions.format-backend]
+type = "command"
+run = "cargo fmt"
+root = "backend"
+[scmhook_settings.hooks.post-commit.executions.echo]
+type = "command"
+run = "echo 'Done!'"
+"###;
+
+            let (temp_path, scm) = setup(Some(config));
+            let _c = CleanUp::new(Box::new(|| {
+                let _ = fs::remove_dir_all(&temp_path);
+            }));
+
+            let scm_hooks_path = scm.hooks_path().unwrap();
+            let pre_commit_path = scm_hooks_path.join("pre-commit");
+            fs::write(&pre_commit_path, HOOK_TEMPLATE).unwrap();
+
+            let synchronization_file = scm.info_path().unwrap().join("doctavious.synchronization");
+            fs::write(&synchronization_file, "123|").unwrap();
+
+            let result = execute(InstallScmHook {
+                cwd: Some(temp_path.clone()),
+                force: false,
+            });
+
+            let hooks_path = scm.hooks_path().unwrap();
+            assert!(result.is_ok());
+            assert!(hooks_path.join("pre-commit").exists());
+            assert!(fs::read_to_string(&pre_commit_path)
+                .unwrap()
+                .contains("doctavious"));
+
+            assert!(!hooks_path.join("pre-commit.old").exists());
+            assert!(hooks_path.join("post-commit").exists());
+
+            assert_eq!(
+                format!(
+                    "{}|ae6e1c36d1f298f4692eed15be33a2ae",
+                    HOOK_TEMPLATE_CHECKSUM.as_str()
+                ),
+                fs::read_to_string(synchronization_file).unwrap()
+            );
+        }
+    }
+
+    #[test]
     fn should_fail_with_existing_hook_and_old() {
         let config = r###"[scmhook_settings]
 [scmhook_settings.hooks.pre-commit.executions.format-backend]
@@ -185,6 +253,11 @@ run = "echo 'Done!'"
         assert!(hooks_path.join("pre-commit").exists());
         assert!(hooks_path.join("pre-commit.old").exists());
         assert!(!hooks_path.join("post-commit").exists());
+        assert!(!scm
+            .info_path()
+            .unwrap()
+            .join("doctavious.synchronization")
+            .exists());
     }
 
     #[test]
@@ -234,6 +307,11 @@ run = "echo 'Done!'"
         assert!(fs::read_to_string(post_commit_path)
             .unwrap()
             .contains("doctavious"));
+        assert!(scm
+            .info_path()
+            .unwrap()
+            .join("doctavious.synchronization")
+            .exists());
     }
 
     fn setup(doctavous_config: Option<&str>) -> (PathBuf, GitScmRepository) {
