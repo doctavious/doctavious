@@ -3,10 +3,11 @@ use std::path::PathBuf;
 use clap::Parser;
 use doctavious_cli::cmd::scm_hooks::add::add;
 use doctavious_cli::CliResult;
+use doctavious_cli::settings::DEFAULT_CONFIG_DIR;
 
 /// Create a SCM Hook.
 ///
-/// Similar to what `scmhook install` command does but doesn't create a configuration first.
+/// Similar to `scmhook install` but doesn't create a configuration first.
 #[derive(Parser, Debug)]
 #[command()]
 pub(crate) struct AddScmHook {
@@ -17,7 +18,8 @@ pub(crate) struct AddScmHook {
     #[arg(index = 1)]
     pub name: String,
 
-    /// Whether to create a directory for scripts
+    /// Whether to create a directory for scripts. When `true` directory
+    /// [`DEFAULT_CONFIG_DIR`]/scmhooks/<hook_name> will be created.
     #[arg(long, short, action)]
     pub dir: bool,
 

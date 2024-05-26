@@ -4,7 +4,7 @@ use clap::Parser;
 use doctavious_cli::cmd::scm_hooks::uninstall::uninstall;
 use doctavious_cli::CliResult;
 
-/// Clear SCM hooks related to doctavious configuration
+/// Clear hooks related to Doctavious configuration
 #[derive(Parser, Debug)]
 #[command()]
 pub(crate) struct UninstallScmHook {

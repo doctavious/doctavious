@@ -12,6 +12,10 @@ use crate::cmd::scm_hooks::is_doctavious_scm_hook_file;
 use crate::settings::{load_settings, persist_settings, SettingErrors, Settings};
 use crate::{CliResult, DoctaviousCliError};
 
+/// Deletes hooks.
+///
+/// Doctavious hooks are the only hook files removed unless `force` is set to true and then all
+/// hook files will be deleted.
 pub fn uninstall(cwd: &Path, force: bool, remove_settings: bool) -> CliResult<()> {
     let mut settings: Settings = load_settings(cwd)?.into_owned();
 
@@ -43,7 +47,7 @@ fn delete_hooks(cwd: &Path, force: bool) -> CliResult<()> {
 
         if !force && !is_doctavious_scm_hook_file(&path)? {
             debug!(
-                "skipping {path:?}...not a doctavious hook file. To remove please use force option"
+                "skipping {path:?}...not a Doctavious hook file. To remove please use force option"
             );
             continue;
         }

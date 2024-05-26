@@ -37,7 +37,7 @@ pub fn run(
     let Some(scm_settings) = settings.scmhook_settings else {
         return Err(DoctaviousCliError::SettingError(
             SettingErrors::SectionNotFound(
-                "Either edit `scm` settings in doctavious configuration or use `scm_hook add`"
+                "Either edit `scm` settings in doctavious configuration or use `scmhook add`"
                     .to_string(),
             ),
         ));
