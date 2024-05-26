@@ -13,6 +13,7 @@ use crate::commands::whoami::WhoAmICommand;
 
 pub mod adr;
 pub mod build;
+pub mod changelog;
 pub mod deploy;
 pub mod frameworks;
 pub mod init;
@@ -21,7 +22,9 @@ mod macros;
 pub mod rfd;
 pub mod scmhook;
 pub mod til;
+pub mod version;
 pub mod whoami;
+
 
 #[derive(Debug, Parser)]
 #[command(name = "Doctavious")]
@@ -58,6 +61,7 @@ pub enum Command {
     #[command(name = "scmhook")]
     ScmHook(ScmHookCommand),
     Til(TilCommand),
+    Version,
     #[command(name = "whoami")]
     WhoAmI(WhoAmICommand),
 }
