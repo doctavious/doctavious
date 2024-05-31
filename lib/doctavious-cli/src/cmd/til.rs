@@ -4,6 +4,7 @@ use std::io::{BufReader, ErrorKind};
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
 use std::{env, fs};
+use std::borrow::Cow;
 
 use chrono::{DateTime, Local};
 use directories::UserDirs;
@@ -115,12 +116,12 @@ pub fn new(
     };
 
     let til_dir = if let Some(til_dir) = config.settings.get_til_dir() {
-        til_dir
+        Cow::Owned(til_dir)
     } else {
         if let Some(cwd) = cwd {
-            cwd.to_path_buf()
+            Cow::Borrowed(cwd)
         } else {
-            env::current_dir().expect("Unable to get current directory")
+            Cow::Owned(env::current_dir().expect("Unable to get current directory"))
         }
     };
 
@@ -128,7 +129,7 @@ pub fn new(
         .ok()
         .unwrap_or(config.settings.get_til_template_format(None));
 
-    let path = Path::new(&til_dir)
+    let path = Path::new(&til_dir.as_ref())
         .join(category)
         .join(friendly_filename(title))
         .with_extension(format.extension());
@@ -222,19 +223,19 @@ fn get_config(cwd: Option<&Path>) -> CliResult<Config> {
     let path = cwd
         .and_then(|p| Some(p.to_path_buf()))
         .unwrap_or(env::current_dir()?);
-    let local_config = Config::from_path_or_default(&path);
-    Ok(if local_config.is_default_settings {
-        Config::get_global().unwrap_or_else(|_| local_config)
-    } else {
-        local_config
-    })
+
+    Ok(Config::from_path(&path).unwrap_or_else(|_| {
+        // local config not found so try global and if not found default
+        Config::get_global().unwrap_or(Config::default())
+    }))
 }
 
 fn get_posts(cwd: &Path, topic: Option<&str>) -> impl Iterator<Item = DirEntry> {
-    let mut dir = cwd.to_path_buf();
-    if let Some(topic) = topic {
-        dir = dir.join(topic);
-    }
+    let dir = if let Some(topic) = topic {
+        Cow::Owned(cwd.join(topic))
+    } else {
+        Cow::Borrowed(cwd)
+    };
 
     // TODO: should probably ignore hidden directories but that messes up tests which uses temp_dir
     WalkDir::new(dir)
@@ -366,6 +367,7 @@ mod tests {
 
     use directories::BaseDirs;
     use tempfile::TempDir;
+    use testing::cleanup::CleanUp;
 
     use crate::cmd::til::{init, list, new, open};
     use crate::files::get_all_files;
@@ -401,6 +403,16 @@ mod tests {
     // #[cfg(ci)]
     fn should_successfully_init_global() {
         let dir = TempDir::new().unwrap();
+        let global_config = BaseDirs::new()
+            .unwrap()
+            .config_dir()
+            .join("com.doctavious.cli/doctavious-test.toml");
+
+        let _c = CleanUp::new(Box::new(|| {
+            let _ = fs::remove_dir_all(&dir);
+            let _ = fs::remove_file(&global_config);
+        }));
+
         temp_env::with_vars(
             [("EDITOR", Some(Path::new("./tests/fixtures/noop-editor")))],
             || {
@@ -415,18 +427,10 @@ mod tests {
 
                 let config = Config::get_global().unwrap();
                 assert!(!config.is_default_settings);
-
-                let expected_config_path = BaseDirs::new()
-                    .unwrap()
-                    .config_dir()
-                    .join("com.doctavious.cli/doctavious.toml")
-                    .to_string_lossy()
-                    .to_string();
-
                 assert!(config
                     .path
                     .to_string_lossy()
-                    .ends_with(expected_config_path.as_str()));
+                    .ends_with(global_config.to_string_lossy().as_ref()));
 
                 insta::with_settings!({filters => vec![
                     (dir.path().to_str().unwrap(), "[DIR]"),
@@ -437,8 +441,6 @@ mod tests {
                 });
             },
         );
-
-        dir.close().unwrap();
     }
 
     #[test]
@@ -457,8 +459,6 @@ mod tests {
                 });
             },
         );
-
-        dir.close().unwrap();
     }
 
     #[test]
@@ -475,8 +475,6 @@ mod tests {
                 assert!(content.starts_with("EDITOR"));
             },
         );
-
-        dir.close().unwrap();
     }
 
     #[test]
@@ -496,14 +494,11 @@ mod tests {
                 });
             },
         );
-
-        dir.close().unwrap();
     }
 
     #[test]
     fn should_list() {
         let dir = TempDir::new().unwrap();
-
         temp_env::with_vars(
             [("EDITOR", Some(Path::new("./tests/fixtures/noop-editor")))],
             || {
@@ -518,8 +513,6 @@ mod tests {
                 assert_eq!(2, all_posts.len());
             },
         );
-
-        dir.close().unwrap();
     }
 
     #[test]
@@ -536,7 +529,5 @@ mod tests {
                 assert!(fs::read_to_string(&path).unwrap().contains("VISUAL"));
             },
         );
-
-        dir.close().unwrap();
     }
 }

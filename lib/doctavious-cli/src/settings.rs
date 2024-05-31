@@ -53,10 +53,11 @@ pub enum SettingErrors {
     SectionNotFound(String),
 }
 
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct Config {
     pub path: PathBuf,
     pub settings: Settings,
+    // TODO: I feel like we can get rid of this
     pub is_default_settings: bool,
 }
 
@@ -85,7 +86,8 @@ impl Config {
     }
 
     pub fn get_global() -> CliResult<Self> {
-        let path = get_global_settings_dir().join(DEFAULT_CONFIG_NAME);
+        // let path = get_global_settings_dir().join(DEFAULT_CONFIG_NAME);
+        let path = get_global_settings_file();
         let settings = get_settings(&path)?;
 
         Ok(Self {
@@ -97,7 +99,7 @@ impl Config {
 
     pub fn get_global_or_default() -> Self {
         let mut is_default_settings = false;
-        let path = get_global_settings_dir().join(DEFAULT_CONFIG_NAME);
+        let path = get_global_settings_file();
         let settings = get_settings(&path).unwrap_or_else(|_| {
             is_default_settings = true;
             Settings::default()
@@ -343,11 +345,6 @@ impl Settings {
 
     pub fn get_til_dir(&self) -> Option<PathBuf> {
         self.til_settings.as_ref().and_then(|s| s.dir.to_owned())
-        // if let Some(settings) = &self.til_settings {
-        //     return settings.dir.as_ref();
-        // }
-        //
-        // None
     }
 
     // TODO: I might revert having this take in an extension and rather just have a function in til
@@ -381,9 +378,9 @@ pub(crate) fn get_settings_file(cwd: &Path) -> PathBuf {
     cwd.join(DEFAULT_CONFIG_NAME)
 }
 
+// TODO: Cow doesnt seem to make sense here anymore
 pub(crate) fn load_settings<'a>(cwd: &Path) -> CliResult<Cow<'a, Settings>> {
     let settings_path = get_settings_file(cwd);
-    println!("settings path: [{:?}]", &settings_path);
     let settings = if settings_path.is_file() {
         get_settings(&settings_path)?
     } else {
@@ -394,7 +391,6 @@ pub(crate) fn load_settings<'a>(cwd: &Path) -> CliResult<Cow<'a, Settings>> {
 }
 
 pub(crate) fn get_settings(path: &Path) -> CliResult<Settings> {
-    println!("read from path: [{:?}]", &path);
     let contents = fs::read_to_string(path)?;
     Ok(toml::from_str(contents.as_str())?)
 }
@@ -412,13 +408,18 @@ pub(crate) fn persist_settings(cwd: &Path, settings: &Settings) -> CliResult<()>
 
 pub fn get_global_settings_dir() -> PathBuf {
     ProjectDirs::from("com", "doctavious", "cli")
-        .expect("Unable to get valid Doctaious global config directory")
+        .expect("Unable to get valid Doctavious global config directory")
         .config_dir()
         .to_path_buf()
 }
 
 pub(crate) fn get_global_settings_file() -> PathBuf {
-    get_global_settings_dir().join(DEFAULT_CONFIG_NAME)
+    let file_name = if cfg!(test) {
+        "doctavious-test.toml"
+    } else {
+        DEFAULT_CONFIG_NAME
+    };
+    get_global_settings_dir().join(file_name)
 }
 
 pub fn get_global_settings() -> CliResult<Settings> {
