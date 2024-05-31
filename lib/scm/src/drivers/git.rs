@@ -377,7 +377,27 @@ impl ScmRepository for GitScmRepository {
     ///
     /// Sorts the commits by their time.
     fn commits(&self, range: Option<String>) -> ScmResult<Vec<ScmCommit>> {
+        // TODO: do we need to call `git log` directly to include/exclude
+        // git log README.md
+        // git log -- README.md
+        // git log --follow -- README.md
+        //
+        // git log -- . ':!bin/cli/'
+        //
+        // git log -- . ':(exclude)sub'
+        // git log -- . ':!sub'
+        //
+        // a specific file:
+        //     git log -- . ':(exclude)sub/sub/file'
+        // git log -- . ':!sub/sub/file'
+        //
+        // any given file within sub:
+        // git log -- . ':(exclude)sub/*file'
+        // git log -- . ':!sub/*file'
+        // git log -- . ':(exclude,glob)sub/*/file'
+
         let mut revwalk = self.inner.revwalk()?;
+        // TODO: pass in sort?
         revwalk.set_sorting(Sort::TIME | Sort::TOPOLOGICAL)?;
         if let Some(range) = range {
             revwalk.push_range(&range)?;
@@ -394,7 +414,7 @@ impl ScmRepository for GitScmRepository {
     /// Parses and returns a commit-tag map.
     ///
     /// It collects lightweight and annotated tags.
-    fn tags(&self, pattern: &Option<String>) -> ScmResult<IndexMap<String, String>> {
+    fn tags(&self, pattern: &Option<String>, sort: bool) -> ScmResult<IndexMap<String, String>> {
         let mut tags: Vec<(ScmCommit, String)> = Vec::new();
 
         // from https://github.com/rust-lang/git2-rs/blob/master/examples/tag.rs
@@ -421,7 +441,10 @@ impl ScmRepository for GitScmRepository {
             }
         }
 
-        tags.sort_by(|a, b| a.0.timestamp.cmp(&b.0.timestamp));
+        if sort {
+            tags.sort_by(|a, b| a.0.timestamp.cmp(&b.0.timestamp));
+        }
+
         Ok(tags.into_iter().map(|(a, b)| (a.id, b)).collect())
     }
 
