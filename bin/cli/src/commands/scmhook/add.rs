@@ -2,8 +2,8 @@ use std::path::PathBuf;
 
 use clap::Parser;
 use doctavious_cli::cmd::scm_hooks::add::add;
-use doctavious_cli::CliResult;
 use doctavious_cli::settings::DEFAULT_CONFIG_DIR;
+use doctavious_cli::CliResult;
 
 /// Create a SCM Hook.
 ///

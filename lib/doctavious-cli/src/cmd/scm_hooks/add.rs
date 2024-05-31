@@ -1,12 +1,12 @@
 use std::fs;
 use std::path::Path;
 
-use scm::{ScmError, ScmRepository};
 use scm::drivers::Scm;
+use scm::{ScmError, ScmRepository};
 
-use crate::{CliResult, DoctaviousCliError};
 use crate::cmd::scm_hooks::{add_hook, clean_hook};
 use crate::settings::DEFAULT_CONFIG_DIR;
+use crate::{CliResult, DoctaviousCliError};
 
 // TODO: probably detail out more info.
 // For bash scripts?

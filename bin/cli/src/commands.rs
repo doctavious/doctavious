@@ -25,7 +25,6 @@ pub mod til;
 pub mod version;
 pub mod whoami;
 
-
 #[derive(Debug, Parser)]
 #[command(name = "Doctavious")]
 pub struct Opt {

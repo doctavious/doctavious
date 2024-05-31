@@ -45,3 +45,4 @@ which = { workspace = true }
 [dev-dependencies]
 insta = { workspace = true, features = ["filters", "yaml"]}
 temp-env = { workspace = true }
+testing = { path = "../../lib/testing" }
