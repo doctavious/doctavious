@@ -1,0 +1,3 @@
+- info from git SCM providers
+  - GitHubReleaseMetadata
+  - GitHubContributor

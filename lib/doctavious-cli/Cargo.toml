@@ -27,6 +27,7 @@ rayon = { workspace = true }
 regex = { workspace = true }
 remain = { workspace = true }
 scm = { path = "../scm" }
+semver = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 serde_regex = { workspace = true }
