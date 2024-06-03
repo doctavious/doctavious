@@ -3,7 +3,7 @@ use std::str::FromStr;
 
 use lazy_static::lazy_static;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
-use strum::{Display, EnumIter, EnumString, EnumVariantNames, IntoEnumIterator};
+use strum::{Display, EnumIter, EnumString, IntoEnumIterator, VariantNames};
 
 lazy_static! {
     pub static ref FILE_STRUCTURES: HashMap<&'static str, FileStructure> = {
@@ -15,7 +15,7 @@ lazy_static! {
     };
 }
 
-#[derive(Clone, Copy, Debug, Display, EnumIter, EnumString, EnumVariantNames, PartialEq)]
+#[derive(Clone, Copy, Debug, Display, EnumIter, EnumString, VariantNames, PartialEq)]
 pub enum FileStructure {
     #[strum(serialize = "flat")]
     Flat,
