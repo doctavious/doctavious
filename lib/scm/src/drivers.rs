@@ -91,11 +91,15 @@ impl ScmRepository for Scm {
         }
     }
 
-    fn tags(&self, pattern: &Option<String>, sort: bool) -> ScmResult<IndexMap<String, String>> {
+    fn tags(
+        &self,
+        pattern: &Option<String>,
+        topo_order: bool,
+    ) -> ScmResult<IndexMap<String, String>> {
         match self {
-            Scm::Git(r) => r.tags(pattern, sort),
-            Scm::Hg(r) => r.tags(pattern, sort),
-            Scm::Svn(r) => r.tags(pattern, sort),
+            Scm::Git(r) => r.tags(pattern, topo_order),
+            Scm::Hg(r) => r.tags(pattern, topo_order),
+            Scm::Svn(r) => r.tags(pattern, topo_order),
         }
     }
 

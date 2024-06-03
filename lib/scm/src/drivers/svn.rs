@@ -39,7 +39,11 @@ impl ScmRepository for SvnScmRepository {
         todo!()
     }
 
-    fn tags(&self, pattern: &Option<String>, sort: bool) -> ScmResult<IndexMap<String, String>> {
+    fn tags(
+        &self,
+        pattern: &Option<String>,
+        topo_order: bool,
+    ) -> ScmResult<IndexMap<String, String>> {
         todo!()
     }
 

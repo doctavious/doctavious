@@ -105,7 +105,11 @@ pub trait ScmRepository {
     // options
     fn commits(&self, range: Option<String>) -> ScmResult<Vec<ScmCommit>>;
 
-    fn tags(&self, pattern: &Option<String>, sort: bool) -> ScmResult<IndexMap<String, String>>;
+    fn tags(
+        &self,
+        pattern: &Option<String>,
+        topo_order: bool,
+    ) -> ScmResult<IndexMap<String, String>>;
 
     /// Determines if the working directory has changes
     fn is_dirty(&self) -> ScmResult<bool>;

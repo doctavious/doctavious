@@ -414,7 +414,14 @@ impl ScmRepository for GitScmRepository {
     /// Parses and returns a commit-tag map.
     ///
     /// It collects lightweight and annotated tags.
-    fn tags(&self, pattern: &Option<String>, sort: bool) -> ScmResult<IndexMap<String, String>> {
+    fn tags(
+        &self,
+        pattern: &Option<String>,
+        topo_order: bool,
+    ) -> ScmResult<IndexMap<String, String>> {
+        // TODO: confirm topo_order produces something similar to `git tag -l | sort -V` and
+        // follows `topo_order` defined in  https://www.git-scm.com/docs/git-log#_commit_ordering
+
         let mut tags: Vec<(ScmCommit, String)> = Vec::new();
 
         // from https://github.com/rust-lang/git2-rs/blob/master/examples/tag.rs
@@ -441,7 +448,7 @@ impl ScmRepository for GitScmRepository {
             }
         }
 
-        if sort {
+        if !topo_order {
             tags.sort_by(|a, b| a.0.timestamp.cmp(&b.0.timestamp));
         }
 
