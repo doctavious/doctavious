@@ -1,7 +1,7 @@
 use std::path::{Path, PathBuf};
 use std::process::Command;
-use glob::Pattern;
 
+use glob::Pattern;
 use indexmap::IndexMap;
 
 use crate::{ScmCommit, ScmRepository, ScmResult};
@@ -45,7 +45,7 @@ impl ScmRepository for HgScmRepository {
         &self,
         range: &Option<String>,
         include_paths: Option<&Vec<Pattern>>,
-        exclude_paths: Option<&Vec<Pattern>>
+        exclude_paths: Option<&Vec<Pattern>>,
     ) -> ScmResult<Vec<ScmCommit>> {
         todo!()
     }

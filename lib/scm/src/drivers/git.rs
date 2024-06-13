@@ -4,8 +4,8 @@ use std::process::Command;
 
 use chrono::DateTime;
 use git2::{
-    BranchType, Commit as Git2Commit, Direction, IndexAddOption, Repository as Git2Repository,
-    Signature as Git2Signature, Sort, StatusOptions, Oid as Git2Oid
+    BranchType, Commit as Git2Commit, Direction, IndexAddOption, Oid as Git2Oid,
+    Repository as Git2Repository, Signature as Git2Signature, Sort, StatusOptions,
 };
 use glob::Pattern;
 use indexmap::IndexMap;
@@ -383,7 +383,7 @@ impl ScmRepository for GitScmRepository {
         &self,
         range: &Option<String>,
         include_paths: Option<&Vec<Pattern>>,
-        exclude_paths: Option<&Vec<Pattern>>
+        exclude_paths: Option<&Vec<Pattern>>,
     ) -> ScmResult<Vec<ScmCommit>> {
         // libgit2 and as a result git2's revwalk doesnt support filtering by paths touched by commits
         // see https://github.com/libgit2/libgit2/issues/3041
@@ -422,14 +422,13 @@ impl ScmRepository for GitScmRepository {
             args.extend(path_specs);
         }
 
-        let output = command
-            .args(args)
-            .output()?
-            .stdout;
+        let output = command.args(args).output()?.stdout;
 
         // TODO: would be nice to avoid having to output only the commit hash and then fetching
         // commit details. Should be (fairly easy) to parse Git log via a finite state machine
-        let logs: Vec<ScmCommit> = String::from_utf8(output).unwrap().lines()
+        let logs: Vec<ScmCommit> = String::from_utf8(output)
+            .unwrap()
+            .lines()
             .filter_map(|id| Git2Oid::from_str(id).ok())
             .filter_map(|oid| self.inner.find_commit(oid).ok())
             .map(|c| c.into())
@@ -566,7 +565,9 @@ impl ScmRepository for GitScmRepository {
 #[cfg(test)]
 mod tests {
     use std::env;
+
     use glob::Pattern;
+
     use crate::drivers::git::GitScmRepository;
     use crate::ScmRepository;
 
@@ -578,16 +579,17 @@ mod tests {
         let include = vec![Pattern::new("README.md").unwrap()];
         let exclude = vec![
             Pattern::new("bin/cli/").unwrap(),
-            Pattern::new("lib/").unwrap()
+            Pattern::new("lib/").unwrap(),
         ];
-        let commits = scm.commits(
-            &None,
-            None, //Some(&include),
-            Some(&exclude)
-        ).unwrap();
+        let commits = scm
+            .commits(
+                &None,
+                None, //Some(&include),
+                Some(&exclude),
+            )
+            .unwrap();
         for c in commits {
             println!("{:?}", &c);
         }
     }
-
 }

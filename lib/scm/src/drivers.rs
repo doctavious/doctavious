@@ -1,7 +1,7 @@
 use std::fs;
 use std::path::{Path, PathBuf};
-use glob::Pattern;
 
+use glob::Pattern;
 use indexmap::IndexMap;
 
 use crate::drivers::git::GitScmRepository;
@@ -88,7 +88,7 @@ impl ScmRepository for Scm {
         &self,
         range: &Option<String>,
         include_paths: Option<&Vec<Pattern>>,
-        exclude_paths: Option<&Vec<Pattern>>
+        exclude_paths: Option<&Vec<Pattern>>,
     ) -> ScmResult<Vec<ScmCommit>> {
         match self {
             Scm::Git(r) => r.commits(range, include_paths, exclude_paths),

@@ -112,7 +112,7 @@ pub trait ScmRepository {
         &self,
         range: &Option<String>,
         include_paths: Option<&Vec<Pattern>>,
-        exclude_paths: Option<&Vec<Pattern>>
+        exclude_paths: Option<&Vec<Pattern>>,
     ) -> ScmResult<Vec<ScmCommit>>;
 
     fn tags(
