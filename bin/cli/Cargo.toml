@@ -12,6 +12,7 @@ anyhow = { workspace = true }
 clap = { workspace = true, features = ["derive", "env", "string"] }
 directories = { workspace = true }
 doctavious-cli = { path = "../../lib/doctavious-cli" }
+glob = { workspace  = true }
 keyring = "2"
 lazy_static = { workspace = true }
 regex = { workspace = true }

@@ -4,6 +4,7 @@ use clap::{Parser, ValueEnum};
 use doctavious_cli::changelog::cmd::release::release;
 use doctavious_cli::changelog::ChangelogCommitSort;
 use doctavious_cli::CliResult;
+use glob::Pattern;
 use regex::Regex;
 use strum::VariantNames;
 
@@ -23,17 +24,17 @@ pub(crate) struct ReleaseCommand {
     pub cwd: Option<PathBuf>,
 
     /// Sets the path to include related commits [env: DOCTAVIOUS_CHANGELOG_INCLUDE_PATH=]
-    #[arg(long, value_name = "PATH")]
-    include_path: Option<Vec<PathBuf>>,
+    #[arg(long = "include_path", value_name = "PATH")]
+    include_paths: Option<Vec<Pattern>>,
 
     /// Sets the path to exclude related commits [env: DOCTAVIOUS_CHANGELOG_EXCLUDE_PATH=]
-    #[arg(long, value_name = "PATH")]
-    exclude_path: Option<Vec<PathBuf>>,
+    #[arg(long = "exclude_path", value_name = "PATH")]
+    exclude_paths: Option<Vec<Pattern>>,
 
     /// Sets the git repository [env: DOCTAVIOUS_CHANGELOG_REPOSITORY=]
     /// To generate a changelog for multiple git repositories:
-    #[arg(long, short)]
-    repository: Option<Vec<PathBuf>>,
+    #[arg(long = "repository", short)]
+    repositories: Option<Vec<PathBuf>>,
 
     // To calculate and set the next semantic version (i.e. bump the version) for the unreleased changes:
     /// Bumps the version for unreleased changes
@@ -108,7 +109,13 @@ pub(crate) struct ReleaseCommand {
 pub(crate) fn execute(command: ReleaseCommand) -> CliResult<Option<String>> {
     let path = command.cwd.unwrap_or(std::env::current_dir()?);
 
-    release(&path)?;
+    release(
+        &path,
+        command.range,
+        command.include_paths,
+        command.exclude_paths,
+        command.topo_order
+    )?;
 
     Ok(None)
 }

@@ -10,6 +10,7 @@ publish = false
 chrono = { workspace = true }
 crc32c = { workspace = true }
 git2 = { workspace = true }
+glob = { workspace = true }
 indexmap = { workspace = true, features = ["serde"] }
 lazy_static = { workspace = true }
 md5 = { workspace = true }

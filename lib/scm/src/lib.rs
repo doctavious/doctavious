@@ -1,3 +1,5 @@
+extern crate core;
+
 pub mod drivers;
 pub mod hooks;
 pub mod providers;
@@ -7,15 +9,16 @@ use std::path::{Path, PathBuf};
 use std::string::FromUtf8Error;
 
 use chrono::{DateTime, Utc};
+use glob::Pattern;
 use indexmap::IndexMap;
 use lazy_static::lazy_static;
 use regex::Regex;
+use serde_derive::{Deserialize, Serialize};
 use thiserror::Error;
 
 pub const HOOK_TEMPLATE: &[u8; 252] = include_bytes!("hooks/hook.tmpl");
 lazy_static! {
     pub static ref DOCTAVIOUS_SCM_HOOK_CONTENT_REGEX: Regex = Regex::new("DOCTAVIOUS").unwrap();
-    // pub static ref HOOK_TEMPLATE_CHECKSUM: u32 = crc32c::crc32c(HOOK_TEMPLATE);
     pub static ref HOOK_TEMPLATE_CHECKSUM: String = format!("{:x}", md5::compute(HOOK_TEMPLATE));
 }
 
@@ -55,7 +58,8 @@ pub const HG: &str = "hg";
 pub const SVN: &str = "svn";
 
 // TODO: should we have a CommitId type?
-
+// TODO: not sure this will work generically across SCM providers but will use for now
+#[derive(Debug, Deserialize, Serialize)]
 pub struct ScmCommit {
     /// Commit ID
     pub id: String,
@@ -71,6 +75,7 @@ pub struct ScmCommit {
     pub timestamp: Option<DateTime<Utc>>,
 }
 
+#[derive(Debug, Deserialize, Serialize)]
 pub struct ScmSignature {
     pub name: Option<String>,
     pub email: Option<String>,
@@ -103,7 +108,12 @@ pub trait ScmRepository {
     fn last_commit(&self) -> ScmResult<ScmCommit>;
 
     // options
-    fn commits(&self, range: Option<String>) -> ScmResult<Vec<ScmCommit>>;
+    fn commits(
+        &self,
+        range: &Option<String>,
+        include_paths: Option<&Vec<Pattern>>,
+        exclude_paths: Option<&Vec<Pattern>>
+    ) -> ScmResult<Vec<ScmCommit>>;
 
     fn tags(
         &self,

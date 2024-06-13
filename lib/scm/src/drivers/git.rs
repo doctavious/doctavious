@@ -5,8 +5,9 @@ use std::process::Command;
 use chrono::DateTime;
 use git2::{
     BranchType, Commit as Git2Commit, Direction, IndexAddOption, Repository as Git2Repository,
-    Signature as Git2Signature, Sort, StatusOptions,
+    Signature as Git2Signature, Sort, StatusOptions, Oid as Git2Oid
 };
+use glob::Pattern;
 use indexmap::IndexMap;
 use regex::Regex;
 
@@ -52,6 +53,8 @@ const HOOK_NAMES: [&str; 21] = [
 pub struct Oid {
     pub bytes: Vec<u8>,
 }
+
+pub struct PathSpec {}
 
 impl From<Git2Commit<'_>> for ScmCommit {
     fn from(value: Git2Commit) -> Self {
@@ -376,39 +379,63 @@ impl ScmRepository for GitScmRepository {
     /// Parses and returns the commits.
     ///
     /// Sorts the commits by their time.
-    fn commits(&self, range: Option<String>) -> ScmResult<Vec<ScmCommit>> {
-        // TODO: do we need to call `git log` directly to include/exclude
-        // git log README.md
-        // git log -- README.md
-        // git log --follow -- README.md
-        //
-        // git log -- . ':!bin/cli/'
-        //
-        // git log -- . ':(exclude)sub'
-        // git log -- . ':!sub'
-        //
-        // a specific file:
-        //     git log -- . ':(exclude)sub/sub/file'
-        // git log -- . ':!sub/sub/file'
-        //
-        // any given file within sub:
-        // git log -- . ':(exclude)sub/*file'
-        // git log -- . ':!sub/*file'
-        // git log -- . ':(exclude,glob)sub/*/file'
+    fn commits(
+        &self,
+        range: &Option<String>,
+        include_paths: Option<&Vec<Pattern>>,
+        exclude_paths: Option<&Vec<Pattern>>
+    ) -> ScmResult<Vec<ScmCommit>> {
+        // libgit2 and as a result git2's revwalk doesnt support filtering by paths touched by commits
+        // see https://github.com/libgit2/libgit2/issues/3041
 
-        let mut revwalk = self.inner.revwalk()?;
-        // TODO: pass in sort?
-        revwalk.set_sorting(Sort::TIME | Sort::TOPOLOGICAL)?;
-        if let Some(range) = range {
-            revwalk.push_range(&range)?;
-        } else {
-            revwalk.push_head()?;
+        // only git commit git log --format=format:%H
+        let mut command = Command::new("git");
+        if let Some(git_workdir) = self.inner.workdir() {
+            command.current_dir(git_workdir);
         }
-        Ok(revwalk
-            .filter_map(|id| id.ok())
-            .filter_map(|id| self.inner.find_commit(id).ok())
+
+        // only output commit hash for now as we re-fetch commits to avoid parsing git log
+        let mut args = vec!["log", "--pretty=%H"];
+
+        // TODO: limit
+
+        // TODO: make sure range is appropriate
+        if let Some(range) = range {
+            args.push(range);
+        }
+
+        let mut path_specs = vec![];
+        if let Some(include_paths) = include_paths {
+            for include_path in include_paths {
+                path_specs.push(include_path.as_str());
+            }
+        }
+
+        if let Some(exclude_paths) = exclude_paths {
+            for exclude_path in exclude_paths {
+                path_specs.push(exclude_path.as_str());
+            }
+        }
+
+        if !path_specs.is_empty() {
+            args.push("--");
+            args.extend(path_specs);
+        }
+
+        let output = command
+            .args(args)
+            .output()?
+            .stdout;
+
+        // TODO: would be nice to avoid having to output only the commit hash and then fetching
+        // commit details. Should be (fairly easy) to parse Git log via a finite state machine
+        let logs: Vec<ScmCommit> = String::from_utf8(output).unwrap().lines()
+            .filter_map(|id| Git2Oid::from_str(id).ok())
+            .filter_map(|oid| self.inner.find_commit(oid).ok())
             .map(|c| c.into())
-            .collect())
+            .collect();
+
+        Ok(logs)
     }
 
     /// Parses and returns a commit-tag map.
@@ -534,4 +561,33 @@ impl ScmRepository for GitScmRepository {
     fn scm(&self) -> &'static str {
         GIT
     }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::env;
+    use glob::Pattern;
+    use crate::drivers::git::GitScmRepository;
+    use crate::ScmRepository;
+
+    #[test]
+    fn commits() {
+        println!("{:?}", env::current_dir().unwrap());
+        let scm = GitScmRepository::new("../../").unwrap();
+
+        let include = vec![Pattern::new("README.md").unwrap()];
+        let exclude = vec![
+            Pattern::new("bin/cli/").unwrap(),
+            Pattern::new("lib/").unwrap()
+        ];
+        let commits = scm.commits(
+            &None,
+            None, //Some(&include),
+            Some(&exclude)
+        ).unwrap();
+        for c in commits {
+            println!("{:?}", &c);
+        }
+    }
+
 }

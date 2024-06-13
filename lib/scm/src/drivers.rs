@@ -1,5 +1,6 @@
 use std::fs;
 use std::path::{Path, PathBuf};
+use glob::Pattern;
 
 use indexmap::IndexMap;
 
@@ -83,11 +84,16 @@ impl ScmRepository for Scm {
         }
     }
 
-    fn commits(&self, range: Option<String>) -> ScmResult<Vec<ScmCommit>> {
+    fn commits(
+        &self,
+        range: &Option<String>,
+        include_paths: Option<&Vec<Pattern>>,
+        exclude_paths: Option<&Vec<Pattern>>
+    ) -> ScmResult<Vec<ScmCommit>> {
         match self {
-            Scm::Git(r) => r.commits(range),
-            Scm::Hg(r) => r.commits(range),
-            Scm::Svn(r) => r.commits(range),
+            Scm::Git(r) => r.commits(range, include_paths, exclude_paths),
+            Scm::Hg(r) => r.commits(range, include_paths, exclude_paths),
+            Scm::Svn(r) => r.commits(range, include_paths, exclude_paths),
         }
     }
 
