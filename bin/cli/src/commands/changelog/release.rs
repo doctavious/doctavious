@@ -111,10 +111,11 @@ pub(crate) fn execute(command: ReleaseCommand) -> CliResult<Option<String>> {
 
     release(
         &path,
+        command.repositories,
         command.range,
         command.include_paths,
         command.exclude_paths,
-        command.topo_order
+        command.topo_order,
     )?;
 
     Ok(None)

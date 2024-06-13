@@ -1,10 +1,11 @@
 use std::fs;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use glob::Pattern;
-use tracing::trace;
+use indexmap::IndexMap;
 use scm::drivers::Scm;
 use scm::ScmRepository;
+use tracing::trace;
 
 use crate::settings::{load_settings, Settings};
 use crate::CliResult;
@@ -14,6 +15,7 @@ use crate::CliResult;
 // TODO: ignore commits will live in .doctavious/changelog/.commitsignore
 pub fn release(
     cwd: &Path,
+    repositories: Option<Vec<PathBuf>>,
     range: Option<String>,
     include_paths: Option<Vec<Pattern>>,
     exclude_paths: Option<Vec<Pattern>>,
@@ -23,8 +25,13 @@ pub fn release(
     let settings: Settings = load_settings(cwd)?.into_owned();
     let changelog_settings = settings.changelog.unwrap();
     let topo_order = topo_order || changelog_settings.scm.topo_order.unwrap_or_default();
-    let skip_regex = changelog_settings.scm.skip_tags;
-    let ignore_regex = changelog_settings.scm.ignore_tags;
+    let skip_regex = changelog_settings.scm.skip_tags.as_ref();
+    let ignore_regex = changelog_settings.scm.ignore_tags.as_ref();
+
+    let repositories = match repositories {
+        Some(repositories) => repositories.iter().map(|r| cwd.join(r)).collect(),
+        None => vec![cwd.to_path_buf()],
+    };
 
     // TODO: support multiple repositories
     let scm = Scm::get(cwd)?;
@@ -32,7 +39,7 @@ pub fn release(
     let ignore_commits_path = cwd.join(".doctavious/changelog/.commitsignore");
     let ignored_commits = if ignore_commits_path.exists() {
         fs::read_to_string(ignore_commits_path)
-            .and_then(|s| s.lines().collect())
+            .map(|s| s.lines().map(|l| l.to_string()).collect())
             .unwrap_or_default()
     } else {
         vec![]
@@ -46,22 +53,23 @@ pub fn release(
         .filter(|(_, name)| {
             let skip = skip_regex.map(|r| r.is_match(name)).unwrap_or_default();
 
-            let ignore = ignore_regex.map(|r| {
-                if r.as_str().trim().is_empty() {
-                    return false;
-                }
+            let ignore = ignore_regex
+                .map(|r| {
+                    if r.as_str().trim().is_empty() {
+                        return false;
+                    }
 
-                let ignore_tag = r.is_match(name);
-                if ignore_tag {
-                    trace!("Ignoring release: {}", name)
-                }
-                ignore_tag
-            })
-            .unwrap_or_default();
+                    let ignore_tag = r.is_match(name);
+                    if ignore_tag {
+                        trace!("Ignoring release: {}", name)
+                    }
+                    ignore_tag
+                })
+                .unwrap_or_default();
 
             skip || !ignore
         })
-        .collect();
+        .collect::<IndexMap<String, String>>();
 
     // get range
     // let unreleased = false;
