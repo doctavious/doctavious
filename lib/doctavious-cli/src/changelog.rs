@@ -1,21 +1,47 @@
 use std::io::Write;
-use std::path::Path;
+use std::str::FromStr;
 
 use strum::{Display, EnumIter, EnumString, IntoEnumIterator, VariantNames};
+use thiserror::Error;
+use scm::ScmCommitRange;
 
+use crate::changelog::commit::Commit;
 use crate::changelog::release::Release;
+use crate::settings::ChangelogSettings;
 
 pub mod cmd;
 pub mod commit;
 mod release;
 mod tag;
 
+#[remain::sorted]
+#[derive(Debug, Error)]
+pub enum ChangelogErrors {
+    /// Error that may occur while generating changelog.
+    #[error("Changelog error: `{0}`")]
+    ChangelogError(String),
+}
+
 // could we put these all behind a `--range` flag?
-enum ChangelogRange {
+#[derive(Clone, Debug, Display, EnumIter, VariantNames, PartialEq)]
+pub enum ChangelogRange {
     Current,
     Latest,
     Unreleased,
     Range(String),
+}
+
+impl FromStr for ChangelogRange {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        Ok(match s {
+            "current" => ChangelogRange::Current,
+            "latest" => ChangelogRange::Latest,
+            "unreleased" => ChangelogRange::Unreleased,
+            _ => ChangelogRange::Range(s.to_string())
+        })
+    }
 }
 
 #[derive(Clone, Copy, Debug, Default, Display, EnumIter, EnumString, VariantNames, PartialEq)]
@@ -85,7 +111,47 @@ pub struct Changelog {
 impl Changelog {
     // TODO: new
 
+    fn new(releases: Vec<Release>, settings: ChangelogSettings) -> Self {
+        Self { releases }
+    }
+
     // TODO: process_commits
+    fn process_commits(&mut self) {
+        self.releases.iter_mut().for_each(|release| {
+            release.commits = release
+                .commits
+                .iter()
+                .cloned()
+                .filter_map(|commit| {
+                    match commit.process() {
+                        Ok(_) => {}
+                        Err(_) => {}
+                    }
+                    None
+                })
+                .flat_map(|commit| {
+                    // if self.config.git.split_commits.unwrap_or(false) {
+                    //     commit
+                    //         .message
+                    //         .lines()
+                    //         .filter_map(|line| {
+                    //             let mut c = commit.clone();
+                    //             c.message = line.to_string();
+                    //             if !c.message.is_empty() {
+                    //                 Self::process_commit(c, &self.config.git)
+                    //             } else {
+                    //                 None
+                    //             }
+                    //         })
+                    //         .collect()
+                    // } else {
+                    //     vec![commit]
+                    // }
+                    vec![commit]
+                })
+                .collect::<Vec<Commit>>();
+        });
+    }
 
     // TODO: process_releases
 

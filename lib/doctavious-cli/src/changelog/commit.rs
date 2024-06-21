@@ -1,5 +1,7 @@
 use git2::{Commit as GitCommit, Signature as CommitSignature};
+use scm::{ScmCommit, ScmSignature};
 use serde::{Deserialize, Serialize};
+use crate::CliResult;
 
 /// Common commit object that is parsed from a repository.
 #[derive(Debug, Default, Clone, PartialEq, Serialize, Deserialize)]
@@ -29,6 +31,28 @@ pub struct Commit {
     pub merge_commit: bool,
 }
 
+impl Commit {
+
+    /// Processes the commit.
+    ///
+    /// * converts commit to a conventional commit
+    /// * sets the group for the commit
+    /// * extacts links and generates URLs
+    pub fn process(&self) -> CliResult<()> {
+        Ok(())
+    }
+
+    // into_conventional
+
+    // preprocess
+
+    // skip_commit
+
+    // parse
+
+    // parse_links
+}
+
 impl From<GitCommit<'_>> for Commit {
     fn from(value: GitCommit) -> Self {
         Self {
@@ -37,6 +61,21 @@ impl From<GitCommit<'_>> for Commit {
             author: value.author().into(),
             committer: value.committer().into(),
             merge_commit: value.parents().count() > 1,
+            ..Default::default()
+        }
+    }
+}
+
+impl From<&ScmCommit> for Commit {
+    fn from(value: &ScmCommit) -> Self {
+        Self {
+            id: value.id.to_string(),
+            // TODO: way to avoid clones?
+            message: value.message.clone().unwrap_or_default(),
+            author: value.author.clone().into(),
+            committer: value.committer.clone().into(),
+            // TODO: merge_commit
+            merge_commit: false,
             ..Default::default()
         }
     }
@@ -67,6 +106,16 @@ impl From<CommitSignature<'_>> for Signature {
             name: signature.name().map(String::from),
             email: signature.email().map(String::from),
             timestamp: signature.when().seconds(),
+        }
+    }
+}
+
+impl From<ScmSignature> for Signature {
+    fn from(signature: ScmSignature) -> Self {
+        Self {
+            name: signature.name,
+            email: signature.email,
+            timestamp: signature.timestamp,
         }
     }
 }

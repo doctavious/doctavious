@@ -2,6 +2,7 @@ use clap::{Parser, Subcommand};
 
 use crate::commands::adr::ADRCommand;
 use crate::commands::build::BuildCommand;
+use crate::commands::changelog::ChangelogCommand;
 use crate::commands::deploy::DeployCommand;
 use crate::commands::frameworks::FrameworksCommand;
 use crate::commands::init::InitCommand;
@@ -52,6 +53,7 @@ pub struct Opt {
 pub enum Command {
     Adr(ADRCommand),
     Build(BuildCommand),
+    Changelog(ChangelogCommand),
     Deploy(DeployCommand),
     Frameworks(FrameworksCommand),
     Init(InitCommand),

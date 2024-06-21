@@ -1,9 +1,12 @@
+use std::error::Error;
 use std::path::PathBuf;
+use std::str::FromStr;
 
 use clap::{Parser, ValueEnum};
-use doctavious_cli::changelog::cmd::release::release;
-use doctavious_cli::changelog::ChangelogCommitSort;
-use doctavious_cli::CliResult;
+use clap::builder::ValueParser;
+use doctavious_cli::changelog::cmd::release::{release, ChangelogReleaseOptions};
+use doctavious_cli::changelog::{ChangelogCommitSort, ChangelogRange};
+use doctavious_cli::{CliResult, DoctaviousCliError};
 use glob::Pattern;
 use regex::Regex;
 use strum::VariantNames;
@@ -52,9 +55,10 @@ pub(crate) struct ReleaseCommand {
     #[arg(long, value_name = "COMMIT")]
     skip_commit: Vec<String>,
 
+    // TODO: could use -R and --range instead of index
     /// Sets the commit range to process.
-    #[arg(long, short)]
-    pub range: Option<String>,
+    #[arg(index = 1)]
+    pub range: Option<ChangelogRange>,
 
     /// Sorts the tags topologically.
     #[arg(long)]
@@ -62,7 +66,7 @@ pub(crate) struct ReleaseCommand {
 
     /// Prepends entries to the changelog file [env: DOCTAVIOUS_CHANGELOG_PREPEND=]
     #[arg(long, short)]
-    pub prepend: Option<bool>,
+    pub prepend: Option<PathBuf>,
 
     /// Sets the tag for the latest version.
     #[arg(
@@ -109,17 +113,47 @@ pub(crate) struct ReleaseCommand {
 pub(crate) fn execute(command: ReleaseCommand) -> CliResult<Option<String>> {
     let path = command.cwd.unwrap_or(std::env::current_dir()?);
 
-    release(
-        &path,
-        command.repositories,
-        command.range,
-        command.include_paths,
-        command.exclude_paths,
-        command.topo_order,
-    )?;
+    release(ChangelogReleaseOptions {
+        cwd: &path,
+        repositories: command.repositories,
+        prepend: command.prepend,
+        range: command.range,
+        include_paths: command.include_paths,
+        exclude_paths: command.exclude_paths,
+        topo_order: command.topo_order,
+        sort: command.sort,
+        tag_pattern: command.tag_pattern,
+        tag: command.tag,
+
+    })?;
 
     Ok(None)
 }
 
+// pub fn validator_regex(r: &'static str) -> ValueParser {
+//     ValueParser::from(move |s: &str| -> std::result::Result<String, DoctaviousCliError> {
+//         // let reg = regex::Regex::new(r).unwrap();
+//         // match reg.is_match(s) {
+//         //     true => Ok(s.to_owned()),
+//         //     false => Err(Error::from(format!("not matches {}", r))),
+//         // }
+//         println!("{}", s);
+//         Ok(s.to_owned())
+//     })
+// }
+
+// fn parse_changelog_range(arg: &str) -> CliResult<ChangelogRange> {
+//     Ok(match arg {
+//         "current" => ChangelogRange::Current,
+//         "latest" => ChangelogRange::Latest,
+//         "unreleased" => ChangelogRange::Unreleased,
+//         _ => ChangelogRange::Range(arg.to_string())
+//     })
+// }
+
+
+
 #[cfg(test)]
-mod tests {}
+mod tests {
+
+}

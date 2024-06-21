@@ -24,6 +24,9 @@ pub enum DoctaviousCliError {
     #[error("cas error: {0}")]
     CasError(#[from] cas::CasError),
 
+    #[error(transparent)]
+    ChangelogError(#[from] changelog::ChangelogErrors),
+
     #[error("cifrs error: {0}")]
     CifrsError(#[from] cifrs::CifrsError),
 
@@ -36,6 +39,10 @@ pub enum DoctaviousCliError {
 
     #[error("Glob pattern error: `{0}`")]
     GlobPatternError(#[from] glob::PatternError),
+
+    /// Error that may occur while parsing integers.
+    #[error("Failed to parse integer: `{0}`")]
+    IntParseError(#[from] std::num::TryFromIntError),
 
     #[error("io: {0}")]
     Io(#[from] std::io::Error),
@@ -58,6 +65,10 @@ pub enum DoctaviousCliError {
 
     #[error("Enum parsing error: {0}")]
     StrumParseError(#[from] strum::ParseError),
+
+    /// Error that may occur due to system time related anomalies.
+    #[error("System time error: `{0}`")]
+    SystemTimeError(#[from] std::time::SystemTimeError),
 
     #[error("Creating a Context from a Value/Serialize requires it being a JSON object")]
     TemplateContextError(),
