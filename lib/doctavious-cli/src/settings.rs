@@ -119,7 +119,7 @@ impl Config {
         Ok(())
     }
 
-    fn config_file_path() -> PathBuf {
+    pub fn config_file_path() -> PathBuf {
         PathBuf::from(DEFAULT_CONFIG_DIR).join(DEFAULT_CONFIG_NAME)
     }
 }
@@ -414,10 +414,13 @@ impl Settings {
 }
 
 pub(crate) fn get_settings_file(cwd: &Path) -> PathBuf {
-    cwd.join(DEFAULT_CONFIG_NAME)
+    cwd.join(DEFAULT_CONFIG_DIR).join(DEFAULT_CONFIG_NAME)
 }
 
 // TODO: Cow doesnt seem to make sense here anymore
+// TODO: get_settings_file should check if_file / is_dir
+// TODO: if settings_path doesnt exist error instead of default? or at least warn about using default
+// configuration
 pub(crate) fn load_settings<'a>(cwd: &Path) -> CliResult<Cow<'a, Settings>> {
     let settings_path = get_settings_file(cwd);
     let settings = if settings_path.is_file() {
@@ -441,6 +444,10 @@ pub(crate) fn get_settings(path: &Path) -> CliResult<Settings> {
 pub(crate) fn persist_settings(cwd: &Path, settings: &Settings) -> CliResult<()> {
     let content = toml::to_string(&settings)?;
     let settings_file = get_settings_file(cwd);
+    if let Some(dir) = settings_file.parent() {
+        fs::create_dir_all(dir)?;
+    }
+
     fs::write(settings_file, content)?;
     Ok(())
 }

@@ -2,8 +2,8 @@ use std::error::Error;
 use std::path::PathBuf;
 use std::str::FromStr;
 
-use clap::{Parser, ValueEnum};
 use clap::builder::ValueParser;
+use clap::{Parser, ValueEnum};
 use doctavious_cli::changelog::cmd::release::{release, ChangelogReleaseOptions};
 use doctavious_cli::changelog::{ChangelogCommitSort, ChangelogRange};
 use doctavious_cli::{CliResult, DoctaviousCliError};
@@ -124,7 +124,6 @@ pub(crate) fn execute(command: ReleaseCommand) -> CliResult<Option<String>> {
         sort: command.sort,
         tag_pattern: command.tag_pattern,
         tag: command.tag,
-
     })?;
 
     Ok(None)
@@ -151,9 +150,5 @@ pub(crate) fn execute(command: ReleaseCommand) -> CliResult<Option<String>> {
 //     })
 // }
 
-
-
 #[cfg(test)]
-mod tests {
-
-}
+mod tests {}

@@ -3,7 +3,7 @@ use doctavious_cli::cmd::{build, deploy, frameworks};
 use tracing::error;
 
 use crate::commands::frameworks::FrameworkSubCommand;
-use crate::commands::{adr, changelog, Command, Opt, rfd, scmhook, til, version};
+use crate::commands::{adr, changelog, rfd, scmhook, til, version, Command, Opt};
 
 mod built_info;
 mod commands;

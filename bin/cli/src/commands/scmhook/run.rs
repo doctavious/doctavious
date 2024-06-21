@@ -73,6 +73,7 @@ mod tests {
     use std::path::{Path, PathBuf};
 
     use common::fs::copy_dir;
+    use doctavious_cli::settings::Config;
     use doctavious_cli::CliResult;
     use scm::drivers::git::GitScmRepository;
     use scm::hooks::OLD_HOOK_POSTFIX;
@@ -312,7 +313,7 @@ runner = "bash"
         let temp_path = temp_dir.into_path();
 
         copy_dir("./tests/fixtures/scmhook/", &temp_path).expect("copy test fixtures");
-        fs::write(temp_path.join("doctavious.toml"), doctavous_config)
+        fs::write(temp_path.join(Config::config_file_path()), doctavous_config)
             .expect("write doctavious.toml");
 
         let scm = GitScmRepository::init(&temp_path).expect("init git");

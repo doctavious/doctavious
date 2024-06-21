@@ -143,7 +143,6 @@ fn process_repository(
 
     // TODO: handle getting data from remote repository
 
-
     println!("{:?}", &options.range);
 
     // TODO: make sure range is appropriate
@@ -271,9 +270,10 @@ fn process_repository(
 mod tests {
     use std::fs;
     use std::path::Path;
-    use scm::drivers::Scm;
-    use crate::changelog::cmd::release::{ChangelogReleaseOptions, release};
 
+    use scm::drivers::Scm;
+
+    use crate::changelog::cmd::release::{release, ChangelogReleaseOptions};
 
     #[test]
     fn test_release() {
@@ -288,6 +288,7 @@ mod tests {
             sort: Default::default(),
             tag_pattern: None,
             tag: None,
-        }).unwrap();
+        })
+        .unwrap();
     }
 }

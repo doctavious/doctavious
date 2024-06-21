@@ -1,9 +1,9 @@
 use std::io::Write;
 use std::str::FromStr;
 
+use scm::ScmCommitRange;
 use strum::{Display, EnumIter, EnumString, IntoEnumIterator, VariantNames};
 use thiserror::Error;
-use scm::ScmCommitRange;
 
 use crate::changelog::commit::Commit;
 use crate::changelog::release::Release;
@@ -39,7 +39,7 @@ impl FromStr for ChangelogRange {
             "current" => ChangelogRange::Current,
             "latest" => ChangelogRange::Latest,
             "unreleased" => ChangelogRange::Unreleased,
-            _ => ChangelogRange::Range(s.to_string())
+            _ => ChangelogRange::Range(s.to_string()),
         })
     }
 }

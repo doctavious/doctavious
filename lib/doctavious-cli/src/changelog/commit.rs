@@ -1,6 +1,7 @@
 use git2::{Commit as GitCommit, Signature as CommitSignature};
 use scm::{ScmCommit, ScmSignature};
 use serde::{Deserialize, Serialize};
+
 use crate::CliResult;
 
 /// Common commit object that is parsed from a repository.
@@ -32,7 +33,6 @@ pub struct Commit {
 }
 
 impl Commit {
-
     /// Processes the commit.
     ///
     /// * converts commit to a conventional commit

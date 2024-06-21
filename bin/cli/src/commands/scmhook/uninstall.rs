@@ -35,7 +35,8 @@ mod tests {
 
     use common::fs::copy_dir;
     use scm::drivers::git::GitScmRepository;
-    use scm::{ScmRepository, HOOK_TEMPLATE};
+    use scm::drivers::ScmRepository;
+    use scm::HOOK_TEMPLATE;
     use tempfile::TempDir;
     use testing::cleanup::CleanUp;
 
