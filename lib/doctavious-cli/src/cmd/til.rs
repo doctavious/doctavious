@@ -1,10 +1,10 @@
+use std::borrow::Cow;
 use std::collections::BTreeMap;
 use std::fs::File;
 use std::io::{BufReader, ErrorKind};
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
 use std::{env, fs};
-use std::borrow::Cow;
 
 use chrono::{DateTime, Local};
 use directories::UserDirs;

@@ -6,12 +6,12 @@ use minijinja::{AutoEscape, Environment};
 use serde::Serialize;
 use serde_json::{to_value, Value};
 
-use crate::{CliResult, DoctaviousCliError};
 use crate::settings::{
     DEFAULT_ADR_INIT_TEMPLATE_PATH, DEFAULT_ADR_RECORD_TEMPLATE_PATH,
     DEFAULT_ADR_TOC_TEMPLATE_PATH, DEFAULT_RFD_RECORD_TEMPLATE_PATH, DEFAULT_RFD_TOC_TEMPLATE_PATH,
     DEFAULT_TIL_POST_TEMPLATE_PATH, DEFAULT_TIL_TOC_TEMPLATE_PATH,
 };
+use crate::{CliResult, DoctaviousCliError};
 
 pub enum TemplateType {
     Adr(AdrTemplateType),
