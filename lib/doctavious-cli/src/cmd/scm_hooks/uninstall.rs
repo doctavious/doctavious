@@ -3,9 +3,8 @@ use std::fs;
 use std::path::Path;
 
 use common::path::append_to_path;
-use scm::drivers::Scm;
+use scm::drivers::{Scm, ScmRepository};
 use scm::hooks::OLD_HOOK_POSTFIX;
-use scm::ScmRepository;
 use tracing::{debug, error};
 
 use crate::cmd::scm_hooks::is_doctavious_scm_hook_file;

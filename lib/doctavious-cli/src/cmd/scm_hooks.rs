@@ -13,12 +13,9 @@ use std::path::{Path, PathBuf};
 
 use crc32c::crc32c;
 use minijinja::{AutoEscape, Environment};
-use scm::drivers::Scm;
+use scm::drivers::{Scm, ScmRepository};
 use scm::hooks::OLD_HOOK_POSTFIX;
-use scm::{
-    ScmError, ScmRepository, DOCTAVIOUS_SCM_HOOK_CONTENT_REGEX, HOOK_TEMPLATE,
-    HOOK_TEMPLATE_CHECKSUM,
-};
+use scm::{ScmError, DOCTAVIOUS_SCM_HOOK_CONTENT_REGEX, HOOK_TEMPLATE, HOOK_TEMPLATE_CHECKSUM};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use serde_json::json;
 use tracing::info;

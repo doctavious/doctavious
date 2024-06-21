@@ -1,20 +1,16 @@
 extern crate core;
 
-pub mod drivers;
-pub mod hooks;
-pub mod providers;
-
 use std::io;
-use std::path::{Path, PathBuf};
 use std::string::FromUtf8Error;
 
-use chrono::{DateTime, Utc};
-use glob::Pattern;
-use indexmap::IndexMap;
 use lazy_static::lazy_static;
 use regex::Regex;
 use serde_derive::{Deserialize, Serialize};
 use thiserror::Error;
+
+pub mod drivers;
+pub mod hooks;
+pub mod providers;
 
 pub const HOOK_TEMPLATE: &[u8; 252] = include_bytes!("hooks/hook.tmpl");
 lazy_static! {
@@ -67,19 +63,21 @@ pub struct ScmCommit {
     /// Commit message
     pub message: Option<String>,
 
-    // probably should be signature
     /// The author of the commit
     pub author: ScmSignature,
 
+    /// Committer.
+    pub committer: ScmSignature,
+
     /// The date of the commit
-    pub timestamp: Option<DateTime<Utc>>,
+    pub timestamp: i64,
 }
 
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct ScmSignature {
     pub name: Option<String>,
     pub email: Option<String>,
-    pub timestamp: Option<DateTime<Utc>>,
+    pub timestamp: i64,
 }
 
 pub struct ScmBranch {
@@ -91,64 +89,12 @@ pub struct ScmTag {
     pub commit_id: String,
 }
 
-pub trait ScmRepository {
-    fn checkout(&self, reference: &str) -> ScmResult<()>;
-
-    // TODO: change to return branch get_branch / resolve_branch
-    // TODO: For our use cases (ADR/RFD reservation) branches aren't always useful so it might be
-    // better to have a specific trait for those use cases
-    fn branch_exists(&self, branch_name: &str) -> ScmResult<bool>;
-
-    fn write(&self, path: &Path, message: &str) -> ScmResult<()>;
-
-    // get_commit -> ScmCommit
-
-    // TODO: this probably doesn't belong on this trait.
-    // Maybe should be be able to use get_commit with some option
-    fn last_commit(&self) -> ScmResult<ScmCommit>;
-
-    // options
-    fn commits(
-        &self,
-        range: &Option<String>,
-        include_paths: Option<&Vec<Pattern>>,
-        exclude_paths: Option<&Vec<Pattern>>,
-    ) -> ScmResult<Vec<ScmCommit>>;
-
-    fn tags(
-        &self,
-        pattern: &Option<String>,
-        topo_order: bool,
-    ) -> ScmResult<IndexMap<String, String>>;
-
-    /// Determines if the working directory has changes
-    fn is_dirty(&self) -> ScmResult<bool>;
-
-    // head return commit/revision
-
-    fn supported_hooks(&self) -> Vec<&'static str>;
-
-    fn supports_hook(&self, hook: &str) -> bool;
-
-    fn hooks_path(&self) -> ScmResult<PathBuf>;
-
-    fn is_hook_file_sample(&self, path: &Path) -> bool;
-
-    fn info_path(&self) -> ScmResult<PathBuf>;
-
-    fn all_files(&self) -> ScmResult<Vec<PathBuf>>;
-
-    // TODO: better name than staged. What do you call files in SVN that are added but not committed?
-    fn staged_files(&self) -> ScmResult<Vec<PathBuf>>;
-
-    // TODO: push files?
-    // for SVN files that are added would be staged and files that are added and have modifications would be pushed?
-    // or we just say this isnt used for all SCMs
-    fn push_files(&self) -> ScmResult<Vec<PathBuf>>;
-
-    fn files_by_command(&self, cmd: &String) -> ScmResult<Vec<PathBuf>>;
-
-    fn scm(&self) -> &'static str;
+pub enum ScmCommitRange {
+    // Current,
+    // Latest,
+    // Untagged,
+    Tuple((String, Option<String>)),
+    String(String),
 }
 
 #[cfg(test)]
@@ -156,8 +102,7 @@ mod tests {
     use std::fs;
     use std::path::Path;
 
-    use crate::drivers::Scm;
-    use crate::ScmRepository;
+    use crate::drivers::{Scm, ScmRepository};
 
     #[test]
     fn hooks_path() {

@@ -2,17 +2,16 @@ use std::ffi::OsStr;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
-use chrono::DateTime;
 use git2::{
-    BranchType, Commit as Git2Commit, Direction, IndexAddOption, Oid as Git2Oid,
-    Repository as Git2Repository, Signature as Git2Signature, Sort, StatusOptions,
+    BranchType, Commit as Git2Commit, DescribeOptions, Direction, IndexAddOption, Oid as Git2Oid,
+    Repository as Git2Repository, Signature as Git2Signature, StatusOptions,
 };
 use glob::Pattern;
 use indexmap::IndexMap;
 use regex::Regex;
 
-use crate::drivers::Scm;
-use crate::{ScmCommit, ScmRepository, ScmResult, ScmSignature, GIT};
+use crate::drivers::ScmRepository;
+use crate::{ScmCommit, ScmCommitRange, ScmResult, ScmSignature, GIT};
 
 // TODO: Oid strut
 
@@ -62,7 +61,8 @@ impl From<Git2Commit<'_>> for ScmCommit {
             id: value.id().to_string(),
             message: value.message().map(String::from),
             author: value.author().into(),
-            timestamp: DateTime::from_timestamp_millis(value.time().seconds()),
+            committer: value.committer().into(),
+            timestamp: value.time().seconds(),
         }
     }
 }
@@ -72,7 +72,7 @@ impl From<Git2Signature<'_>> for ScmSignature {
         Self {
             name: signature.name().map(String::from),
             email: signature.email().map(String::from),
-            timestamp: DateTime::from_timestamp_millis(signature.when().seconds()),
+            timestamp: signature.when().seconds(),
         }
     }
 }
@@ -381,44 +381,60 @@ impl ScmRepository for GitScmRepository {
     /// Sorts the commits by their time.
     fn commits(
         &self,
-        range: &Option<String>,
+        range: &Option<ScmCommitRange>, // TODO: maybe this should be only in the form of a commit range
         include_paths: Option<&Vec<Pattern>>,
         exclude_paths: Option<&Vec<Pattern>>,
+        limit_commits: Option<usize>,
     ) -> ScmResult<Vec<ScmCommit>> {
         // libgit2 and as a result git2's revwalk doesnt support filtering by paths touched by commits
         // see https://github.com/libgit2/libgit2/issues/3041
 
-        // only git commit git log --format=format:%H
         let mut command = Command::new("git");
         if let Some(git_workdir) = self.inner.workdir() {
             command.current_dir(git_workdir);
         }
 
         // only output commit hash for now as we re-fetch commits to avoid parsing git log
-        let mut args = vec!["log", "--pretty=%H"];
+        let mut args = vec!["log".to_string(), "--pretty=%H".to_string()];
 
-        // TODO: limit
+        if let Some(num) = limit_commits {
+            args.extend(["-n".to_string(), num.to_string()])
+        }
 
         // TODO: make sure range is appropriate
-        if let Some(range) = range {
-            args.push(range);
-        }
+        // most recent annotated tag `git describe --abbrev=0`
+        // most recent tag `git describe --tags --abbrev=0`
+        // git describe --tags
+        // latest tag across branches `git describe --tags $(git rev-list --tags --max-count=1)`
+        // if let Some(range) = range {
+        //     match range {
+        //         ScmCommitRange::Current | ScmCommitRange::Latest => {}
+        //         ScmCommitRange::Untagged => {
+        //             // if let Some(last_tag) = tags.last().map(|(k, _)| k) {
+        //             //     commit_range = Some(format!("{last_tag}..HEAD"));
+        //             // }
+        //         }
+        //         ScmCommitRange::Range(r) => {
+        //             args.push(r.to_string());
+        //         }
+        //     }
+        // }
 
         let mut path_specs = vec![];
         if let Some(include_paths) = include_paths {
             for include_path in include_paths {
-                path_specs.push(include_path.as_str());
+                path_specs.push(include_path.to_string());
             }
         }
 
         if let Some(exclude_paths) = exclude_paths {
             for exclude_path in exclude_paths {
-                path_specs.push(exclude_path.as_str());
+                path_specs.push(exclude_path.to_string());
             }
         }
 
         if !path_specs.is_empty() {
-            args.push("--");
+            args.push("--".to_string());
             args.extend(path_specs);
         }
 
@@ -442,7 +458,7 @@ impl ScmRepository for GitScmRepository {
     /// It collects lightweight and annotated tags.
     fn tags(
         &self,
-        pattern: &Option<String>,
+        pattern: &Option<Regex>,
         topo_order: bool,
     ) -> ScmResult<IndexMap<String, String>> {
         // TODO: confirm topo_order produces something similar to `git tag -l | sort -V` and
@@ -452,9 +468,13 @@ impl ScmRepository for GitScmRepository {
 
         // from https://github.com/rust-lang/git2-rs/blob/master/examples/tag.rs
         // also check https://github.com/orhun/git-cliff/blob/main/git-cliff-core/src/repo.rs tags
+        // alternative to
+        // .filter(|tag_name| {
+        //     pattern.as_ref().map_or(true, |pat| pat.is_match(tag_name))
+        // })
         for name in self
             .inner
-            .tag_names(pattern.as_deref())?
+            .tag_names(pattern.as_ref().and_then(|p| Some(p.as_str())))?
             .iter()
             .flatten()
             .map(String::from)
@@ -479,6 +499,16 @@ impl ScmRepository for GitScmRepository {
         }
 
         Ok(tags.into_iter().map(|(a, b)| (a.id, b)).collect())
+    }
+
+    /// Returns the current tag.
+    ///
+    /// It is the same as running `git describe --tags`
+    fn current_tag(&self) -> Option<String> {
+        self.inner
+            .describe(DescribeOptions::new().describe_tags())
+            .ok()
+            .and_then(|describe| describe.format(None).ok())
     }
 
     /// Determines if there are any current changes in the working directory / staging area
@@ -569,7 +599,7 @@ mod tests {
     use glob::Pattern;
 
     use crate::drivers::git::GitScmRepository;
-    use crate::ScmRepository;
+    use crate::drivers::ScmRepository;
 
     #[test]
     fn commits() {
@@ -586,6 +616,7 @@ mod tests {
                 &None,
                 None, //Some(&include),
                 Some(&exclude),
+                None,
             )
             .unwrap();
         for c in commits {

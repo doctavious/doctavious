@@ -1,10 +1,11 @@
 use std::path::{Path, PathBuf};
-use std::process::Command;
 
 use glob::Pattern;
 use indexmap::IndexMap;
+use regex::Regex;
 
-use crate::{ScmCommit, ScmRepository, ScmResult};
+use crate::drivers::ScmRepository;
+use crate::{ScmCommit, ScmCommitRange, ScmResult};
 
 const HOOK_NAMES: [&str; 13] = [
     "changegroup",
@@ -43,18 +44,23 @@ impl ScmRepository for HgScmRepository {
 
     fn commits(
         &self,
-        range: &Option<String>,
+        range: &Option<ScmCommitRange>,
         include_paths: Option<&Vec<Pattern>>,
         exclude_paths: Option<&Vec<Pattern>>,
+        limit_commits: Option<usize>,
     ) -> ScmResult<Vec<ScmCommit>> {
         todo!()
     }
 
     fn tags(
         &self,
-        pattern: &Option<String>,
+        pattern: &Option<Regex>,
         topo_order: bool,
     ) -> ScmResult<IndexMap<String, String>> {
+        todo!()
+    }
+
+    fn current_tag(&self) -> Option<String> {
         todo!()
     }
 

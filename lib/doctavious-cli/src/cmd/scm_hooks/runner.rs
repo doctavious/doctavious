@@ -8,12 +8,12 @@ use glob::{Paths, PatternError};
 use glob_match::glob_match;
 use rayon::prelude::{IntoParallelIterator, ParallelIterator};
 use regex::{Error, Regex, RegexBuilder};
-use scm::drivers::Scm;
+use scm::drivers::{Scm, ScmRepository};
 use scm::hooks::{
     HookCommand, HookScript, ScmHook, ScmHookConditionalExecution,
     ScmHookConditionalExecutionTagged, ScmHookExecution,
 };
-use scm::{ScmError, ScmRepository};
+use scm::ScmError;
 use thiserror::Error;
 use tracing::{debug, info, warn};
 

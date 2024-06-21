@@ -3,11 +3,12 @@ use std::path::{Path, PathBuf};
 
 use glob::Pattern;
 use indexmap::IndexMap;
+use regex::Regex;
 
 use crate::drivers::git::GitScmRepository;
 use crate::drivers::hg::HgScmRepository;
 use crate::drivers::svn::SvnScmRepository;
-use crate::{ScmCommit, ScmError, ScmRepository, ScmResult};
+use crate::{ScmCommit, ScmCommitRange, ScmError, ScmResult};
 
 pub mod git;
 pub mod hg;
@@ -18,6 +19,69 @@ pub enum Scm {
     Git(GitScmRepository),
     Hg(HgScmRepository),
     Svn(SvnScmRepository),
+}
+
+pub trait ScmRepository {
+    fn checkout(&self, reference: &str) -> ScmResult<()>;
+
+    // TODO: change to return branch get_branch / resolve_branch
+    // TODO: For our use cases (ADR/RFD reservation) branches aren't always useful so it might be
+    // better to have a specific trait for those use cases
+    fn branch_exists(&self, branch_name: &str) -> ScmResult<bool>;
+
+    fn write(&self, path: &Path, message: &str) -> ScmResult<()>;
+
+    // get_commit -> ScmCommit
+
+    // TODO: this probably doesn't belong on this trait.
+    // Maybe should be be able to use get_commit with some option
+    fn last_commit(&self) -> ScmResult<ScmCommit>;
+
+    // options
+    fn commits(
+        &self,
+        range: &Option<ScmCommitRange>,
+        include_paths: Option<&Vec<Pattern>>,
+        exclude_paths: Option<&Vec<Pattern>>,
+        limit_commits: Option<usize>,
+    ) -> ScmResult<Vec<ScmCommit>>;
+
+    fn tags(
+        &self,
+        pattern: &Option<Regex>,
+        topo_order: bool,
+    ) -> ScmResult<IndexMap<String, String>>;
+
+    fn current_tag(&self) -> Option<String>;
+
+    /// Determines if the working directory has changes
+    fn is_dirty(&self) -> ScmResult<bool>;
+
+    // head return commit/revision
+
+    fn supported_hooks(&self) -> Vec<&'static str>;
+
+    fn supports_hook(&self, hook: &str) -> bool;
+
+    fn hooks_path(&self) -> ScmResult<PathBuf>;
+
+    fn is_hook_file_sample(&self, path: &Path) -> bool;
+
+    fn info_path(&self) -> ScmResult<PathBuf>;
+
+    fn all_files(&self) -> ScmResult<Vec<PathBuf>>;
+
+    // TODO: better name than staged. What do you call files in SVN that are added but not committed?
+    fn staged_files(&self) -> ScmResult<Vec<PathBuf>>;
+
+    // TODO: push files?
+    // for SVN files that are added would be staged and files that are added and have modifications would be pushed?
+    // or we just say this isnt used for all SCMs
+    fn push_files(&self) -> ScmResult<Vec<PathBuf>>;
+
+    fn files_by_command(&self, cmd: &String) -> ScmResult<Vec<PathBuf>>;
+
+    fn scm(&self) -> &'static str;
 }
 
 impl Scm {
@@ -86,26 +150,35 @@ impl ScmRepository for Scm {
 
     fn commits(
         &self,
-        range: &Option<String>,
+        range: &Option<ScmCommitRange>,
         include_paths: Option<&Vec<Pattern>>,
         exclude_paths: Option<&Vec<Pattern>>,
+        limit_commits: Option<usize>,
     ) -> ScmResult<Vec<ScmCommit>> {
         match self {
-            Scm::Git(r) => r.commits(range, include_paths, exclude_paths),
-            Scm::Hg(r) => r.commits(range, include_paths, exclude_paths),
-            Scm::Svn(r) => r.commits(range, include_paths, exclude_paths),
+            Scm::Git(r) => r.commits(range, include_paths, exclude_paths, limit_commits),
+            Scm::Hg(r) => r.commits(range, include_paths, exclude_paths, limit_commits),
+            Scm::Svn(r) => r.commits(range, include_paths, exclude_paths, limit_commits),
         }
     }
 
     fn tags(
         &self,
-        pattern: &Option<String>,
+        pattern: &Option<Regex>,
         topo_order: bool,
     ) -> ScmResult<IndexMap<String, String>> {
         match self {
             Scm::Git(r) => r.tags(pattern, topo_order),
             Scm::Hg(r) => r.tags(pattern, topo_order),
             Scm::Svn(r) => r.tags(pattern, topo_order),
+        }
+    }
+
+    fn current_tag(&self) -> Option<String> {
+        match self {
+            Scm::Git(r) => r.current_tag(),
+            Scm::Hg(r) => r.current_tag(),
+            Scm::Svn(r) => r.current_tag(),
         }
     }
 

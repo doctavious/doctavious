@@ -1,7 +1,7 @@
 use std::path::{Path, PathBuf};
 
-use scm::drivers::Scm;
-use scm::{ScmError, ScmRepository};
+use scm::drivers::{Scm, ScmRepository};
+use scm::ScmError;
 use thiserror::Error;
 use tracing::{info, warn};
 
