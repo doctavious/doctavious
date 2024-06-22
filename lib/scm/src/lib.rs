@@ -89,13 +89,14 @@ pub struct ScmTag {
     pub commit_id: String,
 }
 
-pub enum ScmCommitRange {
-    // Current,
-    // Latest,
-    // Untagged,
-    Tuple((String, Option<String>)),
-    String(String),
-}
+pub struct ScmCommitRange(pub String, pub Option<String>);
+// pub enum ScmCommitRange {
+//     // Current,
+//     // Latest,
+//     // Untagged,
+//     Tuple((String, Option<String>)),
+//     String(String),
+// }
 
 #[cfg(test)]
 mod tests {

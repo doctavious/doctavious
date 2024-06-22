@@ -56,7 +56,8 @@ pub(crate) struct ReleaseCommand {
     skip_commit: Vec<String>,
 
     // TODO: could use -R and --range instead of index
-    /// Sets the commit range to process.
+    /// Sets the commit range to process [possible values: current, latest, unreleased, or
+    /// in the format of <START>..<END>]
     #[arg(index = 1)]
     pub range: Option<ChangelogRange>,
 

@@ -1,6 +1,8 @@
 use std::io::Write;
 use std::str::FromStr;
 
+use lazy_static::lazy_static;
+use regex::Regex;
 use scm::ScmCommitRange;
 use strum::{Display, EnumIter, EnumString, IntoEnumIterator, VariantNames};
 use thiserror::Error;
@@ -31,16 +33,31 @@ pub enum ChangelogRange {
     Range(String),
 }
 
+lazy_static! {
+    static ref CHANGELOG_RANGE_REGEX: Regex = Regex::new(r"^.+\.\..+$").unwrap();
+}
+
 impl FromStr for ChangelogRange {
     type Err = String;
+    // const re: Regex = regex!("42");
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        Ok(match s {
-            "current" => ChangelogRange::Current,
-            "latest" => ChangelogRange::Latest,
-            "unreleased" => ChangelogRange::Unreleased,
-            _ => ChangelogRange::Range(s.to_string()),
-        })
+        match s {
+            "current" => Ok(ChangelogRange::Current),
+            "latest" => Ok(ChangelogRange::Latest),
+            "unreleased" => Ok(ChangelogRange::Unreleased),
+            _ => {
+                if CHANGELOG_RANGE_REGEX.is_match(s) {
+                    Ok(ChangelogRange::Range(s.to_string()))
+                } else {
+                    Err(
+                        "Invalid changelog range. Value should be current, latest, unreleased, or \
+                        in the format of <START>..<END>"
+                            .to_string(),
+                    )
+                }
+            }
+        }
     }
 }
 

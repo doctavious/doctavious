@@ -143,8 +143,6 @@ fn process_repository(
 
     // TODO: handle getting data from remote repository
 
-    println!("{:?}", &options.range);
-
     // TODO: make sure range is appropriate
     // most recent annotated tag `git describe --abbrev=0`
     // most recent tag `git describe --tags --abbrev=0`
@@ -159,8 +157,7 @@ fn process_repository(
                         scm.last_commit().map(|c| Some(c.id.to_string()))?,
                         tags.get_index(0).map(|(k, _)| k),
                     ) {
-                        commit_range = Some(ScmCommitRange::Tuple((tag1, Some(tag2.to_string()))));
-                        // format!("{tag1}..{tag2}")
+                        commit_range = Some(ScmCommitRange(tag1, Some(tag2.to_string())));
                     }
                 } else {
                     let mut tag_index = tags.len() - 2;
@@ -187,15 +184,29 @@ fn process_repository(
                             )));
                         }
                     }
+                    if let (Some(tag1), Some(tag2)) = (
+                        tags.get_index(tag_index).map(|(k, _)| k),
+                        tags.get_index(tag_index + 1).map(|(k, _)| k),
+                    ) {
+                        commit_range = Some(ScmCommitRange(tag1.to_string(), Some(tag2.to_string())));
+                    }
                 }
             }
             ChangelogRange::Unreleased => {
                 if let Some(last_tag) = tags.last().map(|(k, _)| k) {
-                    commit_range = Some(ScmCommitRange::Tuple((last_tag.to_string(), None)));
-                    // format!("{last_tag}..HEAD")
+                    commit_range = Some(ScmCommitRange(last_tag.to_string(), None));
                 }
             }
-            ChangelogRange::Range(r) => commit_range = Some(ScmCommitRange::String(r.to_string())), // Some(r.to_string()),
+            ChangelogRange::Range(r) => {
+                if let Some(parts) = r.to_string().split_once("..") {
+                    commit_range = Some(ScmCommitRange(
+                        parts.0.to_string(),
+                        Some(parts.1.to_string()),
+                    ))
+                } else {
+                    warn!("{}", format!("Unable to parse changelog range {r}"))
+                }
+            }
         }
     };
 
