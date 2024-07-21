@@ -1,15 +1,32 @@
+use std::hash::{Hash, Hasher};
+
 use chrono::{DateTime, Utc};
+use serde_derive::{Deserialize, Serialize};
 
 use crate::ScmSignature;
 
+#[derive(Clone, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
+#[serde(rename_all = "lowercase")]
 #[remain::sorted]
-pub enum ScmGitProviders {
+pub enum ScmProviders {
     BitBucket,
     Gitea,
     GitHub,
     GitLab,
     Gog,
 }
+
+// impl Hash for ScmProviders {
+//     fn hash<H: Hasher>(&self, state: &mut H) {
+//         match self {
+//             ScmProviders::BitBucket => {}
+//             ScmProviders::Gitea => {}
+//             ScmProviders::GitHub => {}
+//             ScmProviders::GitLab => {}
+//             ScmProviders::Gog => {}
+//         }
+//     }
+// }
 
 pub struct ScmProviderCommitsResponse {
     pub id: String,
