@@ -286,7 +286,6 @@ impl<'a> ScmHookRunner<'a> {
         }
 
         let ok = self.run(
-            name,
             format!("{} {}", script.runner, path.to_string_lossy()).as_str(),
             self.options.cwd,
         );
@@ -360,7 +359,7 @@ impl<'a> ScmHookRunner<'a> {
             working_dir = working_dir.join(root);
         }
 
-        let ok = self.run(name, &runnable, &working_dir);
+        let ok = self.run(&runnable, &working_dir);
         if ok {
             Ok(ScmHookRunnerOutcome::succeeded(name.to_owned()))
         } else {
@@ -428,32 +427,8 @@ impl<'a> ScmHookRunner<'a> {
         Ok(run_string)
     }
 
-    pub fn run(&self, name: &str, runnable: &str, root: &Path) -> bool {
-        let output = if cfg!(target_os = "windows") {
-            Command::new("cmd")
-                .current_dir(root)
-                .arg("/C")
-                .arg(runnable)
-                .output()
-        } else {
-            Command::new("sh")
-                .current_dir(root)
-                .arg("-c")
-                .arg(runnable)
-                .output()
-        };
-
-        // TODO: log execution
-        match &output {
-            Ok(o) => {
-                println!("stdout: {:?}", String::from_utf8(o.stdout.clone()));
-                println!("stderr: {:?}", String::from_utf8(o.stderr.clone()));
-            }
-            Err(e) => {
-                println!("error: {}", e);
-            }
-        };
-
+    pub fn run(&self, runnable: &str, root: &Path) -> bool {
+        let output = doctavious_std::command::run(runnable, None, root, vec![]);
         output.is_ok()
     }
 }
