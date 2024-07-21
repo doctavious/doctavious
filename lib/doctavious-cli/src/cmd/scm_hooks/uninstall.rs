@@ -2,7 +2,7 @@ use std::borrow::Cow;
 use std::fs;
 use std::path::Path;
 
-use common::path::append_to_path;
+use doctavious_std::path::append_to_path;
 use scm::drivers::{Scm, ScmRepository};
 use scm::hooks::OLD_HOOK_POSTFIX;
 use tracing::{debug, error};

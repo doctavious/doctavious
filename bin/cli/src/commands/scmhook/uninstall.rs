@@ -33,7 +33,7 @@ mod tests {
     use std::fs;
     use std::path::PathBuf;
 
-    use common::fs::copy_dir;
+    use doctavious_std::fs::copy_dir;
     use scm::drivers::git::GitScmRepository;
     use scm::drivers::ScmRepository;
     use scm::HOOK_TEMPLATE;

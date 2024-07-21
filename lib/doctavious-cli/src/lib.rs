@@ -33,6 +33,9 @@ pub enum DoctaviousCliError {
     #[error("design decision error: {0}")]
     DesignDecisionErrors(#[from] design_decisions::DesignDecisionErrors),
 
+    #[error(transparent)]
+    DoctaviousStdError(#[from] doctavious_std::error::DoctaviousStdError),
+
     /// Error variant that represents errors coming out of libgit2.
     #[error("Git error: `{0}`")]
     GitError(#[from] git2::Error),

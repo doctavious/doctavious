@@ -72,7 +72,7 @@ mod tests {
     use std::fs;
     use std::path::{Path, PathBuf};
 
-    use common::fs::copy_dir;
+    use doctavious_std::fs::copy_dir;
     use doctavious_cli::settings::Config;
     use doctavious_cli::CliResult;
     use scm::drivers::git::GitScmRepository;

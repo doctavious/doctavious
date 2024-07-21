@@ -54,7 +54,7 @@ pub(crate) fn clean_hook(hook: &str, path: &Path, force: bool) -> CliResult<()> 
         return Ok(fs::remove_file(path)?);
     }
 
-    let old_path = common::path::append_to_path(path, OLD_HOOK_POSTFIX);
+    let old_path = doctavious_std::path::append_to_path(path, OLD_HOOK_POSTFIX);
     if old_path.exists() {
         if force {
             info!("File {old_path:?} already exists, overwriting");

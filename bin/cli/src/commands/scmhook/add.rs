@@ -41,7 +41,7 @@ mod tests {
     use std::fs;
     use std::path::PathBuf;
 
-    use common::fs::copy_dir;
+    use doctavious_std::fs::copy_dir;
     use scm::drivers::git::GitScmRepository;
     use scm::drivers::ScmRepository;
     use scm::hooks::OLD_HOOK_POSTFIX;
@@ -222,7 +222,7 @@ root = "backend"
 
         let scm_hooks_path = scm.hooks_path().unwrap();
         let pre_commit_path = scm_hooks_path.join("pre-commit");
-        let old_pre_commit_path = common::path::append_to_path(&pre_commit_path, OLD_HOOK_POSTFIX);
+        let old_pre_commit_path = doctavious_std::path::append_to_path(&pre_commit_path, OLD_HOOK_POSTFIX);
         fs::write(&pre_commit_path, "some hook content").unwrap();
         fs::write(&old_pre_commit_path, "some old hook content").unwrap();
 
@@ -253,7 +253,7 @@ root = "backend"
 
         let scm_hooks_path = scm.hooks_path().unwrap();
         let pre_commit_path = scm_hooks_path.join("pre-commit");
-        let old_pre_commit_path = common::path::append_to_path(&pre_commit_path, OLD_HOOK_POSTFIX);
+        let old_pre_commit_path = doctavious_std::path::append_to_path(&pre_commit_path, OLD_HOOK_POSTFIX);
         fs::write(&pre_commit_path, "some hook content").unwrap();
         fs::write(&old_pre_commit_path, "some old hook content").unwrap();
 

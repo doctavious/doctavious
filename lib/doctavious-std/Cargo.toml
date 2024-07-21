@@ -1,0 +1,12 @@
+[package]
+name = "doctavious-std"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+# NOTE: dependencies should be minimal and broadly re-used amongst other crates
+[dependencies]
+serde = { workspace = true, features = ["derive"] }
+thiserror = { workspace = true }
+tracing = { workspace = true }
+walkdir = { workspace = true }

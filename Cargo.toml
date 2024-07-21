@@ -13,9 +13,9 @@ members = [
     "lib/cas",
     "lib/changelog",
     "lib/cifrs",
-    "lib/common",
     "lib/doctavious-cli",
     "lib/doctavious-server",
+    "lib/doctavious-std",
     "lib/testing",
     "lib/scm",
 ]
