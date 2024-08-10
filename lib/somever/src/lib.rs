@@ -35,7 +35,7 @@ pub trait Bumpable {}
 pub enum VersioningScheme {
     // do we need to know more information? Such as format/separator so each part can be
     // appropriated compared
-    CalVer,
+    Calver,
     #[default]
     Semver,
 }
@@ -43,7 +43,7 @@ pub enum VersioningScheme {
 // do we need a separator?
 // whats the best way to handle parsing micro from modifier?
 // how to handle sorting modifier?
-#[derive(Debug, Eq, Ord, PartialEq, PartialOrd)]
+#[derive(Debug, Deserialize, Eq, Ord, PartialEq, PartialOrd, Serialize)]
 pub struct Calver {
     pub major: u16,
     pub minor: u8,
@@ -153,6 +153,12 @@ impl Display for Calver {
 // patch number, omitting the micro number on the first release number for external representations of the version number.
 
 // (<MAJOR>\d).(<MINOR>\d)(?<MICRO>.\d)(?<MODIFIER>.+)
+
+#[derive(Debug, Serialize)]
+pub enum Version {
+    Calver(Calver),
+    Semver(semver::Version),
+}
 
 #[cfg(test)]
 mod tests {

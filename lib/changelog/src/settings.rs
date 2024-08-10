@@ -145,11 +145,14 @@ pub struct ChangelogScmSettings {
     /// How to sort tags
     pub tag_sort: Option<TagSort>,
 
+    // TODO: use enum? oldest / newest
     /// Sorting of the commits inside sections.
-    pub sort_commits: Option<String>, // oldest / newest
+    pub sort_commits: Option<String>,
 
     /// Limit the number of commits included in the changelog.
     pub limit_commits: Option<usize>,
+
+    pub version_scheme: VersioningScheme,
 }
 
 /// Parser for grouping commits.
@@ -169,17 +172,14 @@ impl CommitParser {
     }
 
     pub fn dot_path<'a>(value: &'a Value, path: &'a str) -> Option<&'a Value> {
-        path.split('.').try_fold(
-            value,
-            |target, token| match target {
+        path.split('.')
+            .try_fold(value, |target, token| match target {
                 Value::Object(map) => map.get(token),
-                _ => None
-            }
-        )
+                _ => None,
+            })
     }
 
     pub fn matched(&self, commit: &ChangelogCommit) -> ChangelogResult<Option<String>> {
-
         let mut checks = Vec::new();
         // TODO: need to support multiple field checks
         // { message = ".*deprecated", body = ".*deprecated", group = "Deprecation" }
@@ -187,16 +187,14 @@ impl CommitParser {
         let field = self.field.as_str();
         let pattern = &self.pattern;
 
-        let commit_value =  serde_json::to_value(commit)?;
+        let commit_value = serde_json::to_value(commit)?;
         let value = Self::dot_path(&commit_value, field);
         if let Some(v) = value {
             match v {
-                Value::Bool(_) | Value::Number(_) | Value::String(_)  => {
+                Value::Bool(_) | Value::Number(_) | Value::String(_) => {
                     checks.push(Some(v.to_string()))
                 }
-                Value::Array(a) => {
-                    checks.extend(a.iter().map(|f| Some(f.to_string())))
-                }
+                Value::Array(a) => checks.extend(a.iter().map(|f| Some(f.to_string()))),
                 Value::Null => {
                     warn!("skipping commit parser with field {field} as it has no value");
                 }
@@ -205,9 +203,6 @@ impl CommitParser {
                 }
             }
         }
-
-
-
 
         match field {
             "id" => checks.push(Some(commit.id.to_string())),
@@ -330,21 +325,21 @@ pub struct LinkParser {
     pub text: Option<String>,
 }
 
-
 #[cfg(test)]
 mod tests {
     use serde_derive::Serialize;
+
     use crate::settings::CommitParser;
 
     #[derive(Debug, Clone, PartialEq, Serialize)]
     struct Inner {
-        name: String
+        name: String,
     }
 
     #[derive(Debug, Clone, PartialEq, Serialize)]
     struct Outer {
         body: String,
-        inner: Inner
+        inner: Inner,
     }
 
     // TODO: invalid template should return valid error
@@ -353,8 +348,8 @@ mod tests {
         let o = Outer {
             body: "some message".to_string(),
             inner: Inner {
-                name: "sean".to_string()
-            }
+                name: "sean".to_string(),
+            },
         };
 
         let value = serde_json::to_value(o).unwrap();

@@ -92,20 +92,6 @@ pub fn release_with_settings(
             changelog_settings.scm.limit_commits,
         )?;
 
-        // if tag is provided update tags
-        if let Some(ref tag) = options.tag {
-            if let Some(commit_id) = commits.first().map(|c| c.id.to_string()) {
-                match tags.get(&commit_id) {
-                    Some(tag) => {
-                        warn!("There is already a tag ({}) for {}", &tag.name, commit_id)
-                    }
-                    None => {
-                        tags.insert(commit_id, scm.get_tag(tag));
-                    }
-                }
-            }
-        }
-
         // let mut tagged_commits = IndexMap::new();
         let mut untagged_commits = vec![];
         // TODO: double check if I need this reverse?
@@ -131,6 +117,7 @@ pub fn release_with_settings(
                 tagged_commits.push(TaggedCommits {
                     tag: Some(tag.to_owned()),
                     commits: untagged_commits.clone(),
+                    timestamp: commit.timestamp,
                 });
                 untagged_commits.clear();
             }
@@ -138,10 +125,31 @@ pub fn release_with_settings(
 
         // handle untagged commits
         if !untagged_commits.is_empty() {
-            tagged_commits.push(TaggedCommits {
-                tag: None,
-                commits: untagged_commits.clone(),
-            });
+            // if tag is provided use as latest tag
+            if let Some(ref tag) = options.tag {
+                let latest_commit = if options.sort == ChangelogCommitSort::Newest {
+                    untagged_commits.first()
+                } else {
+                    untagged_commits.last()
+                };
+
+                if let Some(commit) = latest_commit {
+                    tagged_commits.push(TaggedCommits {
+                        tag: Some(scm.get_tag(tag)),
+                        commits: untagged_commits.clone(),
+                        timestamp: commit.timestamp,
+                    });
+                }
+            } else {
+                tagged_commits.push(TaggedCommits {
+                    tag: None,
+                    commits: untagged_commits.clone(),
+                    timestamp: SystemTime::now()
+                        .duration_since(UNIX_EPOCH)?
+                        .as_secs()
+                        .try_into()?,
+                });
+            }
         }
     }
 
@@ -382,15 +390,16 @@ fn determine_commit_range(
 #[cfg(test)]
 mod tests {
     use std::path::Path;
+
     use changelog::settings::{ChangelogScmSettings, ChangelogSettings};
     use scm::drivers::git::TagSort;
 
-    use crate::changelog::cmd::release::{release, ChangelogReleaseOptions, release_with_settings};
+    use crate::changelog::cmd::release::{release, release_with_settings, ChangelogReleaseOptions};
 
     #[test]
     fn test_release() {
         release_with_settings(
-                ChangelogReleaseOptions {
+            ChangelogReleaseOptions {
                 cwd: Path::new("../.."),
                 repositories: None,
                 prepend: None,
@@ -421,7 +430,7 @@ mod tests {
                 },
                 remote: None,
                 bump: None,
-            }
+            },
         )
         .unwrap();
     }

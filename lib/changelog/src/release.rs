@@ -1,11 +1,12 @@
 use serde::Serialize;
+use somever::Version;
 
 use crate::entries::ChangelogEntry;
 
 #[derive(Default, Debug, Serialize)]
 pub struct Release {
     /// Release version, git tag.
-    pub version: Option<String>,
+    pub version: Option<Version>,
 
     /// Commit ID of the tag.
     pub tag_id: Option<String>,
