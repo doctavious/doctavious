@@ -6,7 +6,7 @@ use lazy_static::lazy_static;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use strum::{Display, EnumIter, EnumString, IntoEnumIterator, VariantNames};
 
-use crate::{CliResult, DoctaviousCliError};
+use crate::errors::{CliResult, DoctaviousCliError};
 
 lazy_static! {
     pub static ref MARKUP_FORMAT_EXTENSIONS: HashMap<&'static str, MarkupFormat> = {

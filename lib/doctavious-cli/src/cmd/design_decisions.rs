@@ -4,14 +4,15 @@ use std::io::ErrorKind;
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
 
+use scm::drivers::{Scm, ScmRepository};
 use thiserror::Error;
 use unidecode::unidecode;
 use walkdir::{DirEntry, WalkDir};
 
+use crate::errors::{CliResult, DoctaviousCliError};
 use crate::file_structure::FileStructure;
 use crate::markup_format::{MarkupFormat, MARKUP_FORMAT_EXTENSIONS};
 use crate::settings::DEFAULT_TEMPLATE_DIR;
-use crate::{CliResult, DoctaviousCliError};
 
 pub mod adr;
 pub mod rfd;
@@ -174,11 +175,6 @@ pub(crate) fn reserve_number(
 }
 
 pub(crate) fn is_number_reserved(dir: &Path, number: u32, file_structure: FileStructure) -> bool {
-    // TODO: revisit iterator
-    // return get_allocated_numbers(dir)
-    //     .find(|n| n == &number)
-    //     .is_some();
-
     get_allocated_numbers(dir, file_structure).contains(&number)
 }
 
@@ -251,15 +247,35 @@ pub(crate) fn get_allocated_numbers_via_flat_files(dir: &Path) -> Vec<u32> {
 
 pub(crate) fn get_next_number(dir: &Path, file_structure: FileStructure) -> u32 {
     // TODO: revisit iterator
-    // return get_allocated_numbers(dir)
+    // get_allocated_numbers(dir, file_structure)
+    //     .iter()
     //     .max()
-    //     .unwrap() + 1;
+    //     .unwrap_or_default() + 1
 
     if let Some(max) = get_allocated_numbers(dir, file_structure).iter().max() {
         max + 1
     } else {
         1
     }
+}
+
+fn can_reserve(repo: &Scm, number: u32) -> CliResult<bool> {
+    if repo.is_dirty()? {
+        // TODO: return error
+    }
+
+    match repo {
+        Scm::Git(_) => {
+            if repo.branch_exists(number.to_string().as_str()).is_err() {
+                return Err(
+                    git2::Error::from_str("branch already exists in remote. Please pull.").into(),
+                );
+            }
+        }
+        _ => unimplemented!(),
+    }
+
+    Ok(true)
 }
 
 pub(crate) fn slugify(string: &str) -> String {

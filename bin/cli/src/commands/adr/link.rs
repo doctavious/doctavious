@@ -3,7 +3,7 @@ use std::str::FromStr;
 
 use clap::Parser;
 use doctavious_cli::cmd::design_decisions::{adr, LinkReference};
-use doctavious_cli::CliResult;
+use doctavious_cli::errors::CliResult;
 
 /// Creates a link between two ADRs, from SOURCE to TARGET
 #[derive(Parser, Debug)]

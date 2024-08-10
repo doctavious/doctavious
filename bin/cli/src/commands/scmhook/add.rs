@@ -2,8 +2,8 @@ use std::path::PathBuf;
 
 use clap::Parser;
 use doctavious_cli::cmd::scm_hooks::add::add;
+use doctavious_cli::errors::CliResult;
 use doctavious_cli::settings::DEFAULT_CONFIG_DIR;
-use doctavious_cli::CliResult;
 
 /// Create a SCM Hook.
 ///
@@ -222,7 +222,8 @@ root = "backend"
 
         let scm_hooks_path = scm.hooks_path().unwrap();
         let pre_commit_path = scm_hooks_path.join("pre-commit");
-        let old_pre_commit_path = doctavious_std::path::append_to_path(&pre_commit_path, OLD_HOOK_POSTFIX);
+        let old_pre_commit_path =
+            doctavious_std::path::append_to_path(&pre_commit_path, OLD_HOOK_POSTFIX);
         fs::write(&pre_commit_path, "some hook content").unwrap();
         fs::write(&old_pre_commit_path, "some old hook content").unwrap();
 
@@ -253,7 +254,8 @@ root = "backend"
 
         let scm_hooks_path = scm.hooks_path().unwrap();
         let pre_commit_path = scm_hooks_path.join("pre-commit");
-        let old_pre_commit_path = doctavious_std::path::append_to_path(&pre_commit_path, OLD_HOOK_POSTFIX);
+        let old_pre_commit_path =
+            doctavious_std::path::append_to_path(&pre_commit_path, OLD_HOOK_POSTFIX);
         fs::write(&pre_commit_path, "some hook content").unwrap();
         fs::write(&old_pre_commit_path, "some old hook content").unwrap();
 

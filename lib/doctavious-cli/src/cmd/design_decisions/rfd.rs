@@ -3,13 +3,15 @@ use std::io::BufReader;
 use std::path::{Path, PathBuf};
 
 use chrono::Local;
-use git2::Repository;
+use scm::drivers::{Scm, ScmRepository};
 use serde::Serialize;
-
+use doctavious_templating::{TemplateContext, Templates};
 use crate::cmd::design_decisions;
 use crate::cmd::design_decisions::{
-    build_path, format_number, reserve_number, DesignDecisionErrors,
+    build_path, can_reserve, format_number, reserve_number, DesignDecisionErrors,
 };
+use crate::edit;
+use crate::errors::{CliResult, DoctaviousCliError};
 use crate::file_structure::FileStructure;
 use crate::files::ensure_path;
 use crate::markup_format::MarkupFormat;
@@ -18,8 +20,7 @@ use crate::settings::{
     DEFAULT_RFD_RECORD_TEMPLATE_PATH, DEFAULT_RFD_TOC_TEMPLATE_PATH,
 };
 use crate::templates::{get_template, get_title};
-use crate::templating::{RfdTemplateType, TemplateContext, TemplateType, Templates};
-use crate::{edit, git, CliResult, DoctaviousCliError};
+use crate::templating::{RfdTemplateType, TemplateType};
 
 // RFD parsing: https://github.com/oxidecomputer/cio/blob/master/parse-rfd/src/lib.rs
 // https://github.com/oxidecomputer/cio/tree/master/parse-rfd/parser
@@ -69,6 +70,7 @@ pub fn new(
         TemplateType::Rfd(RfdTemplateType::Record),
         &format.extension(),
     );
+
     let reserve_number = reserve_number(&dir, number, settings.get_rfd_structure())?;
     let formatted_reserved_number = format_number(&reserve_number);
     let output_path = build_path(
@@ -110,22 +112,29 @@ pub fn reserve(
     let settings = load_settings(cwd)?;
     let dir = get_rfd_dir(cwd, false)?;
     let format = settings.get_rfd_template_format(format);
-
     let reserve_number = reserve_number(&dir, number, settings.get_rfd_structure())?;
 
-    let repo = Repository::open(&dir)?;
-    if git::branch_exists(&repo, reserve_number).is_err() {
-        // TODO: use a different error than git2
-        return Err(git2::Error::from_str("branch already exists in remote. Please pull.").into());
-    }
-
-    git::checkout_branch(&repo, reserve_number.to_string().as_str())?;
+    let scm = Scm::get(cwd)?;
+    can_reserve(&scm, reserve_number)?;
 
     let new_rfd = new(cwd, number, title.as_str(), Some(format))?;
 
-    let message = format!("{}: Adding placeholder for RFD {}", reserve_number, title);
-    git::add_and_commit(&repo, new_rfd.as_path(), message.as_str())?;
-    git::push(&repo)?;
+    reserve_scm(&scm, reserve_number, &new_rfd, title)?;
+
+    Ok(())
+}
+
+fn reserve_scm(repo: &Scm, number: u32, adr_path: &Path, title: String) -> CliResult<()> {
+    match repo.scm() {
+        scm::GIT => {
+            repo.checkout(number.to_string().as_str())?;
+            repo.write(
+                adr_path,
+                format!("{}: Adding placeholder for RFD {}", number, title).as_str(),
+            )?;
+        }
+        _ => unimplemented!(),
+    }
 
     Ok(())
 }

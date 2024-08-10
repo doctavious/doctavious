@@ -1,28 +1,25 @@
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 
-use crate::commit::Commit;
+use crate::entries::ChangelogEntry;
 
-#[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Default, Debug, Serialize)]
 pub struct Release {
     /// Release version, git tag.
     pub version: Option<String>,
-    /// Commits made for the release.
-    pub commits: Vec<Commit>,
+
     /// Commit ID of the tag.
-    pub commit_id: Option<String>,
+    pub tag_id: Option<String>,
+
+    /// Entries made for the release
+    pub commits: Vec<ChangelogEntry>,
+
     /// Timestamp of the release in seconds, from epoch.
     pub timestamp: i64,
-    /// Previous release.
-    pub previous: Option<Box<Release>>,
-}
-
-impl Release {
-    // TODO: Calculates the next version based on the commits.
 }
 
 /// Representation of a list of releases.
 #[derive(Serialize)]
-pub struct Releases<'a> {
+pub struct Releases {
     /// Releases.
-    pub releases: &'a Vec<Release>,
+    pub releases: Vec<Release>,
 }

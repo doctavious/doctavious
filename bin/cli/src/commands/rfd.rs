@@ -5,7 +5,7 @@ mod new;
 mod reserve;
 
 use clap::{Parser, Subcommand};
-use doctavious_cli::CliResult;
+use doctavious_cli::errors::CliResult;
 
 use crate::commands::rfd::generate::GenerateRFDs;
 use crate::commands::rfd::init::InitRFD;

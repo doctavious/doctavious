@@ -1,3 +1,4 @@
+use std::ffi::OsStr;
 use std::io::{Error as IoError, ErrorKind as IoErrorKind, Write};
 use std::path::Path;
 use std::process::{Command, Output};
@@ -8,7 +9,7 @@ use tracing::log;
 use crate::error::Result;
 
 /// Runs the given program and returns the output as string.
-pub fn run_with_program(
+pub fn run_program(
     program: &str,
     args: &str,
     root: Option<&Path>,
@@ -16,6 +17,26 @@ pub fn run_with_program(
 ) -> Result<String> {
     let mut command = Command::new(program);
     command.arg(args).envs(envs);
+    if let Some(cwd) = root {
+        command.current_dir(cwd);
+    }
+
+    let output = command.output()?;
+    handle_output(output)
+}
+
+pub fn run_program_with_args<I, S>(
+    program: &str,
+    args: I,
+    root: Option<&Path>,
+    envs: Vec<(&str, &str)>,
+) -> Result<String>
+where
+    I: IntoIterator<Item = S>,
+    S: AsRef<OsStr>,
+{
+    let mut command = Command::new(program);
+    command.args(args).envs(envs);
     if let Some(cwd) = root {
         command.current_dir(cwd);
     }

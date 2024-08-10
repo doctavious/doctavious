@@ -2,7 +2,7 @@ use std::path::PathBuf;
 
 use clap::Parser;
 use doctavious_cli::cmd::scm_hooks::uninstall::uninstall;
-use doctavious_cli::CliResult;
+use doctavious_cli::errors::CliResult;
 
 /// Clear hooks related to Doctavious configuration
 #[derive(Parser, Debug)]

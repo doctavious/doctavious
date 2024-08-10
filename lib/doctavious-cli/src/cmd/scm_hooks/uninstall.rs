@@ -8,8 +8,8 @@ use scm::hooks::OLD_HOOK_POSTFIX;
 use tracing::{debug, error};
 
 use crate::cmd::scm_hooks::is_doctavious_scm_hook_file;
+use crate::errors::CliResult;
 use crate::settings::{load_settings, persist_settings, SettingErrors, Settings};
-use crate::{CliResult, DoctaviousCliError};
 
 /// Deletes hooks.
 ///

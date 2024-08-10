@@ -6,8 +6,7 @@ use git2::{BranchType, Commit, Direction, Oid, Repository, Sort};
 use indexmap::IndexMap;
 use regex::Regex;
 
-use crate::CliResult;
-
+use crate::errors::CliResult;
 // https://github.com/simeg/eureka/blob/master/src/git.rs
 
 // Latest semver tag. Need to verify as this probably doesnt take into account pre-release or build_mod

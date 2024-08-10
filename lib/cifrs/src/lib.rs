@@ -1,7 +1,7 @@
 use std::collections::HashSet;
 use std::fmt::{Debug, Display};
 use std::path::{Path, PathBuf};
-use std::process::{Command, ExitStatus};
+use std::process::Command;
 use std::str::FromStr;
 
 use glob::PatternError;
@@ -9,7 +9,7 @@ use thiserror::Error;
 use tracing::error;
 
 use crate::framework_detection::Detectable;
-use crate::frameworks::{FrameworkBuildArg, FrameworkBuildArgs, FrameworkInfo};
+use crate::frameworks::{FrameworkBuildArg, FrameworkInfo};
 use crate::package_manager::PackageManagerInfo;
 use crate::workspaces::Workspace;
 
@@ -298,17 +298,6 @@ impl Cifrs {
     }
 
     fn get_command(cmd: &str) -> Command {
-        // let mut command = if cfg!(target_os = "windows") {
-        //     Command::new("cmd")
-        // } else {
-        //     Command::new("sh")
-        // };
-        //
-        // if cfg!(target_os = "windows") {
-        //     command.args(["/C", cmd])
-        // } else {
-        //     command.args(["-c", cmd])
-        // };
         let program_args = cmd.split(" ").collect::<Vec<&str>>();
         let mut command = Command::new(program_args[0]);
         if program_args.len() > 1 {

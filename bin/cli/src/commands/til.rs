@@ -5,7 +5,7 @@ mod new;
 mod open;
 
 use clap::Parser;
-use doctavious_cli::CliResult;
+use doctavious_cli::errors::CliResult;
 
 use crate::commands::til::generate::GenerateTils;
 use crate::commands::til::init::InitTil;

@@ -1,6 +1,6 @@
 use cifrs::frameworks;
 
-use crate::{CliResult, DoctaviousCliError};
+use crate::errors::{CliResult, DoctaviousCliError};
 
 pub fn invoke() -> CliResult<Option<String>> {
     let frameworks = frameworks::get_all();

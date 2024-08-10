@@ -6,7 +6,7 @@ mod new;
 mod reserve;
 
 use clap::Parser;
-use doctavious_cli::CliResult;
+use doctavious_cli::errors::CliResult;
 
 use crate::commands::adr::generate::GenerateADRs;
 use crate::commands::adr::init::InitADR;

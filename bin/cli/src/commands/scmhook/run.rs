@@ -2,7 +2,7 @@ use std::path::PathBuf;
 
 use clap::Parser;
 use doctavious_cli::cmd::scm_hooks::run::{run, ScmHookRunFiles};
-use doctavious_cli::CliResult;
+use doctavious_cli::errors::CliResult;
 
 /// Execute commands/scripts associated to the specified hook.
 ///
@@ -72,9 +72,9 @@ mod tests {
     use std::fs;
     use std::path::{Path, PathBuf};
 
-    use doctavious_std::fs::copy_dir;
+    use doctavious_cli::errors::CliResult;
     use doctavious_cli::settings::Config;
-    use doctavious_cli::CliResult;
+    use doctavious_std::fs::copy_dir;
     use scm::drivers::git::GitScmRepository;
     use scm::hooks::OLD_HOOK_POSTFIX;
     use serde::{Deserialize, Serialize};

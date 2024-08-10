@@ -5,14 +5,16 @@ use std::path::{Path, PathBuf};
 use std::str::FromStr;
 
 use chrono::Local;
-use git2::Repository;
 use regex::RegexBuilder;
+use scm::drivers::{Scm, ScmRepository};
 use serde::Serialize;
-
+use doctavious_templating::{TemplateContext, Templates};
 use crate::cmd::design_decisions;
 use crate::cmd::design_decisions::{
-    build_path, format_number, reserve_number, DesignDecisionErrors, LinkReference,
+    build_path, can_reserve, format_number, reserve_number, DesignDecisionErrors, LinkReference,
 };
+use crate::edit;
+use crate::errors::{CliResult, DoctaviousCliError};
 use crate::file_structure::FileStructure;
 use crate::files::ensure_path;
 use crate::markup_format::MarkupFormat;
@@ -22,8 +24,7 @@ use crate::settings::{
     DEFAULT_ADR_TOC_TEMPLATE_PATH,
 };
 use crate::templates::{get_template, get_title};
-use crate::templating::{AdrTemplateType, TemplateContext, TemplateType, Templates};
-use crate::{edit, git, CliResult, DoctaviousCliError};
+use crate::templating::{AdrTemplateType, TemplateType};
 
 // TODO(Sean): might not be a great idea to include setting related stuff here in the lib
 // as it might make it more difficult to use in various other scenarios. Fine for now but
@@ -90,6 +91,7 @@ pub fn new(
 
     let format = settings.get_adr_template_format(format);
     let template = get_template(&dir, TemplateType::Adr(template_type), &format.extension());
+
     let reserve_number = reserve_number(&dir, number, settings.get_adr_structure())?;
     let formatted_reserved_number = format_number(&reserve_number);
     let output_path = build_path(
@@ -184,7 +186,7 @@ pub fn list(cwd: &Path, format: MarkupFormat) -> CliResult<Vec<PathBuf>> {
 // the table will update as well. Whenever information about the state of the RFD changes,
 // this updates the table as well. The single source of truth for information about the RFD comes
 // from the RFD in the branch until it is merged.
-// I think this would be implemented as a    git hook
+// I think this would be implemented as a git hook
 pub fn reserve(
     cwd: &Path,
     number: Option<u32>,
@@ -194,15 +196,10 @@ pub fn reserve(
     let settings = load_settings(cwd)?;
     let dir = get_adr_dir(cwd, false)?;
     let reserve_number = reserve_number(&dir, number, settings.get_adr_structure())?;
-
     let format = settings.get_adr_template_format(format);
-    let repo = Repository::open(&dir)?;
-    if git::branch_exists(&repo, reserve_number).is_err() {
-        // TODO: use a different error than git2
-        return Err(git2::Error::from_str("branch already exists in remote. Please pull.").into());
-    }
 
-    git::checkout_branch(&repo, reserve_number.to_string().as_str())?;
+    let scm = Scm::get(cwd)?;
+    can_reserve(&scm, reserve_number)?;
 
     let new_adr = new(
         &dir,
@@ -214,9 +211,22 @@ pub fn reserve(
         None,
     )?;
 
-    let message = format!("{}: Adding placeholder for ADR {}", reserve_number, title);
-    git::add_and_commit(&repo, new_adr.as_path(), message.as_str())?;
-    git::push(&repo)?;
+    reserve_scm(&scm, reserve_number, &new_adr, title)?;
+
+    Ok(())
+}
+
+fn reserve_scm(repo: &Scm, number: u32, adr_path: &Path, title: String) -> CliResult<()> {
+    match repo.scm() {
+        scm::GIT => {
+            repo.checkout(number.to_string().as_str())?;
+            repo.write(
+                adr_path,
+                format!("{}: Adding placeholder for ADR {}", number, title).as_str(),
+            )?;
+        }
+        _ => unimplemented!(),
+    }
 
     Ok(())
 }

@@ -3,8 +3,7 @@ use std::path::PathBuf;
 
 use cifrs::{BuildOutput, Cifrs};
 
-use crate::CliResult;
-
+use crate::errors::CliResult;
 // TODO: do we want to offer preview deployments?
 // TODO: what setup / linking needs to occur? How to make initial onboarding as easy as possible?
 

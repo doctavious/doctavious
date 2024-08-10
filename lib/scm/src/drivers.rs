@@ -5,10 +5,11 @@ use glob::Pattern;
 use indexmap::IndexMap;
 use regex::Regex;
 
-use crate::drivers::git::GitScmRepository;
+use crate::commit::{ScmCommit, ScmCommitRange, ScmTag};
+use crate::drivers::git::{GitScmRepository, TagSort};
 use crate::drivers::hg::HgScmRepository;
 use crate::drivers::svn::SvnScmRepository;
-use crate::{ScmCommit, ScmCommitRange, ScmError, ScmResult};
+use crate::errors::{ScmError, ScmResult};
 
 pub mod git;
 pub mod hg;
@@ -46,13 +47,15 @@ pub trait ScmRepository {
         limit_commits: Option<usize>,
     ) -> ScmResult<Vec<ScmCommit>>;
 
-    fn tags(
-        &self,
-        pattern: &Option<Regex>,
-        topo_order: bool,
-    ) -> ScmResult<IndexMap<String, String>>;
+    // fn tagged_commits(&self) -> ScmResult<Vec<TaggedCommits>>;
 
-    fn current_tag(&self) -> Option<String>;
+    fn tags(&self, pattern: &Option<Regex>, sort: TagSort) -> ScmResult<IndexMap<String, ScmTag>>;
+
+    fn current_tag(&self) -> Option<ScmTag>;
+
+    fn latest_tag(&self) -> ScmResult<Option<ScmTag>>;
+
+    fn get_tag(&self, name: &str) -> ScmTag;
 
     /// Determines if the working directory has changes
     fn is_dirty(&self) -> ScmResult<bool>;
@@ -162,23 +165,35 @@ impl ScmRepository for Scm {
         }
     }
 
-    fn tags(
-        &self,
-        pattern: &Option<Regex>,
-        topo_order: bool,
-    ) -> ScmResult<IndexMap<String, String>> {
+    fn tags(&self, pattern: &Option<Regex>, sort: TagSort) -> ScmResult<IndexMap<String, ScmTag>> {
         match self {
-            Scm::Git(r) => r.tags(pattern, topo_order),
-            Scm::Hg(r) => r.tags(pattern, topo_order),
-            Scm::Svn(r) => r.tags(pattern, topo_order),
+            Scm::Git(r) => r.tags(pattern, sort),
+            Scm::Hg(r) => r.tags(pattern, sort),
+            Scm::Svn(r) => r.tags(pattern, sort),
         }
     }
 
-    fn current_tag(&self) -> Option<String> {
+    fn current_tag(&self) -> Option<ScmTag> {
         match self {
             Scm::Git(r) => r.current_tag(),
             Scm::Hg(r) => r.current_tag(),
             Scm::Svn(r) => r.current_tag(),
+        }
+    }
+
+    fn latest_tag(&self) -> ScmResult<Option<ScmTag>> {
+        match self {
+            Scm::Git(r) => r.latest_tag(),
+            Scm::Hg(r) => r.latest_tag(),
+            Scm::Svn(r) => r.latest_tag(),
+        }
+    }
+
+    fn get_tag(&self, name: &str) -> ScmTag {
+        match self {
+            Scm::Git(r) => r.get_tag(name),
+            Scm::Hg(r) => r.get_tag(name),
+            Scm::Svn(r) => r.get_tag(name),
         }
     }
 

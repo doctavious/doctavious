@@ -11,14 +11,15 @@ use directories::UserDirs;
 use serde::Serialize;
 use tracing::debug;
 use walkdir::{DirEntry, WalkDir};
-
+use doctavious_templating::{TemplateContext, Templates};
 use crate::cmd::design_decisions::is_valid_file;
+use crate::edit;
+use crate::errors::{CliResult, DoctaviousCliError};
 use crate::files::{ensure_path, friendly_filename};
 use crate::markup_format::MarkupFormat;
 use crate::settings::{Config, SettingErrors, TilSettings, DEFAULT_TIL_DIR};
 use crate::templates::{get_template, get_template_content, get_title};
-use crate::templating::{TemplateContext, TemplateType, Templates, TilTemplateType};
-use crate::{edit, CliResult, DoctaviousCliError};
+use crate::templating::{TemplateType, TilTemplateType};
 
 #[derive(Clone, Debug, Serialize)]
 struct TilEntry {

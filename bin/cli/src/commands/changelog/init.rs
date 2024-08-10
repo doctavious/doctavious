@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 
 use clap::Parser;
-use doctavious_cli::CliResult;
+use doctavious_cli::errors::CliResult;
 
 #[derive(Parser, Debug)]
 #[command()]

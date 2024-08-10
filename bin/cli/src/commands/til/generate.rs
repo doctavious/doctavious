@@ -3,8 +3,8 @@ use std::path::PathBuf;
 use clap::builder::PossibleValuesParser;
 use clap::Parser;
 use doctavious_cli::cmd::til;
+use doctavious_cli::errors::CliResult;
 use doctavious_cli::markup_format::MarkupFormat;
-use doctavious_cli::CliResult;
 
 // TODO: flush this out more?
 // keeping ToC is probably fine

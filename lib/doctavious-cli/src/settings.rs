@@ -1,21 +1,24 @@
 use std::borrow::Cow;
 use std::collections::HashMap;
-use std::fs;
 use std::io::ErrorKind;
 use std::path::{Path, PathBuf};
-use std::sync::OnceLock;
+use std::{env, fs};
 
+use changelog::settings::{ChangelogScmSettings, ChangelogSettings};
 use directories::ProjectDirs;
+use doctavious_std::command;
 use indexmap::IndexMap;
 use regex::Regex;
+use scm::drivers::git::TagSort;
 use scm::hooks::ScmHook;
+use scm::providers::ScmProviders;
 use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
 use thiserror::Error;
 
+use crate::errors::CliResult;
 use crate::file_structure::FileStructure;
 use crate::markup_format::MarkupFormat;
-use crate::CliResult;
 
 pub const DEFAULT_CONFIG_DIR: &str = ".doctavious";
 
@@ -204,43 +207,6 @@ pub struct BuildSettings {
     // ignore_build_command
     // install_command
     // output_directory
-}
-
-#[derive(Clone, Debug, Default, Deserialize, Serialize)]
-pub struct ChangelogSettings {
-    pub scm: ChangelogScmSettings,
-}
-
-#[derive(Clone, Debug, Default, Deserialize, Serialize)]
-pub struct ChangelogScmSettings {
-    /// Whether to enable parsing conventional commits.
-    pub conventional_commits: Option<bool>,
-    /// Whether to filter out unconventional commits.
-    pub filter_unconventional: Option<bool>,
-
-    // /// Git commit preprocessors.
-    // pub commit_preprocessors:     Option<Vec<TextProcessor>>,
-    // /// Git commit parsers.
-    // pub commit_parsers:           Option<Vec<CommitParser>>,
-    // /// Whether to protect all breaking changes from being skipped by a commit parser.
-    // pub protect_breaking_commits: Option<bool>,
-    // /// Link parsers.
-    // pub link_parsers:             Option<Vec<LinkParser>>,
-    // /// Whether to filter out commits.
-    // pub filter_commits:           Option<bool>,
-    #[serde(with = "serde_regex", default)]
-    pub skip_tags: Option<Regex>,
-
-    /// Regex to ignore matched tags.
-    #[serde(with = "serde_regex", default)]
-    pub ignore_tags: Option<Regex>,
-
-    /// Whether to sort tags topologically.
-    pub topo_order: Option<bool>,
-    /// Sorting of the commits inside sections.
-    pub sort_commits: Option<String>, // oldest / newest
-    /// Limit the number of commits included in the changelog.
-    pub limit_commits: Option<usize>,
 }
 
 impl Settings {

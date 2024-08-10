@@ -16,8 +16,10 @@ members = [
     "lib/doctavious-cli",
     "lib/doctavious-server",
     "lib/doctavious-std",
-    "lib/testing",
     "lib/scm",
+    "lib/somever",
+    "lib/templating",
+    "lib/testing",
 ]
 
 [workspace.dependencies]
@@ -35,6 +37,7 @@ directories = "5.0.1"
 figment = "0.10.11"
 futures = "0.3.28"
 git2 = "0.19.0"
+git-conventional = { version = "0.12.4" }
 glob = "0.3.0"
 glob-match = "0.2.1"
 gray_matter = "0.2"

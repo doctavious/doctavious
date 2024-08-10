@@ -1,5 +1,3 @@
-use std::collections::HashMap;
-
 use indexmap::IndexMap;
 use serde::de::{Error, MapAccess, Visitor};
 use serde::{Deserialize as serde_deser, Deserializer};
@@ -206,4 +204,27 @@ pub struct HookCommand {
 
     /// You can specify a text to show when the command or script fails.
     pub fail_text: Option<String>,
+}
+
+#[cfg(test)]
+mod tests {
+    use std::fs;
+    use std::path::Path;
+
+    use crate::drivers::{Scm, ScmRepository};
+
+    #[test]
+    fn hooks_path() {
+        let base_path = Path::new("../..");
+        let scm = Scm::get(base_path).unwrap();
+        let hooks_path = scm.hooks_path().unwrap();
+
+        assert_eq!(
+            ".git/hooks",
+            hooks_path
+                .strip_prefix(fs::canonicalize(&Path::new("../..")).unwrap())
+                .unwrap()
+                .to_string_lossy()
+        );
+    }
 }

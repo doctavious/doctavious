@@ -1,0 +1,20 @@
+[package]
+name = "doctavious-templating"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+indexmap = { workspace = true, features = ["serde"] }
+lazy_static = { workspace = true }
+minijinja = { workspace = true, features = ["loader"] }
+regex = { workspace = true }
+remain = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+serde_derive = { workspace = true }
+strum = { workspace = true }
+thiserror = { workspace = true }
+tracing = { workspace = true }

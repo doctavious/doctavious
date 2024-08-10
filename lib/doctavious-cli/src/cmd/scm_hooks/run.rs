@@ -1,7 +1,7 @@
 use std::path::{Path, PathBuf};
 
 use scm::drivers::{Scm, ScmRepository};
-use scm::ScmError;
+use scm::errors::ScmError;
 use thiserror::Error;
 use tracing::{info, warn};
 
@@ -9,8 +9,8 @@ use crate::cmd::scm_hooks::ensure_hooks;
 use crate::cmd::scm_hooks::runner::{
     ScmHookRunner, ScmHookRunnerOptions, ScmHookRunnerOutcome, ScmHookRunnerResult,
 };
+use crate::errors::{CliResult, DoctaviousCliError};
 use crate::settings::{load_settings, SettingErrors, Settings};
-use crate::{CliResult, DoctaviousCliError};
 
 #[remain::sorted]
 #[derive(Debug, Error)]

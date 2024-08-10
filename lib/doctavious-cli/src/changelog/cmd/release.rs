@@ -1,26 +1,27 @@
-use std::collections::HashMap;
 use std::fs;
+use std::fs::File;
+use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
 
+use changelog::changelog::Changelog;
+use changelog::errors::ChangelogErrors::ChangelogError;
+use changelog::release::Release;
+use changelog::settings::ChangelogSettings;
 use glob::Pattern;
 use indexmap::IndexMap;
 use regex::Regex;
+use scm::commit::{ScmCommitRange, ScmTag, TaggedCommits};
+use scm::drivers::git::TagSort;
 use scm::drivers::{Scm, ScmRepository};
-use scm::ScmCommitRange;
 use tracing::{trace, warn};
 
-use crate::changelog::commit::Commit;
-use crate::changelog::release::Release;
-use crate::changelog::ChangelogErrors::ChangelogError;
-use crate::changelog::{Changelog, ChangelogCommitSort, ChangelogRange};
-use crate::settings::{load_settings, ChangelogSettings, Settings};
-use crate::{CliResult, DoctaviousCliError};
+use crate::changelog::settings::{ChangelogCommitSort, ChangelogRange};
+use crate::errors::{CliResult, DoctaviousCliError};
+use crate::settings::{load_settings, Settings};
 
 // TODO: replace cwd with repositories
-// TODO: range should likely be an enum
 // TODO: ignore commits will live in .doctavious/changelog/.commitsignore
-
 // TODO: do we want to allow users to specify the configuration file?
 // pass in config path instead of cwd
 pub struct ChangelogReleaseOptions<'a> {
@@ -30,16 +31,20 @@ pub struct ChangelogReleaseOptions<'a> {
     pub range: Option<ChangelogRange>,
     pub include_paths: Option<Vec<Pattern>>,
     pub exclude_paths: Option<Vec<Pattern>>,
-    pub topo_order: bool,
     pub sort: ChangelogCommitSort,
+
+    pub skip_commits: Option<Vec<String>>,
+
+    /// Sets the tag for the latest version
     pub tag_pattern: Option<Regex>,
     pub tag: Option<String>,
+    pub tag_sort: Option<TagSort>,
 }
 
-pub fn release(mut options: ChangelogReleaseOptions) -> CliResult<()> {
-    let settings: Settings = load_settings(options.cwd)?.into_owned();
-    let changelog_settings = settings.changelog.unwrap();
-
+pub fn release_with_settings(
+    mut options: ChangelogReleaseOptions,
+    changelog_settings: ChangelogSettings,
+) -> CliResult<()> {
     if let Some(prepend) = options.prepend {
         options.prepend = Some(options.cwd.join(prepend));
     }
@@ -52,6 +57,8 @@ pub fn release(mut options: ChangelogReleaseOptions) -> CliResult<()> {
         None => options.repositories = Some(vec![options.cwd.to_path_buf()]),
     };
 
+    // TODO: how do we want to structure tag/commits from different repositories?
+    let mut tagged_commits = Vec::<TaggedCommits>::new();
     let mut releases = Vec::<Release>::new();
     for repository in options.repositories.as_ref().unwrap() {
         let scm = Scm::get(&repository)?;
@@ -68,17 +75,83 @@ pub fn release(mut options: ChangelogReleaseOptions) -> CliResult<()> {
             skip_commits.extend(commits);
         }
 
-        // TODO: skip commits from CLI args
+        if let Some(ref skip) = options.skip_commits {
+            skip_commits.extend(skip.to_vec());
+        }
 
         // TODO: handle skip list - process ignore commit file. Git cliff converts them into CommitParsers that skip
 
-        releases.extend(process_repository(&scm, &changelog_settings, &options)?);
+        // releases.extend(process_repository(&scm, &changelog_settings, &options)?);
+
+        let mut tags = get_tags(&scm, &changelog_settings, &options)?;
+        let commit_range = determine_commit_range(&scm, &tags, &options)?;
+        let mut commits = scm.commits(
+            &commit_range,
+            options.include_paths.as_ref(),
+            options.exclude_paths.as_ref(),
+            changelog_settings.scm.limit_commits,
+        )?;
+
+        // if tag is provided update tags
+        if let Some(ref tag) = options.tag {
+            if let Some(commit_id) = commits.first().map(|c| c.id.to_string()) {
+                match tags.get(&commit_id) {
+                    Some(tag) => {
+                        warn!("There is already a tag ({}) for {}", &tag.name, commit_id)
+                    }
+                    None => {
+                        tags.insert(commit_id, scm.get_tag(tag));
+                    }
+                }
+            }
+        }
+
+        // let mut tagged_commits = IndexMap::new();
+        let mut untagged_commits = vec![];
+        // TODO: double check if I need this reverse?
+        for commit in commits.iter().rev() {
+            // Sort Oldest - lists newest first to oldest
+            if options.sort == ChangelogCommitSort::Newest {
+                untagged_commits.insert(0, commit.to_owned());
+            } else {
+                untagged_commits.push(commit.to_owned());
+            }
+
+            // is this the best way to get appropriate tag for commit or something like the following
+            // more appropriate
+            // git describe --contains <commit>
+            // ➜  cockroach git:(master) git tag --contains 1ee036d / 1ee036d42c97cc96652cb4a1588a6f481a9a62ab
+            // custombuild-v24.1.0-alpha.5-1783-g6cde73f5565
+            // v24.2.0-alpha.1
+            // v24.2.0-alpha.2
+            // v24.2.0-beta.1
+            // v24.2.0-beta.2
+            if let Some(tag) = tags.get(&commit.id) {
+                // tagged_commits.insert(tag, untagged_commits.clone());
+                tagged_commits.push(TaggedCommits {
+                    tag: Some(tag.to_owned()),
+                    commits: untagged_commits.clone(),
+                });
+                untagged_commits.clear();
+            }
+        }
+
+        // handle untagged commits
+        if !untagged_commits.is_empty() {
+            tagged_commits.push(TaggedCommits {
+                tag: None,
+                commits: untagged_commits.clone(),
+            });
+        }
     }
 
     // TODO: where to handle multiple changelog files
 
     // Process commits and releases for the changelog.
-    let mut changelog = Changelog::new(releases, changelog_settings);
+    let mut changelog = Changelog::new(tagged_commits, changelog_settings)?;
+
+    let mut output: Box<dyn Write> = Box::new(File::create("./test_changelog.md")?);
+    changelog.generate(&mut output)?;
 
     // Print the result.
     // if args.bump || args.bumped_version {
@@ -108,30 +181,122 @@ pub fn release(mut options: ChangelogReleaseOptions) -> CliResult<()> {
     Ok(())
 }
 
+pub fn release(mut options: ChangelogReleaseOptions) -> CliResult<()> {
+    let settings: Settings = load_settings(options.cwd)?.into_owned();
+    let changelog_settings = settings.changelog.unwrap();
+
+    release_with_settings(options, changelog_settings)
+}
+
 /// Processes the tags and commits for creating release entries for the changelog.
-fn process_repository(
+fn process_repository<'a>(
+    scm: &'a Scm,
+    changelog_settings: &'a ChangelogSettings,
+    options: &'a ChangelogReleaseOptions,
+) -> CliResult<Vec<Release>> {
+    let mut tags = get_tags(scm, changelog_settings, options)?;
+    // TODO: handle getting data from remote repository
+
+    let commit_range = determine_commit_range(scm, &tags, options)?;
+    let mut commits = scm.commits(
+        &commit_range,
+        options.include_paths.as_ref(),
+        options.exclude_paths.as_ref(),
+        changelog_settings.scm.limit_commits,
+    )?;
+
+    // if tag is provided update tags
+    if let Some(ref tag) = options.tag {
+        if let Some(commit_id) = commits.first().map(|c| c.id.to_string()) {
+            match tags.get(&commit_id) {
+                Some(tag) => {
+                    warn!("There is already a tag ({}) for {}", &tag.name, commit_id)
+                }
+                None => {
+                    tags.insert(commit_id, scm.get_tag(tag));
+                }
+            }
+        }
+    }
+
+    // TODO: support merging changelogs across multiple repositories such that if the release version
+    // matches they are grouped together. Do we want more options for users to call out or group?
+    // Like we could add the repo name and allow users to group by in the template if they choose?
+
+    // process releases
+    // let mut releases = vec![Release::default()];
+    // let mut release_index = 0;
+    // for scm_commit in commits.iter().rev() {
+    //     let commit = Commit::from(scm_commit);
+    //     let commit_id = commit.id.to_string();
+    //
+    //     // Sort Oldest - lists newest first to oldest
+    //     if options.sort == ChangelogCommitSort::Newest {
+    //         releases[release_index].commits.insert(0, commit);
+    //     } else {
+    //         releases[release_index].commits.push(commit);
+    //     }
+    //
+    //     if let Some(tag) = tags.get(&commit_id) {
+    //         releases[release_index].version = Some(tag.to_string());
+    //         releases[release_index].commit_id = Some(commit_id);
+    //         releases[release_index].timestamp = if options.tag.as_deref() == Some(tag) {
+    //             SystemTime::now()
+    //                 .duration_since(UNIX_EPOCH)?
+    //                 .as_secs()
+    //                 .try_into()?
+    //         } else {
+    //             scm_commit.timestamp
+    //         };
+    //
+    //         releases.push(Release::default());
+    //         release_index += 1;
+    //     }
+    // }
+
+    // TODO: add fake commit here or if "Release item" idea pans out could add it there
+    // Add custom commit messages to the latest release.
+    // if let Some(custom_commits) = &options.with_commit {
+    //     if let Some(latest_release) = releases.iter_mut().last() {
+    //         custom_commits.iter().for_each(|message| {
+    //             latest_release
+    //                 .commits
+    //                 .push(Commit::from(message.to_string()))
+    //         });
+    //     }
+    // }
+
+    // Ok(releases)
+    todo!()
+}
+
+fn get_tags(
     scm: &Scm,
     changelog_settings: &ChangelogSettings,
     options: &ChangelogReleaseOptions,
-) -> CliResult<Vec<Release>> {
-    let topo_order = options.topo_order || changelog_settings.scm.topo_order.unwrap_or_default();
+) -> CliResult<IndexMap<String, ScmTag>> {
+    let tag_sort = options
+        .tag_sort
+        .unwrap_or(changelog_settings.scm.tag_sort.unwrap_or_default());
     let skip_regex = changelog_settings.scm.skip_tags.as_ref();
     let ignore_regex = changelog_settings.scm.ignore_tags.as_ref();
 
-    let mut tags = scm
-        .tags(&options.tag_pattern, topo_order)?
+    Ok(scm
+        .tags(&options.tag_pattern, tag_sort)?
         .into_iter()
-        .filter(|(_, name)| {
-            let skip = skip_regex.map(|r| r.is_match(name)).unwrap_or_default();
+        .filter(|(_, tag)| {
+            let skip = skip_regex
+                .map(|r| r.is_match(&tag.name))
+                .unwrap_or_default();
             let ignore = ignore_regex
                 .map(|r| {
                     if r.as_str().trim().is_empty() {
                         return false;
                     }
 
-                    let ignore_tag = r.is_match(name);
+                    let ignore_tag = r.is_match(&tag.name);
                     if ignore_tag {
-                        trace!("Ignoring release: {}", name)
+                        trace!("Ignoring release: {}", &tag.name)
                     }
                     ignore_tag
                 })
@@ -139,15 +304,14 @@ fn process_repository(
 
             skip || !ignore
         })
-        .collect::<IndexMap<String, String>>();
+        .collect::<IndexMap<String, ScmTag>>())
+}
 
-    // TODO: handle getting data from remote repository
-
-    // TODO: make sure range is appropriate
-    // most recent annotated tag `git describe --abbrev=0`
-    // most recent tag `git describe --tags --abbrev=0`
-    // git describe --tags
-    // latest tag across branches `git describe --tags $(git rev-list --tags --max-count=1)`
+fn determine_commit_range(
+    scm: &Scm,
+    tags: &IndexMap<String, ScmTag>,
+    options: &ChangelogReleaseOptions,
+) -> CliResult<Option<ScmCommitRange>> {
     let mut commit_range = None;
     if let Some(range) = &options.range {
         match range {
@@ -166,16 +330,16 @@ fn process_repository(
                             scm.current_tag().as_ref().and_then(|tag| {
                                 tags.iter()
                                     .enumerate()
-                                    .find(|(_, (_, v))| v == &tag)
+                                    .find(|(_, (_, v))| v.name == tag.name)
                                     .map(|(i, _)| i)
                             })
                         {
                             match current_tag_index.checked_sub(1) {
                                 Some(i) => tag_index = i,
                                 None => {
-                                    return Err(DoctaviousCliError::ChangelogError(ChangelogError(String::from(
-                                        "No suitable tags found. Maybe run with '--topo-order'?",
-                                    ))));
+                                    return Err(DoctaviousCliError::ChangelogError(
+                                        ChangelogError(String::from("No suitable tags found")),
+                                    ));
                                 }
                             }
                         } else {
@@ -188,7 +352,8 @@ fn process_repository(
                         tags.get_index(tag_index).map(|(k, _)| k),
                         tags.get_index(tag_index + 1).map(|(k, _)| k),
                     ) {
-                        commit_range = Some(ScmCommitRange(tag1.to_string(), Some(tag2.to_string())));
+                        commit_range =
+                            Some(ScmCommitRange(tag1.to_string(), Some(tag2.to_string())));
                     }
                 }
             }
@@ -204,102 +369,60 @@ fn process_repository(
                         Some(parts.1.to_string()),
                     ))
                 } else {
+                    // TODO: this should probably be an error
                     warn!("{}", format!("Unable to parse changelog range {r}"))
                 }
             }
         }
     };
 
-    let mut commits = scm.commits(
-        &commit_range,
-        options.include_paths.as_ref(),
-        options.exclude_paths.as_ref(),
-        changelog_settings.scm.limit_commits,
-    )?;
-
-    // if tag is provided update tags
-    if let Some(ref tag) = options.tag {
-        if let Some(commit_id) = commits.first().map(|c| c.id.to_string()) {
-            match tags.get(&commit_id) {
-                Some(tag) => {
-                    warn!("There is already a tag ({}) for {}", tag, commit_id)
-                }
-                None => {
-                    tags.insert(commit_id, tag.to_string());
-                }
-            }
-        }
-    }
-
-    // TODO: this need to change if we want to support merging changelog across multiple repositories
-    // probably would use HashMap then sort
-
-    // process releases
-    let mut releases = vec![Release::default()];
-    let mut release_index = 0;
-    for scm_commit in commits.iter().rev() {
-        let commit = Commit::from(scm_commit);
-        let commit_id = commit.id.to_string();
-        if options.sort == ChangelogCommitSort::Newest {
-            releases[release_index].commits.insert(0, commit);
-        } else {
-            releases[release_index].commits.push(commit);
-        }
-
-        if let Some(tag) = tags.get(&commit_id) {
-            releases[release_index].version = Some(tag.to_string());
-            releases[release_index].commit_id = Some(commit_id);
-            releases[release_index].timestamp = if options.tag.as_deref() == Some(tag) {
-                SystemTime::now()
-                    .duration_since(UNIX_EPOCH)?
-                    .as_secs()
-                    .try_into()?
-            } else {
-                scm_commit.timestamp
-            };
-
-            releases.push(Release::default());
-            release_index += 1;
-        }
-    }
-
-    // Add custom commit messages to the latest release.
-    // if let Some(custom_commits) = &options.with_commit {
-    //     if let Some(latest_release) = releases.iter_mut().last() {
-    //         custom_commits.iter().for_each(|message| {
-    //             latest_release
-    //                 .commits
-    //                 .push(Commit::from(message.to_string()))
-    //         });
-    //     }
-    // }
-
-    Ok(releases)
+    Ok(commit_range)
 }
 
 #[cfg(test)]
 mod tests {
-    use std::fs;
     use std::path::Path;
+    use changelog::settings::{ChangelogScmSettings, ChangelogSettings};
+    use scm::drivers::git::TagSort;
 
-    use scm::drivers::Scm;
-
-    use crate::changelog::cmd::release::{release, ChangelogReleaseOptions};
+    use crate::changelog::cmd::release::{release, ChangelogReleaseOptions, release_with_settings};
 
     #[test]
     fn test_release() {
-        release(ChangelogReleaseOptions {
-            cwd: Path::new("../.."),
-            repositories: None,
-            prepend: None,
-            range: None,
-            include_paths: None,
-            exclude_paths: None,
-            topo_order: false,
-            sort: Default::default(),
-            tag_pattern: None,
-            tag: None,
-        })
+        release_with_settings(
+                ChangelogReleaseOptions {
+                cwd: Path::new("../.."),
+                repositories: None,
+                prepend: None,
+                range: None,
+                include_paths: None,
+                exclude_paths: None,
+                tag_sort: Some(TagSort::default()),
+                sort: Default::default(),
+                skip_commits: None,
+                tag_pattern: None,
+                tag: None,
+            },
+            ChangelogSettings {
+                scm: ChangelogScmSettings {
+                    commit_version: None,
+                    commit_style: None,
+                    commit_preprocessors: None,
+                    skips: None,
+                    group_parsers: None,
+                    link_parsers: None,
+                    protect_breaking_commits: None,
+                    filter_commits: Some(false),
+                    skip_tags: None,
+                    ignore_tags: None,
+                    tag_sort: None,
+                    sort_commits: None,
+                    limit_commits: None,
+                },
+                remote: None,
+                bump: None,
+            }
+        )
         .unwrap();
     }
 }

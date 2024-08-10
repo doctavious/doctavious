@@ -9,7 +9,7 @@ use lazy_static::lazy_static;
 use regex::{Regex, RegexBuilder};
 use walkdir::WalkDir;
 
-use crate::{CliResult, DoctaviousCliError};
+use crate::errors::{CliResult, DoctaviousCliError};
 
 lazy_static! {
     static ref ILLEGAL_RE: Regex = Regex::new(r#"[/\?<>\\:\*\|":]"#).unwrap();

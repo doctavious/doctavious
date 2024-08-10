@@ -1,5 +1,5 @@
 use clap::Parser;
-use doctavious_cli::CliResult;
+use doctavious_cli::errors::CliResult;
 
 use crate::commands::changelog::init::InitCommand;
 use crate::commands::changelog::release::ReleaseCommand;

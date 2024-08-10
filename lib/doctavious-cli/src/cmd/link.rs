@@ -7,7 +7,7 @@
 use std::env;
 use std::path::PathBuf;
 
-use crate::CliResult;
+use crate::errors::CliResult;
 
 pub fn invoke(dir: Option<PathBuf>, name: Option<String>) -> CliResult<Option<String>> {
     let cwd = dir.unwrap_or(env::current_dir()?);

@@ -3,7 +3,7 @@ use std::path::PathBuf;
 
 use cifrs::Cifrs;
 
-use crate::CliResult;
+use crate::errors::CliResult;
 
 pub fn invoke(dir: Option<PathBuf>, dry: bool, skip_install: bool) -> CliResult<Option<String>> {
     let cwd = dir.unwrap_or(env::current_dir()?);

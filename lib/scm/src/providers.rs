@@ -3,7 +3,7 @@ use std::hash::{Hash, Hasher};
 use chrono::{DateTime, Utc};
 use serde_derive::{Deserialize, Serialize};
 
-use crate::ScmSignature;
+use crate::commit::ScmSignature;
 
 #[derive(Clone, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
 #[serde(rename_all = "lowercase")]

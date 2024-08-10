@@ -3,15 +3,21 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 
 use git2::{
-    BranchType, Commit as Git2Commit, DescribeOptions, Direction, IndexAddOption, Oid as Git2Oid,
-    Repository as Git2Repository, Signature as Git2Signature, StatusOptions,
+    BranchType, Commit as Git2Commit, DescribeFormatOptions, DescribeOptions, Direction,
+    IndexAddOption, Oid as Git2Oid, Repository as Git2Repository, Signature as Git2Signature,
+    StatusOptions,
 };
 use glob::Pattern;
 use indexmap::IndexMap;
+use lazy_static::lazy_static;
 use regex::Regex;
+use serde_derive::{Deserialize, Serialize};
+use strum::{Display, EnumIter, EnumString, VariantNames};
 
+use crate::commit::{ScmCommit, ScmCommitRange, ScmSignature, ScmTag};
 use crate::drivers::ScmRepository;
-use crate::{ScmCommit, ScmCommitRange, ScmResult, ScmSignature, GIT};
+use crate::errors::ScmResult;
+use crate::GIT;
 
 // TODO: Oid strut
 
@@ -49,6 +55,13 @@ const HOOK_NAMES: [&str; 21] = [
     "post-index-change",
 ];
 
+lazy_static! {
+    // TODO: probably doesnt need to be an owned type
+    static ref TAG_SIGNATURE_REGEX: Regex = Regex::new(
+        r"(?s)-----BEGIN PGP SIGNATURE-----(.*?)-----END PGP SIGNATURE-----"
+    ).unwrap();
+}
+
 pub struct Oid {
     pub bytes: Vec<u8>,
 }
@@ -59,7 +72,9 @@ impl From<Git2Commit<'_>> for ScmCommit {
     fn from(value: Git2Commit) -> Self {
         ScmCommit {
             id: value.id().to_string(),
-            message: value.message().map(String::from),
+            message: value.message().unwrap_or_default().to_string(),
+            description: value.summary().unwrap_or_default().to_string(),
+            body: value.body().unwrap_or_default().to_string(),
             author: value.author().into(),
             committer: value.committer().into(),
             timestamp: value.time().seconds(),
@@ -248,6 +263,19 @@ impl From<Git2Signature<'_>> for ScmSignature {
 //     }
 // }
 
+#[remain::sorted]
+#[derive(
+    Clone, Copy, Debug, Display, EnumIter, EnumString, VariantNames, Default, Deserialize, Serialize,
+)]
+pub enum TagSort {
+    Alphabetical,
+    // this could be potentially several different fields
+    // authordate, committerdate, creatordate, taggerdate
+    Chronological,
+    #[default]
+    Version,
+}
+
 pub struct GitScmRepository {
     inner: Git2Repository,
 }
@@ -323,6 +351,26 @@ impl GitScmRepository {
 
         Ok(files)
     }
+
+    fn last_tag_commit(&self) -> ScmResult<Option<String>> {
+        let mut command = Command::new("git");
+        if let Some(git_workdir) = self.inner.workdir() {
+            command.current_dir(git_workdir);
+        }
+
+        let last_tag_commit_output = command
+            .args(["rev-list", "--tags", "--max-count=1"])
+            .output()?;
+
+        let commit = String::from_utf8(last_tag_commit_output.stdout)?
+            .trim()
+            .to_string();
+        if commit.is_empty() {
+            Ok(None)
+        } else {
+            Ok(Some(commit))
+        }
+    }
 }
 
 impl ScmRepository for GitScmRepository {
@@ -381,14 +429,13 @@ impl ScmRepository for GitScmRepository {
     /// Sorts the commits by their time.
     fn commits(
         &self,
-        range: &Option<ScmCommitRange>, // TODO: maybe this should be only in the form of a commit range
+        range: &Option<ScmCommitRange>,
         include_paths: Option<&Vec<Pattern>>,
         exclude_paths: Option<&Vec<Pattern>>,
         limit_commits: Option<usize>,
     ) -> ScmResult<Vec<ScmCommit>> {
         // libgit2 and as a result git2's revwalk doesnt support filtering by paths touched by commits
         // see https://github.com/libgit2/libgit2/issues/3041
-
         let mut command = Command::new("git");
         if let Some(git_workdir) = self.inner.workdir() {
             command.current_dir(git_workdir);
@@ -401,24 +448,15 @@ impl ScmRepository for GitScmRepository {
             args.extend(["-n".to_string(), num.to_string()])
         }
 
-        // TODO: make sure range is appropriate
-        // most recent annotated tag `git describe --abbrev=0`
-        // most recent tag `git describe --tags --abbrev=0`
-        // git describe --tags
-        // latest tag across branches `git describe --tags $(git rev-list --tags --max-count=1)`
-        // if let Some(range) = range {
-        //     match range {
-        //         ScmCommitRange::Current | ScmCommitRange::Latest => {}
-        //         ScmCommitRange::Untagged => {
-        //             // if let Some(last_tag) = tags.last().map(|(k, _)| k) {
-        //             //     commit_range = Some(format!("{last_tag}..HEAD"));
-        //             // }
-        //         }
-        //         ScmCommitRange::Range(r) => {
-        //             args.push(r.to_string());
-        //         }
-        //     }
-        // }
+        if let Some(range) = range {
+            let start = &range.0;
+            let end = match &range.1 {
+                None => "HEAD",
+                Some(e) => e,
+            };
+
+            args.push(format!("{start}..{end}"));
+        }
 
         let mut path_specs = vec![];
         if let Some(include_paths) = include_paths {
@@ -439,10 +477,7 @@ impl ScmRepository for GitScmRepository {
         }
 
         let output = command.args(args).output()?.stdout;
-
-        // TODO: would be nice to avoid having to output only the commit hash and then fetching
-        // commit details. Should be (fairly easy) to parse Git log via a finite state machine
-        let logs: Vec<ScmCommit> = String::from_utf8(output)
+        let commits: Vec<ScmCommit> = String::from_utf8(output)
             .unwrap()
             .lines()
             .filter_map(|id| Git2Oid::from_str(id).ok())
@@ -450,35 +485,42 @@ impl ScmRepository for GitScmRepository {
             .map(|c| c.into())
             .collect();
 
-        Ok(logs)
+        Ok(commits)
     }
 
     /// Parses and returns a commit-tag map.
     ///
     /// It collects lightweight and annotated tags.
-    fn tags(
-        &self,
-        pattern: &Option<Regex>,
-        topo_order: bool,
-    ) -> ScmResult<IndexMap<String, String>> {
-        // TODO: confirm topo_order produces something similar to `git tag -l | sort -V` and
-        // follows `topo_order` defined in  https://www.git-scm.com/docs/git-log#_commit_ordering
+    fn tags(&self, pattern: &Option<Regex>, sort: TagSort) -> ScmResult<IndexMap<String, ScmTag>> {
+        // initially used git2's `tag_names` to get tags however I can't find a good way to mimic
+        // git's `--sort=v:refname` support via git2
+        // TODO: might have to expose `versionsort.suffix` configuration
+        // how do we want to generally handle suffix
+        let mut command = Command::new("git");
+        if let Some(git_workdir) = self.inner.workdir() {
+            command.current_dir(git_workdir);
+        }
 
-        let mut tags: Vec<(ScmCommit, String)> = Vec::new();
+        let mut args = vec!["tag", "-l"];
+        match sort {
+            TagSort::Chronological => args.push("--sort=creatordate"),
+            TagSort::Version => args.push("--sort=v:refname"),
+            _ => {}
+        }
 
-        // from https://github.com/rust-lang/git2-rs/blob/master/examples/tag.rs
-        // also check https://github.com/orhun/git-cliff/blob/main/git-cliff-core/src/repo.rs tags
-        // alternative to
-        // .filter(|tag_name| {
-        //     pattern.as_ref().map_or(true, |pat| pat.is_match(tag_name))
-        // })
-        for name in self
-            .inner
-            .tag_names(pattern.as_ref().and_then(|p| Some(p.as_str())))?
-            .iter()
-            .flatten()
-            .map(String::from)
-        {
+        let output = command.args(args).output()?;
+
+        let tag_names = output
+            .stdout
+            .split(|&b| b == b'\n')
+            .filter(|&x| !x.is_empty())
+            .filter_map(|line| std::str::from_utf8(line).ok())
+            .filter(|tag_name| pattern.as_ref().map_or(true, |p| p.is_match(tag_name)))
+            .map(|s| s.to_string())
+            .collect::<Vec<String>>();
+
+        let mut tags: Vec<(ScmCommit, ScmTag)> = Vec::new();
+        for name in tag_names {
             let obj = self.inner.revparse_single(name.as_str())?;
             if let Some(tag) = obj.as_tag() {
                 if let Some(commit) = tag
@@ -487,15 +529,28 @@ impl ScmRepository for GitScmRepository {
                     .map(|target| target.into_commit().ok())
                     .flatten()
                 {
-                    tags.push((commit.into(), name));
+                    tags.push((
+                        commit.into(),
+                        ScmTag {
+                            id: Some(tag.id().to_string()),
+                            name: tag.name().unwrap_or(&name).to_string(),
+                            message: tag
+                                .message()
+                                .map(|msg| TAG_SIGNATURE_REGEX.replace(msg, "").trim().to_owned()),
+                        },
+                    ));
                 }
             } else if let Ok(commit) = obj.into_commit() {
-                tags.push((commit.into(), name));
+                let commit_id = commit.id().to_string();
+                tags.push((
+                    commit.into(),
+                    ScmTag {
+                        id: Some(commit_id),
+                        name,
+                        message: None,
+                    },
+                ));
             }
-        }
-
-        if !topo_order {
-            tags.sort_by(|a, b| a.0.timestamp.cmp(&b.0.timestamp));
         }
 
         Ok(tags.into_iter().map(|(a, b)| (a.id, b)).collect())
@@ -503,12 +558,61 @@ impl ScmRepository for GitScmRepository {
 
     /// Returns the current tag.
     ///
-    /// It is the same as running `git describe --tags`
-    fn current_tag(&self) -> Option<String> {
+    /// It is the same as running `git describe --tags --abbrev=0`
+    fn current_tag(&self) -> Option<ScmTag> {
         self.inner
             .describe(DescribeOptions::new().describe_tags())
             .ok()
-            .and_then(|describe| describe.format(None).ok())
+            .and_then(|describe| {
+                describe
+                    .format(Some(DescribeFormatOptions::new().abbreviated_size(0)))
+                    .ok()
+                    .map(|name| self.get_tag(&name))
+            })
+    }
+
+    fn latest_tag(&self) -> ScmResult<Option<ScmTag>> {
+        let last_tag_commit = self.last_tag_commit()?;
+        if let Some(last_tag_commit) = last_tag_commit {
+            let mut command = Command::new("git");
+            if let Some(git_workdir) = self.inner.workdir() {
+                command.current_dir(git_workdir);
+            }
+
+            let output = command
+                .args(["describe", "--tags", &last_tag_commit])
+                .output()?;
+
+            let tag = String::from_utf8(output.stdout)?.trim_end().to_string();
+            if tag.is_empty() {
+                Ok(None)
+            } else {
+                Ok(Some(self.get_tag(&tag)))
+            }
+        } else {
+            Ok(None)
+        }
+    }
+
+    fn get_tag(&self, name: &str) -> ScmTag {
+        match self
+            .inner
+            .resolve_reference_from_short_name(name)
+            .and_then(|r| r.peel_to_tag())
+        {
+            Ok(tag) => ScmTag {
+                id: Some(tag.id().to_string()),
+                name: tag.name().unwrap_or(name).to_string(),
+                message: tag
+                    .message()
+                    .map(|msg| TAG_SIGNATURE_REGEX.replace(msg, "").trim().to_owned()),
+            },
+            _ => ScmTag {
+                id: None,
+                name: name.to_owned(),
+                message: None,
+            },
+        }
     }
 
     /// Determines if there are any current changes in the working directory / staging area
@@ -598,7 +702,7 @@ mod tests {
 
     use glob::Pattern;
 
-    use crate::drivers::git::GitScmRepository;
+    use crate::drivers::git::{GitScmRepository, TagSort};
     use crate::drivers::ScmRepository;
 
     #[test]
@@ -622,5 +726,23 @@ mod tests {
         for c in commits {
             println!("{:?}", &c);
         }
+    }
+
+    #[test]
+    fn git_cliff_tags() {
+        println!("{:?}", env::current_dir().unwrap());
+        let scm = GitScmRepository::new("../../../../git-cliff").unwrap();
+        let commits = scm.tags(&None, TagSort::Version).unwrap();
+        for c in commits {
+            println!("{:?}", &c);
+        }
+    }
+
+    #[test]
+    fn latest_tags() {
+        println!("{:?}", env::current_dir().unwrap());
+        let scm = GitScmRepository::new("../../../../gitlab-ce").unwrap();
+        let latest = scm.latest_tag().unwrap();
+        println!("{:?}", &latest);
     }
 }

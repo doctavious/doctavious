@@ -4,8 +4,10 @@ use glob::Pattern;
 use indexmap::IndexMap;
 use regex::Regex;
 
+use crate::commit::{ScmCommit, ScmCommitRange, ScmTag};
+use crate::drivers::git::TagSort;
 use crate::drivers::ScmRepository;
-use crate::{ScmCommit, ScmCommitRange, ScmResult};
+use crate::errors::ScmResult;
 
 const HOOK_NAMES: [&str; 9] = [
     "start-commit",
@@ -48,15 +50,19 @@ impl ScmRepository for SvnScmRepository {
         todo!()
     }
 
-    fn tags(
-        &self,
-        pattern: &Option<Regex>,
-        topo_order: bool,
-    ) -> ScmResult<IndexMap<String, String>> {
+    fn tags(&self, pattern: &Option<Regex>, sort: TagSort) -> ScmResult<IndexMap<String, ScmTag>> {
         todo!()
     }
 
-    fn current_tag(&self) -> Option<String> {
+    fn current_tag(&self) -> Option<ScmTag> {
+        todo!()
+    }
+
+    fn latest_tag(&self) -> ScmResult<Option<ScmTag>> {
+        todo!()
+    }
+
+    fn get_tag(&self, name: &str) -> ScmTag {
         todo!()
     }
 

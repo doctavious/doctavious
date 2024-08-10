@@ -1,6 +1,6 @@
 use cifrs::frameworks;
 
-use crate::{CliResult, DoctaviousCliError};
+use crate::errors::{CliResult, DoctaviousCliError};
 
 pub fn invoke(name: String) -> CliResult<Option<String>> {
     let normalized_string = name.to_lowercase();

@@ -1,34 +1,38 @@
 pub mod add;
 pub mod install;
 pub mod run;
-mod runner;
+pub mod runner;
 pub mod uninstall;
 
-use std::collections::HashMap;
 use std::fs;
 use std::io::{BufRead, BufReader, Write};
 #[cfg(not(target_os = "windows"))]
 use std::os::unix::fs::OpenOptionsExt;
 use std::path::{Path, PathBuf};
 
-use crc32c::crc32c;
-use minijinja::{AutoEscape, Environment};
+use lazy_static::lazy_static;
+use regex::Regex;
 use scm::drivers::{Scm, ScmRepository};
+use scm::errors::ScmError;
 use scm::hooks::OLD_HOOK_POSTFIX;
-use scm::{ScmError, DOCTAVIOUS_SCM_HOOK_CONTENT_REGEX, HOOK_TEMPLATE, HOOK_TEMPLATE_CHECKSUM};
-use serde::{Deserialize, Deserializer, Serialize, Serializer};
-use serde_json::json;
 use tracing::info;
-
+use doctavious_templating::{TemplateContext, Templates};
+use crate::errors::{CliResult, DoctaviousCliError};
 use crate::settings::ScmHookSettings;
-use crate::templating::{TemplateContext, Templates};
-use crate::{templating, CliResult, DoctaviousCliError};
 
 // list of prior art
 // - https://pre-commit.com/
 // - https://www.npmjs.com/package/node-hooks
 // - https://github.com/evilmartians/lefthook
 // - https://github.com/sds/overcommit
+
+// TODO: move this to doctavious specific lib and keep SCM more general
+pub const HOOK_TEMPLATE: &[u8; 252] = include_bytes!("../../templates/scmhooks/hook.tmpl");
+
+lazy_static! {
+    pub static ref DOCTAVIOUS_SCM_HOOK_CONTENT_REGEX: Regex = Regex::new("DOCTAVIOUS").unwrap();
+    pub static ref HOOK_TEMPLATE_CHECKSUM: String = format!("{:x}", md5::compute(HOOK_TEMPLATE));
+}
 
 /// Tests whether a hook file was created by doctavious.
 pub(crate) fn is_doctavious_scm_hook_file(path: &Path) -> CliResult<bool> {

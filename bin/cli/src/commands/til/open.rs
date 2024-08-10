@@ -2,7 +2,7 @@ use std::path::PathBuf;
 
 use clap::Parser;
 use doctavious_cli::cmd::til::open;
-use doctavious_cli::CliResult;
+use doctavious_cli::errors::CliResult;
 
 /// Open TIL
 #[derive(Parser, Debug)]

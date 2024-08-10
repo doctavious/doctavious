@@ -1,19 +1,17 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
+use std::io;
 use std::path::{Path, PathBuf};
 use std::process::Command;
-use std::string::FromUtf8Error;
-use std::{fs, io};
 
-use glob::{Paths, PatternError};
 use glob_match::glob_match;
 use rayon::prelude::{IntoParallelIterator, ParallelIterator};
 use regex::{Error, Regex, RegexBuilder};
 use scm::drivers::{Scm, ScmRepository};
+use scm::errors::ScmError;
 use scm::hooks::{
     HookCommand, HookScript, ScmHook, ScmHookConditionalExecution,
     ScmHookConditionalExecutionTagged, ScmHookExecution,
 };
-use scm::ScmError;
 use thiserror::Error;
 use tracing::{debug, info, warn};
 

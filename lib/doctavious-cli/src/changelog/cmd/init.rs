@@ -1,6 +1,6 @@
 use std::path::Path;
 
-use crate::CliResult;
+use crate::errors::CliResult;
 
 pub fn init(cwd: &Path) -> CliResult<()> {
     Ok(())

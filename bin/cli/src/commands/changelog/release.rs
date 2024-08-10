@@ -2,13 +2,13 @@ use std::error::Error;
 use std::path::PathBuf;
 use std::str::FromStr;
 
-use clap::builder::ValueParser;
 use clap::{Parser, ValueEnum};
 use doctavious_cli::changelog::cmd::release::{release, ChangelogReleaseOptions};
-use doctavious_cli::changelog::{ChangelogCommitSort, ChangelogRange};
-use doctavious_cli::{CliResult, DoctaviousCliError};
+use doctavious_cli::changelog::settings::{ChangelogCommitSort, ChangelogRange};
+use doctavious_cli::errors::CliResult;
 use glob::Pattern;
 use regex::Regex;
+use scm::drivers::git::TagSort;
 use strum::VariantNames;
 
 use crate::clap_enum_variants;
@@ -52,8 +52,8 @@ pub(crate) struct ReleaseCommand {
     tag_pattern: Option<Regex>,
 
     /// Sets custom commit messages to include in the changelog [env: DOCTAVIOUS_CHANGELOG_SKIP_COMMIT=]
-    #[arg(long, value_name = "COMMIT")]
-    skip_commit: Vec<String>,
+    #[arg(long = "skip_commit", value_name = "COMMIT")]
+    skip_commits: Option<Vec<String>>,
 
     // TODO: could use -R and --range instead of index
     /// Sets the commit range to process [possible values: current, latest, unreleased, or
@@ -61,9 +61,13 @@ pub(crate) struct ReleaseCommand {
     #[arg(index = 1)]
     pub range: Option<ChangelogRange>,
 
-    /// Sorts the tags topologically.
-    #[arg(long)]
-    pub topo_order: bool,
+    /// Determines method of sorting tags
+    #[arg(
+        long,
+        default_value_t = TagSort::default(),
+        value_parser = clap_enum_variants!(TagSort)
+    )]
+    pub tag_sort: TagSort,
 
     /// Prepends entries to the changelog file [env: DOCTAVIOUS_CHANGELOG_PREPEND=]
     #[arg(long, short)]
@@ -121,35 +125,52 @@ pub(crate) fn execute(command: ReleaseCommand) -> CliResult<Option<String>> {
         range: command.range,
         include_paths: command.include_paths,
         exclude_paths: command.exclude_paths,
-        topo_order: command.topo_order,
+        tag_sort: Some(command.tag_sort),
         sort: command.sort,
         tag_pattern: command.tag_pattern,
         tag: command.tag,
+        skip_commits: command.skip_commits,
     })?;
 
     Ok(None)
 }
 
-// pub fn validator_regex(r: &'static str) -> ValueParser {
-//     ValueParser::from(move |s: &str| -> std::result::Result<String, DoctaviousCliError> {
-//         // let reg = regex::Regex::new(r).unwrap();
-//         // match reg.is_match(s) {
-//         //     true => Ok(s.to_owned()),
-//         //     false => Err(Error::from(format!("not matches {}", r))),
-//         // }
-//         println!("{}", s);
-//         Ok(s.to_owned())
-//     })
-// }
-
-// fn parse_changelog_range(arg: &str) -> CliResult<ChangelogRange> {
-//     Ok(match arg {
-//         "current" => ChangelogRange::Current,
-//         "latest" => ChangelogRange::Latest,
-//         "unreleased" => ChangelogRange::Unreleased,
-//         _ => ChangelogRange::Range(arg.to_string())
-//     })
-// }
-
 #[cfg(test)]
-mod tests {}
+mod tests {
+    use std::path::{Path, PathBuf};
+
+    use doctavious_cli::changelog::cmd::release::{release_with_settings, ChangelogReleaseOptions};
+    use doctavious_cli::settings::ChangelogSettings;
+    use scm::drivers::git::TagSort;
+
+    use crate::commands::changelog::release::{execute, ReleaseCommand};
+
+    #[test]
+    fn validate_release() {
+        let cwd = PathBuf::from("../../");
+
+        println!("{}", cwd.canonicalize().unwrap().to_string_lossy());
+
+        let cmd = ChangelogReleaseOptions {
+            cwd: cwd.as_path(),
+            repositories: None,
+            prepend: None,
+            range: None,
+            include_paths: None,
+            exclude_paths: None,
+            tag_sort: Some(TagSort::default()),
+            sort: Default::default(),
+            tag_pattern: None,
+            tag: None,
+            skip_commits: None,
+        };
+
+        let settings = ChangelogSettings {
+            scm: Default::default(),
+            remote: None,
+            bump: None,
+        };
+
+        release_with_settings(cmd, settings).unwrap();
+    }
+}
