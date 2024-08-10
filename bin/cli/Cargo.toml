@@ -10,6 +10,7 @@ path = "src/main.rs"
 [dependencies]
 anyhow = { workspace = true }
 clap = { workspace = true, features = ["derive", "env", "string"] }
+changelog = { path = "../../lib/changelog" }
 directories = { workspace = true }
 doctavious-cli = { path = "../../lib/doctavious-cli" }
 glob = { workspace  = true }

@@ -29,12 +29,12 @@ mod tests {
     use std::fs;
     use std::path::PathBuf;
 
+    use doctavious_cli::cmd::scm_hooks::{HOOK_TEMPLATE, HOOK_TEMPLATE_CHECKSUM};
     use doctavious_cli::settings::Config;
     use doctavious_std::fs::copy_dir;
     use scm::drivers::git::GitScmRepository;
     use scm::drivers::ScmRepository;
     use scm::hooks::OLD_HOOK_POSTFIX;
-    use scm::{HOOK_TEMPLATE, HOOK_TEMPLATE_CHECKSUM};
     use tempfile::TempDir;
     use testing::cleanup::CleanUp;
 
