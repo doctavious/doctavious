@@ -1,4 +1,3 @@
-use std::error::Error;
 use std::path::PathBuf;
 use std::str::FromStr;
 
@@ -137,13 +136,11 @@ pub(crate) fn execute(command: ReleaseCommand) -> CliResult<Option<String>> {
 
 #[cfg(test)]
 mod tests {
-    use std::path::{Path, PathBuf};
+    use std::path::PathBuf;
 
+    use changelog::settings::ChangelogSettings;
     use doctavious_cli::changelog::cmd::release::{release_with_settings, ChangelogReleaseOptions};
-    use doctavious_cli::settings::ChangelogSettings;
     use scm::drivers::git::TagSort;
-
-    use crate::commands::changelog::release::{execute, ReleaseCommand};
 
     #[test]
     fn validate_release() {

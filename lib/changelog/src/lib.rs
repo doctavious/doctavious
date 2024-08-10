@@ -1,5 +1,5 @@
 pub mod changelog;
-mod conventional;
+pub mod conventional;
 pub mod entries;
 pub mod errors;
 pub mod release;

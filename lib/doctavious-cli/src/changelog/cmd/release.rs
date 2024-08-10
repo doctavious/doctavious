@@ -38,7 +38,7 @@ pub struct ChangelogReleaseOptions<'a> {
     /// Sets the tag for the latest version
     pub tag_pattern: Option<Regex>,
     pub tag: Option<String>,
-    pub tag_sort: Option<TagSort>,
+    pub tag_sort: Option<TagSort>, // TODO: this needs to fit into Somever sorting
 }
 
 pub fn release_with_settings(
@@ -393,6 +393,7 @@ mod tests {
 
     use changelog::settings::{ChangelogScmSettings, ChangelogSettings};
     use scm::drivers::git::TagSort;
+    use somever::VersioningScheme;
 
     use crate::changelog::cmd::release::{release, release_with_settings, ChangelogReleaseOptions};
 
@@ -427,6 +428,7 @@ mod tests {
                     tag_sort: None,
                     sort_commits: None,
                     limit_commits: None,
+                    version_scheme: VersioningScheme::Semver,
                 },
                 remote: None,
                 bump: None,
