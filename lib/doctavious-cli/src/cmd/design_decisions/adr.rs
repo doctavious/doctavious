@@ -5,10 +5,11 @@ use std::path::{Path, PathBuf};
 use std::str::FromStr;
 
 use chrono::Local;
+use doctavious_templating::{TemplateContext, Templates};
 use regex::RegexBuilder;
 use scm::drivers::{Scm, ScmRepository};
 use serde::Serialize;
-use doctavious_templating::{TemplateContext, Templates};
+
 use crate::cmd::design_decisions;
 use crate::cmd::design_decisions::{
     build_path, can_reserve, format_number, reserve_number, DesignDecisionErrors, LinkReference,

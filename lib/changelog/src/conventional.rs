@@ -1,6 +1,7 @@
 use git_conventional::Commit as GitConventionalCommit;
 use scm::commit::ScmCommit;
 use serde_derive::Serialize;
+
 use crate::errors::ChangelogResult;
 
 /// Conventional Commit
@@ -10,4 +11,3 @@ pub struct ConventionalCommit<'a> {
     pub commit: ScmCommit,
     pub conv: GitConventionalCommit<'a>,
 }
-

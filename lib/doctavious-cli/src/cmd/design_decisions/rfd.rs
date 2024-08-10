@@ -3,9 +3,10 @@ use std::io::BufReader;
 use std::path::{Path, PathBuf};
 
 use chrono::Local;
+use doctavious_templating::{TemplateContext, Templates};
 use scm::drivers::{Scm, ScmRepository};
 use serde::Serialize;
-use doctavious_templating::{TemplateContext, Templates};
+
 use crate::cmd::design_decisions;
 use crate::cmd::design_decisions::{
     build_path, can_reserve, format_number, reserve_number, DesignDecisionErrors,

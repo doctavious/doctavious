@@ -10,13 +10,14 @@ use std::io::{BufRead, BufReader, Write};
 use std::os::unix::fs::OpenOptionsExt;
 use std::path::{Path, PathBuf};
 
+use doctavious_templating::{TemplateContext, Templates};
 use lazy_static::lazy_static;
 use regex::Regex;
 use scm::drivers::{Scm, ScmRepository};
 use scm::errors::ScmError;
 use scm::hooks::OLD_HOOK_POSTFIX;
 use tracing::info;
-use doctavious_templating::{TemplateContext, Templates};
+
 use crate::errors::{CliResult, DoctaviousCliError};
 use crate::settings::ScmHookSettings;
 

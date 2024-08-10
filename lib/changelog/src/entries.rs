@@ -3,17 +3,14 @@ use std::fmt;
 use std::fmt::{Display, Formatter};
 
 use git2::Signature as CommitSignature;
-use git_conventional::{Footer as ConventionalFooter};
-use serde::Serialize;
-
+use git_conventional::Footer as ConventionalFooter;
 use scm::commit::{ScmCommit, ScmSignature};
+use serde::Serialize;
 
 use crate::conventional::ConventionalCommit;
 use crate::errors::ChangelogResult;
 use crate::release_notes::ReleaseNote;
 use crate::settings::{GroupParser, LinkParser};
-
-
 
 // Initially had the following structure
 // #[derive(Debug, Serialize)]
@@ -37,7 +34,7 @@ pub struct ChangelogCommit {
     pub commit_type: Option<String>,
     pub scope: Option<String>,
     pub author: ScmSignature,
-    pub committer: ScmSignature
+    pub committer: ScmSignature,
 }
 
 impl ChangelogCommit {
@@ -79,7 +76,14 @@ impl ChangelogCommit {
             message: conventional.commit.message.to_string(),
             description: conventional.commit.description.to_string(),
             body: conventional.commit.body.to_string(),
-            footers: Some(conventional.conv.footers().iter().map(Footer::from).collect::<Vec<Footer>>()),
+            footers: Some(
+                conventional
+                    .conv
+                    .footers()
+                    .iter()
+                    .map(Footer::from)
+                    .collect::<Vec<Footer>>(),
+            ),
             timestamp: conventional.commit.timestamp,
             commit_style: "".to_string(),
             commit_type: Some(conventional.conv.type_().to_string()),
@@ -295,7 +299,6 @@ impl ChangelogEntry {
                     default_scope: group_parser.default_scope.as_ref().cloned(),
                 }));
             }
-
 
             // let mut checks = Vec::new();
             //

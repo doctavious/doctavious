@@ -477,8 +477,7 @@ impl ScmRepository for GitScmRepository {
         }
 
         let output = command.args(args).output()?.stdout;
-        let commits: Vec<ScmCommit> = String::from_utf8(output)
-            .unwrap()
+        let commits: Vec<ScmCommit> = String::from_utf8(output)?
             .lines()
             .filter_map(|id| Git2Oid::from_str(id).ok())
             .filter_map(|oid| self.inner.find_commit(oid).ok())

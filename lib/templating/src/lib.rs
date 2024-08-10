@@ -1,5 +1,6 @@
 use std::collections::{BTreeMap, HashMap};
 use std::error::Error;
+
 use minijinja::{AutoEscape, Environment};
 use serde::Serialize;
 use serde_json::{to_value, Value};
@@ -8,7 +9,6 @@ use thiserror::Error;
 #[remain::sorted]
 #[derive(Debug, Error)]
 pub enum TemplatingError {
-
     #[error("json serialize/deserialize error: {0}")]
     SerdeJson(#[from] serde_json::Error),
 
@@ -25,7 +25,6 @@ pub enum TemplatingError {
 }
 
 pub type TemplatingResult<T> = Result<T, TemplatingError>;
-
 
 // TODO: do we really need a new-type or could this be a type alias?
 #[derive(Debug, Clone, PartialEq, Serialize)]
@@ -76,7 +75,6 @@ impl TemplateContext {
         self.data.get(index)
     }
 
-
     /// Remove a key from the context, returning the value at the key if the key was previously
     /// inserted into the context.
     pub fn remove(&mut self, index: &str) -> Option<Value> {
@@ -114,9 +112,9 @@ pub struct Templates<'a> {
 impl<'a> Templates<'a> {
     /// Constructs a new instance.
     pub fn new() -> TemplatingResult<Self> {
-        return Ok(Self {
+        Ok(Self {
             env: Environment::new(),
-        });
+        })
     }
 
     pub fn new_with_templates(templates: HashMap<&'a str, String>) -> TemplatingResult<Self> {
@@ -133,7 +131,7 @@ impl<'a> Templates<'a> {
             }
         }
 
-        return Ok(Self { env });
+        Ok(Self { env })
     }
 
     /// Renders the template.
@@ -144,7 +142,11 @@ impl<'a> Templates<'a> {
         Ok(tmpl.render(context)?)
     }
 
-    pub fn one_off(template: &str, context: TemplateContext, escape: bool) -> TemplatingResult<String> {
+    pub fn one_off(
+        template: &str,
+        context: TemplateContext,
+        escape: bool,
+    ) -> TemplatingResult<String> {
         let mut env = Environment::new();
         if escape {
             env.set_auto_escape_callback(|_| AutoEscape::Html);
