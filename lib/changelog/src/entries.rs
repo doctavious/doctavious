@@ -35,6 +35,7 @@ pub struct ChangelogCommit {
     pub scope: Option<String>,
     pub author: ScmSignature,
     pub committer: ScmSignature,
+    pub breaking: bool,
 }
 
 impl ChangelogCommit {
@@ -51,6 +52,8 @@ impl ChangelogCommit {
             scope: None,
             author: commit.author.clone(),
             committer: commit.committer.clone(),
+            // TODO: support breaking change?
+            breaking: false,
         }
     }
 
@@ -67,6 +70,8 @@ impl ChangelogCommit {
             scope: None,
             author: release_note.commit.author.clone(),
             committer: release_note.commit.committer.clone(),
+            // TODO: support breaking change
+            breaking: false,
         }
     }
 
@@ -90,110 +95,13 @@ impl ChangelogCommit {
             scope: conventional.conv.scope().map(|scope| scope.to_string()),
             author: conventional.commit.author.clone(),
             committer: conventional.commit.committer.clone(),
+            breaking: conventional.conv.breaking(),
         }
     }
 }
 
-// #[derive(Debug, Serialize)]
-// pub enum ChangelogCommit<'a> {
-//     Standard(ScmCommit),
-//     Conventional(ConventionalCommit<'a>),
-//     ReleaseNote(ReleaseNote),
-// }
-//
-// impl<'a> ChangelogCommit<'a> {
-//     pub fn id(&self) -> &str {
-//         match &self {
-//             ChangelogCommit::Standard(c) => c.id.as_str(),
-//             ChangelogCommit::Conventional(c) => c.commit.id.as_str(),
-//             ChangelogCommit::ReleaseNote(c) => c.commit.id.as_str(),
-//         }
-//     }
-//
-//     pub fn message(&self) -> &str {
-//         match &self {
-//             ChangelogCommit::Standard(c) => c.message.as_str(),
-//             ChangelogCommit::Conventional(c) => c.commit.message.as_str(),
-//             ChangelogCommit::ReleaseNote(c) => c.commit.message.as_str(),
-//         }
-//     }
-//
-//     pub fn description(&self) -> &str {
-//         match &self {
-//             ChangelogCommit::Standard(c) => c.description.as_str(),
-//             ChangelogCommit::Conventional(c) => c.commit.description.as_str(),
-//             ChangelogCommit::ReleaseNote(c) => c.commit.description.as_str(),
-//         }
-//     }
-//
-//     pub fn body(&self) -> &str {
-//         match &self {
-//             ChangelogCommit::Standard(c) => c.body.as_str(),
-//             ChangelogCommit::Conventional(c) => c.commit.body.as_str(),
-//             ChangelogCommit::ReleaseNote(c) => c.commit.body.as_str(),
-//         }
-//     }
-//
-//     pub fn footers(&self) -> Option<Vec<Footer>> {
-//         // TODO: parse footers for ScmCommit
-//         match &self {
-//             ChangelogCommit::Standard(_) => None,
-//             ChangelogCommit::Conventional(c) => {
-//                 Some(c.conv.footers().iter().map(Footer::from).collect())
-//             }
-//             ChangelogCommit::ReleaseNote(_) => None,
-//         }
-//     }
-//
-//     pub fn timestamp(&self) -> i64 {
-//         match &self {
-//             ChangelogCommit::Standard(c) => c.timestamp,
-//             ChangelogCommit::Conventional(c) => c.commit.timestamp,
-//             ChangelogCommit::ReleaseNote(c) => c.commit.timestamp,
-//         }
-//     }
-//
-//     pub fn commit_type(&self) -> Option<&str> {
-//         match &self {
-//             ChangelogCommit::Standard(_) => None,
-//             ChangelogCommit::Conventional(c) => Some(c.conv.type_().as_str()),
-//             ChangelogCommit::ReleaseNote(_) => None,
-//         }
-//     }
-//
-//     pub fn scope(&self) -> Option<&str> {
-//         match &self {
-//             ChangelogCommit::Standard(_) => None,
-//             ChangelogCommit::Conventional(c) => c.conv.scope().map(|s| s.as_str()),
-//             ChangelogCommit::ReleaseNote(r) => r.category.as_ref().map(|s| s.as_str()),
-//         }
-//     }
-//
-//     pub fn author(&self) -> &ScmSignature {
-//         match &self {
-//             ChangelogCommit::Standard(c) => c.author.borrow(),
-//             ChangelogCommit::Conventional(c) => c.commit.author.borrow(),
-//             ChangelogCommit::ReleaseNote(c) => c.commit.author.borrow(),
-//         }
-//     }
-//
-//     pub fn committer(&self) -> &ScmSignature {
-//         match &self {
-//             ChangelogCommit::Standard(c) => c.committer.borrow(),
-//             ChangelogCommit::Conventional(c) => c.commit.committer.borrow(),
-//             ChangelogCommit::ReleaseNote(c) => c.commit.committer.borrow(),
-//         }
-//     }
-//
-// }
-
 #[derive(Debug, Serialize)]
 pub struct ChangelogEntry {
-    // /// Commit ID.
-    // pub id: String,
-    //
-    // /// Commit message including title, description and summary.
-    // pub message: String,
     #[serde(flatten)]
     pub commit: ChangelogCommit,
 
@@ -208,43 +116,15 @@ pub struct ChangelogEntry {
 
     pub matched_group_parser: bool,
 
-    // pub timestamp: i64,
     /// A list of links found in the commit
     pub links: Vec<Link>,
-    // /// Commit author.
-    // pub author: Signature,
-    //
-    // /// Committer.
-    // pub committer: Signature,
-    //
-    // /// Whether if the commit has two or more parents.
-    // pub merge_commit: bool,
-}
-
-pub struct GroupParsing {
-    parsers: Vec<GroupParser>,
-    protect_breaking: bool,
-    filter: bool,
-}
-
-struct ChangelogGroup {
-    /// Commit group based on a group parser or its conventional type.
-    pub group: Option<String>,
-
-    /// Commit scope for overriding the default one.
-    pub scope: Option<String>,
-
-    /// Default commit scope based on (inherited from) conventional type or a group parser.
-    pub default_scope: Option<String>,
 }
 
 impl ChangelogEntry {
-    pub fn n(
+    pub fn new(
         commit: ChangelogCommit,
-        group_parsers: Option<&[GroupParser]>,
-        protect_breaking: bool,
-        filter: bool,
-        link_parsers: Option<&[LinkParser]>,
+        group_parsers: Option<&Vec<GroupParser>>,
+        link_parsers: Option<&Vec<LinkParser>>,
     ) -> ChangelogResult<Self> {
         // TODO: clean up a bit around matched
         let (group, scope, default_scope, matched) = if let Some(group_parsers) = group_parsers {
@@ -299,62 +179,6 @@ impl ChangelogEntry {
                     default_scope: group_parser.default_scope.as_ref().cloned(),
                 }));
             }
-
-            // let mut checks = Vec::new();
-            //
-            // // TODO: need to support multiple field checks
-            // // { message = ".*deprecated", body = ".*deprecated", group = "Deprecation" }
-            // // TODO: support entire entry / dot path notation
-            // let field = parser.field.as_ref();
-            // let pattern = &parser.pattern;
-            // match field {
-            //     "id" => checks.push(Some(commit.id().to_string())),
-            //     "message" => checks.push(Some(commit.message().to_string())),
-            //     "description" => checks.push(Some(commit.description().to_string())),
-            //     "body" => checks.push(Some(commit.body().to_string())),
-            //     "footer" => {
-            //         if let Some(footers) = commit.footers() {
-            //             checks.extend(footers.iter().map(|f| Some(f.to_string())))
-            //         }
-            //     }
-            //     "author.name" => checks.push(commit.author().name.clone()),
-            //     "author.email" => checks.push(commit.author().email.clone()),
-            //     "committer.name" => checks.push(commit.committer().name.clone()),
-            //     "committer.email" => checks.push(commit.committer().email.clone()),
-            //     _ => {}
-            // };
-            //
-            // if checks.is_empty() {
-            //     return Err(ChangelogErrors::ChangelogError(format!(
-            //         "invalid group parser field {field}",
-            //     )));
-            // }
-            //
-            // for text in checks {
-            //     if let Some(text) = text {
-            //         if pattern.is_match(&text) {
-            //             // TODO: test for the following
-            //             // { message = '^fix\((.*)\)', group = 'Fix (${1})' }
-            //             let regex_replace = |mut value: String| {
-            //                 for mat in pattern.find_iter(&text) {
-            //                     value = pattern.replace(mat.as_str(), value).to_string();
-            //                 }
-            //                 value
-            //             };
-            //
-            //             return Ok(Some(ChangelogGroup {
-            //                 group: parser.group.as_ref().cloned().map(regex_replace),
-            //                 scope: parser.scope.as_ref().cloned().map(regex_replace),
-            //                 default_scope: parser.default_scope.as_ref().cloned(),
-            //             }));
-            //         }
-            //     } else {
-            //         warn!(
-            //             "{}",
-            //             format!("Skip group parser for field {field} does not have a value")
-            //         )
-            //     }
-            // }
         }
 
         Ok(None)
@@ -381,17 +205,6 @@ impl ChangelogEntry {
         }
 
         links
-    }
-
-    pub fn new(commit: ChangelogCommit) -> Self {
-        Self {
-            commit,
-            group: None,
-            default_scope: None,
-            scope: None,
-            matched_group_parser: false,
-            links: vec![],
-        }
     }
 
     pub fn id(&self) -> &str {
@@ -433,89 +246,23 @@ impl ChangelogEntry {
     pub fn committer(&self) -> &ScmSignature {
         &self.commit.committer
     }
+}
 
-    // pub fn id(&self) -> &str {
-    //     match &self.commit {
-    //         ChangelogCommit::Standard(c) => c.id.as_str(),
-    //         ChangelogCommit::Conventional(c) => c.commit.id.as_str(),
-    //         ChangelogCommit::ReleaseNote(c) => c.commit.id.as_str(),
-    //     }
-    // }
-    //
-    // pub fn message(&self) -> &str {
-    //     match &self.commit {
-    //         ChangelogCommit::Standard(c) => c.message.as_str(),
-    //         ChangelogCommit::Conventional(c) => c.commit.message.as_str(),
-    //         ChangelogCommit::ReleaseNote(c) => c.commit.message.as_str(),
-    //     }
-    // }
-    //
-    // pub fn description(&self) -> &str {
-    //     match &self.commit {
-    //         ChangelogCommit::Standard(c) => c.description.as_str(),
-    //         ChangelogCommit::Conventional(c) => c.commit.description.as_str(),
-    //         ChangelogCommit::ReleaseNote(c) => c.commit.description.as_str(),
-    //     }
-    // }
-    //
-    // pub fn body(&self) -> &str {
-    //     match &self.commit {
-    //         ChangelogCommit::Standard(c) => c.body.as_str(),
-    //         ChangelogCommit::Conventional(c) => c.commit.body.as_str(),
-    //         ChangelogCommit::ReleaseNote(c) => c.commit.body.as_str(),
-    //     }
-    // }
-    //
-    // pub fn footers(&self) -> Option<Vec<Footer>> {
-    //     // TODO: parse footers for ScmCommit
-    //     match &self.commit {
-    //         ChangelogCommit::Standard(_) => None,
-    //         ChangelogCommit::Conventional(c) => {
-    //             Some(c.conv.footers().iter().map(Footer::from).collect())
-    //         }
-    //         ChangelogCommit::ReleaseNote(_) => None,
-    //     }
-    // }
-    //
-    // pub fn timestamp(&self) -> i64 {
-    //     match &self.commit {
-    //         ChangelogCommit::Standard(c) => c.timestamp,
-    //         ChangelogCommit::Conventional(c) => c.commit.timestamp,
-    //         ChangelogCommit::ReleaseNote(c) => c.commit.timestamp,
-    //     }
-    // }
-    //
-    // pub fn commit_type(&self) -> Option<&str> {
-    //     match &self.commit {
-    //         ChangelogCommit::Standard(_) => None,
-    //         ChangelogCommit::Conventional(c) => Some(c.conv.type_().as_str()),
-    //         ChangelogCommit::ReleaseNote(_) => None,
-    //     }
-    // }
-    //
-    // pub fn scope(&self) -> Option<&str> {
-    //     match &self.commit {
-    //         ChangelogCommit::Standard(_) => None,
-    //         ChangelogCommit::Conventional(c) => c.conv.scope().map(|s| s.as_str()),
-    //         ChangelogCommit::ReleaseNote(_) => None,
-    //     }
-    // }
-    //
-    // pub fn author(&self) -> &ScmSignature {
-    //     match &self.commit {
-    //         ChangelogCommit::Standard(c) => c.author.borrow(),
-    //         ChangelogCommit::Conventional(c) => c.commit.author.borrow(),
-    //         ChangelogCommit::ReleaseNote(c) => c.commit.author.borrow(),
-    //     }
-    // }
-    //
-    // pub fn committer(&self) -> &ScmSignature {
-    //     match &self.commit {
-    //         ChangelogCommit::Standard(c) => c.committer.borrow(),
-    //         ChangelogCommit::Conventional(c) => c.commit.committer.borrow(),
-    //         ChangelogCommit::ReleaseNote(c) => c.commit.committer.borrow(),
-    //     }
-    // }
+pub struct GroupParsing {
+    parsers: Vec<GroupParser>,
+    protect_breaking: bool,
+    filter: bool,
+}
+
+struct ChangelogGroup {
+    /// Commit group based on a group parser or its conventional type.
+    pub group: Option<String>,
+
+    /// Commit scope for overriding the default one.
+    pub scope: Option<String>,
+
+    /// Default commit scope based on (inherited from) conventional type or a group parser.
+    pub default_scope: Option<String>,
 }
 
 #[derive(Debug, Clone, Eq, PartialEq, Serialize)]
@@ -587,62 +334,3 @@ impl<'a> From<&'a ConventionalFooter<'a>> for Footer {
         }
     }
 }
-
-// impl Commit<'_> {
-//     /// Processes the commit.
-//     ///
-//     /// * converts commit to a conventional commit
-//     /// * sets the group for the commit
-//     /// * extracts links and generates URLs
-//     pub fn process(&self) -> CliResult<()> {
-//         Ok(())
-//     }
-//
-//     // into_conventional
-//
-//     // preprocess
-//
-//     // skip_commit
-//
-//     // parse
-//
-//     // parse_links
-// }
-//
-// impl From<GitCommit<'_>> for Commit<'_> {
-//     fn from(value: GitCommit) -> Self {
-//         Self {
-//             id: value.id().to_string(),
-//             message: value.message().unwrap_or_default().to_string(),
-//             commit: (),
-//             group: None,
-//             default_scope: None,
-//             scope: None,
-//             timestamp: 0,
-//             links: vec![],
-//             author: value.author().into(),
-//             committer: value.committer().into(),
-//             merge_commit: value.parents().count() > 1,
-//         }
-//     }
-// }
-//
-// impl From<&ScmCommit> for Commit<'_> {
-//     fn from(value: &ScmCommit) -> Self {
-//         Self {
-//             id: value.id.to_string(),
-//             // TODO: way to avoid clones?
-//             message: value.message.clone().unwrap_or_default(),
-//             commit: (),
-//             group: None,
-//             default_scope: None,
-//             author: value.author.clone().into(),
-//             committer: value.committer.clone().into(),
-//             // TODO: merge_commit
-//             merge_commit: false,
-//             timestamp: value.timestamp,
-//             scope: None,
-//             links: vec![],
-//         }
-//     }
-// }

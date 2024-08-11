@@ -50,7 +50,12 @@ impl ScmRepository for SvnScmRepository {
         todo!()
     }
 
-    fn tags(&self, pattern: &Option<Regex>, sort: TagSort) -> ScmResult<IndexMap<String, ScmTag>> {
+    fn tags(
+        &self,
+        pattern: &Option<Regex>,
+        sort: TagSort,
+        suffix_order: Option<&Vec<String>>,
+    ) -> ScmResult<IndexMap<String, ScmTag>> {
         todo!()
     }
 

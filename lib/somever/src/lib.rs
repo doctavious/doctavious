@@ -1,6 +1,3 @@
-// want to handle suffix sorting similar to git's versionsort.suffix
-// where you can specify
-
 use std::fmt::{Display, Formatter, Write};
 use std::str::FromStr;
 
@@ -23,6 +20,9 @@ pub enum SomeverError {
     // ParseInt(#[from] ParseIntError),
     #[error("Could not parse {0} into digit")]
     ParseInt(String),
+
+    #[error(transparent)]
+    SemverError(#[from] semver::Error),
 }
 
 pub type SomeverResult<T> = Result<T, SomeverError>;
@@ -155,9 +155,39 @@ impl Display for Calver {
 // (<MAJOR>\d).(<MINOR>\d)(?<MICRO>.\d)(?<MODIFIER>.+)
 
 #[derive(Debug, Serialize)]
-pub enum Version {
+pub enum Somever {
     Calver(Calver),
     Semver(semver::Version),
+}
+
+impl Somever {
+    pub fn new(scheme: &VersioningScheme, value: &str) -> SomeverResult<Self> {
+        Ok(match scheme {
+            VersioningScheme::Calver => Somever::Calver(Calver::parse(value)?),
+            VersioningScheme::Semver => Somever::Semver(semver::Version::parse(value)?),
+        })
+    }
+
+    pub fn major(&self) -> u64 {
+        match self {
+            Somever::Calver(c) => c.major as u64,
+            Somever::Semver(s) => s.major,
+        }
+    }
+
+    pub fn minor(&self) -> u64 {
+        match self {
+            Somever::Calver(c) => c.minor as u64,
+            Somever::Semver(s) => s.minor,
+        }
+    }
+
+    pub fn patch(&self) -> Option<u64> {
+        match self {
+            Somever::Calver(c) => c.micro.map(|m| m as u64),
+            Somever::Semver(s) => Some(s.patch),
+        }
+    }
 }
 
 #[cfg(test)]

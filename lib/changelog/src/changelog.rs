@@ -3,10 +3,9 @@ use std::io::Write;
 use doctavious_templating::{TemplateContext, Templates};
 use git_conventional::{Commit as GitConventionalCommit, Error};
 use scm::commit::{ScmCommit, TaggedCommits};
-use somever::Version::Semver;
-use somever::{Calver, Version, VersioningScheme};
+use somever::{Calver, Somever, VersioningScheme};
 use strum::IntoEnumIterator;
-use tracing::{trace, warn};
+use tracing::{debug, trace, warn};
 
 use crate::conventional::ConventionalCommit;
 use crate::entries::{ChangelogCommit, ChangelogEntry, Link};
@@ -113,12 +112,23 @@ impl Changelog {
                     }
                 };
 
-                for c in changelog_entry_commits {
+                let protect_breaking = settings.scm.protect_breaking_commits.unwrap_or_default();
+                'commits: for commit in changelog_entry_commits {
                     if let Some(skips) = &settings.scm.skips {
-                        for skip in skips {}
+                        for skip in skips {
+                            if skip.is_match(&commit)? && !(commit.breaking && protect_breaking) {
+                                debug!("skipping commit {}", &commit.id);
+                                continue 'commits;
+                            }
+                        }
                     }
 
-                    let mut entry = ChangelogEntry::new(c);
+                    let mut entry = ChangelogEntry::new(
+                        commit,
+                        settings.scm.group_parsers.as_ref(),
+                        settings.scm.link_parsers.as_ref(),
+                    )?;
+
                     if entry.matched_group_parser || !filter_commits {
                         changelog_entries.push(entry);
                     } else if filter_commits {
@@ -129,19 +139,11 @@ impl Changelog {
 
             let tag = tagged_commit.tag;
             let version = if let Some(name) = tag.as_ref().map(|t| t.name.clone()) {
-                match settings.scm.version_scheme {
-                    VersioningScheme::Calver => {
-                        Some(Version::Calver(Calver::parse(&name).unwrap()))
-                    }
-                    VersioningScheme::Semver => {
-                        Some(Version::Semver(semver::Version::parse(&name).unwrap()))
-                    }
-                }
+                Some(Somever::new(&settings.scm.version_scheme, &name)?)
             } else {
                 None
             };
 
-            // TODO: transform ScmTag to SomeVer based on settings
             releases.push(Release {
                 version,
                 tag_id: tag.as_ref().and_then(|t| t.id.clone()),
@@ -151,6 +153,7 @@ impl Changelog {
         }
 
         // TODO: sort releases based on settings
+        // TODO: handle suffix
 
         Ok(Self { releases })
     }
@@ -211,7 +214,6 @@ impl Changelog {
 
         // TODO: headers
 
-        println!("rendering...");
         // TODO: support versions in different files
         for release in &self.releases {
             let template = r###"
@@ -224,7 +226,7 @@ impl Changelog {
     - {{ commit.message }}
 {% endfor %}
 "###;
-            let context = TemplateContext::from_serialize(release).unwrap();
+            let context = TemplateContext::from_serialize(release)?;
             let rendered = Templates::one_off(template, context, false)?;
             write!(out, "{}", rendered)?;
         }
@@ -236,7 +238,12 @@ impl Changelog {
 
     // TODO: prepend
 
-    pub fn bump_version(&self) {}
+    // Increments the version for the unreleased changes
+    pub fn bump_version(&self) {
+        if let Some(mut release) = self.releases.first() {
+            if let Some(version) = &release.version {}
+        }
+    }
 }
 
 #[cfg(test)]

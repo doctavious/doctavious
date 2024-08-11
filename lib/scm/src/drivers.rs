@@ -49,7 +49,12 @@ pub trait ScmRepository {
 
     // fn tagged_commits(&self) -> ScmResult<Vec<TaggedCommits>>;
 
-    fn tags(&self, pattern: &Option<Regex>, sort: TagSort) -> ScmResult<IndexMap<String, ScmTag>>;
+    fn tags(
+        &self,
+        pattern: &Option<Regex>,
+        sort: TagSort,
+        suffix_order: Option<&Vec<String>>,
+    ) -> ScmResult<IndexMap<String, ScmTag>>;
 
     fn current_tag(&self) -> Option<ScmTag>;
 
@@ -165,11 +170,16 @@ impl ScmRepository for Scm {
         }
     }
 
-    fn tags(&self, pattern: &Option<Regex>, sort: TagSort) -> ScmResult<IndexMap<String, ScmTag>> {
+    fn tags(
+        &self,
+        pattern: &Option<Regex>,
+        sort: TagSort,
+        suffix_order: Option<&Vec<String>>,
+    ) -> ScmResult<IndexMap<String, ScmTag>> {
         match self {
-            Scm::Git(r) => r.tags(pattern, sort),
-            Scm::Hg(r) => r.tags(pattern, sort),
-            Scm::Svn(r) => r.tags(pattern, sort),
+            Scm::Git(r) => r.tags(pattern, sort, suffix_order),
+            Scm::Hg(r) => r.tags(pattern, sort, suffix_order),
+            Scm::Svn(r) => r.tags(pattern, sort, suffix_order),
         }
     }
 

@@ -490,7 +490,12 @@ impl ScmRepository for GitScmRepository {
     /// Parses and returns a commit-tag map.
     ///
     /// It collects lightweight and annotated tags.
-    fn tags(&self, pattern: &Option<Regex>, sort: TagSort) -> ScmResult<IndexMap<String, ScmTag>> {
+    fn tags(
+        &self,
+        pattern: &Option<Regex>,
+        sort: TagSort,
+        suffix_order: Option<&Vec<String>>,
+    ) -> ScmResult<IndexMap<String, ScmTag>> {
         // initially used git2's `tag_names` to get tags however I can't find a good way to mimic
         // git's `--sort=v:refname` support via git2
         // TODO: might have to expose `versionsort.suffix` configuration
@@ -500,10 +505,17 @@ impl ScmRepository for GitScmRepository {
             command.current_dir(git_workdir);
         }
 
-        let mut args = vec!["tag", "-l"];
+        let mut args = Vec::new();
+        if let Some(suffix_order) = suffix_order {
+            for suffix in suffix_order {
+                args.extend(["-c".to_string(), format!("versionsort.suffix={suffix}")]);
+            }
+        }
+
+        args.extend(["tag".to_string(), "-l".to_string()]);
         match sort {
-            TagSort::Chronological => args.push("--sort=creatordate"),
-            TagSort::Version => args.push("--sort=v:refname"),
+            TagSort::Chronological => args.push("--sort=creatordate".to_string()),
+            TagSort::Version => args.push("--sort=v:refname".to_string()),
             _ => {}
         }
 
@@ -731,7 +743,7 @@ mod tests {
     fn git_cliff_tags() {
         println!("{:?}", env::current_dir().unwrap());
         let scm = GitScmRepository::new("../../../../git-cliff").unwrap();
-        let commits = scm.tags(&None, TagSort::Version).unwrap();
+        let commits = scm.tags(&None, TagSort::Version, None).unwrap();
         for c in commits {
             println!("{:?}", &c);
         }

@@ -43,8 +43,14 @@ pub(crate) struct ReleaseCommand {
     #[arg(long, action)]
     pub bump: bool,
 
-    #[arg(long, short)]
-    output: Option<String>,
+    // env = "DOCTAVIOUS_CHANGELOG_OUTPUT",
+    #[arg(
+        long,
+        short,
+        value_name = "PATH",
+        default_missing_value = "changelog.md"
+    )]
+    output: Option<PathBuf>,
 
     /// Sets the regex for matching git tags [env: DOCTAVIOUS_CHANGELOG_TAG_PATTERN=]
     #[arg(long, value_name = "PATTERN")]
@@ -102,6 +108,8 @@ pub(crate) struct ReleaseCommand {
     /// Strips the given parts from the changelog.
     #[arg(short, long, value_name = "PART", value_enum)]
     pub strip: Option<StrippableChangelogSection>,
+
+    
     // -p, --prepend <PATH>             Prepends entries to the given changelog file [env: GIT_CLIFF_PREPEND=]
     // -o, --output [<PATH>]            Writes output to the given file [env: GIT_CLIFF_OUTPUT=]
     // -t, --tag <TAG>                  Sets the tag for the latest version [env: GIT_CLIFF_TAG=]
@@ -120,6 +128,7 @@ pub(crate) fn execute(command: ReleaseCommand) -> CliResult<Option<String>> {
     release(ChangelogReleaseOptions {
         cwd: &path,
         repositories: command.repositories,
+        output: command.output,
         prepend: command.prepend,
         range: command.range,
         include_paths: command.include_paths,
@@ -151,6 +160,7 @@ mod tests {
         let cmd = ChangelogReleaseOptions {
             cwd: cwd.as_path(),
             repositories: None,
+            output: None,
             prepend: None,
             range: None,
             include_paths: None,

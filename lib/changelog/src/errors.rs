@@ -1,3 +1,4 @@
+use somever::SomeverError;
 use thiserror::Error;
 
 #[remain::sorted]
@@ -19,6 +20,9 @@ pub enum ChangelogErrors {
 
     #[error(transparent)]
     SerdeJson(#[from] serde_json::Error),
+
+    #[error(transparent)]
+    SomeverError(#[from] SomeverError),
 }
 
 pub type ChangelogResult<T> = Result<T, ChangelogErrors>;

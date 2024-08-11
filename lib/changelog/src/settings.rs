@@ -153,6 +153,11 @@ pub struct ChangelogScmSettings {
     pub limit_commits: Option<usize>,
 
     pub version_scheme: VersioningScheme,
+
+    /// determine the sorting order of tags with different suffixes
+    /// The placement of the main release tag relative to tags with various suffixes can be
+    /// determined by specifying the empty suffix among those other suffixes.
+    pub version_suffixes: Option<Vec<String>>,
 }
 
 /// Parser for grouping commits.
@@ -203,23 +208,6 @@ impl CommitParser {
                 }
             }
         }
-
-        match field {
-            "id" => checks.push(Some(commit.id.to_string())),
-            "message" => checks.push(Some(commit.message.to_string())),
-            "description" => checks.push(Some(commit.description.to_string())),
-            "body" => checks.push(Some(commit.body.to_string())),
-            "footer" => {
-                if let Some(footers) = &commit.footers {
-                    checks.extend(footers.iter().map(|f| Some(f.to_string())))
-                }
-            }
-            "author.name" => checks.push(commit.author.name.clone()),
-            "author.email" => checks.push(commit.author.email.clone()),
-            "committer.name" => checks.push(commit.committer.name.clone()),
-            "committer.email" => checks.push(commit.committer.email.clone()),
-            _ => {}
-        };
 
         if checks.is_empty() {
             return Err(ChangelogErrors::ChangelogError(format!(
