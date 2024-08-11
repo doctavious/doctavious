@@ -4,7 +4,7 @@ use std::path::Path;
 use std::process::{Command, Output};
 use std::thread;
 
-use tracing::log;
+use tracing::error;
 
 use crate::error::Result;
 
@@ -92,7 +92,7 @@ fn handle_output(output: Output) -> Result<String> {
         for output in [output.stdout, output.stderr] {
             let output = std::str::from_utf8(&output)?.to_string();
             if !output.is_empty() {
-                log::error!("{}", output);
+                error!("{}", output);
             }
         }
 
