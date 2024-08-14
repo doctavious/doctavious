@@ -6,10 +6,11 @@ use std::str::FromStr;
 
 use chrono::Local;
 use doctavious_templating::{TemplateContext, Templates};
+use markup::MarkupFormat;
 use regex::RegexBuilder;
 use scm::drivers::{Scm, ScmRepository};
 use serde::Serialize;
-use markup::MarkupFormat;
+
 use crate::cmd::design_decisions;
 use crate::cmd::design_decisions::{
     build_path, can_reserve, format_number, reserve_number, DesignDecisionErrors, LinkReference,
@@ -463,8 +464,9 @@ mod tests {
     use std::fs;
     use std::path::{Path, PathBuf};
 
-    use tempfile::TempDir;
     use markup::MarkupFormat;
+    use tempfile::TempDir;
+
     use crate::cmd::design_decisions::adr::{
         add_custom_template, generate_toc, init, link, list, new,
     };

@@ -297,6 +297,7 @@ fn determine_commit_range(
 pub struct VersionUpdater {
     pub features_always_increment_minor: bool,
     pub breaking_always_increment_major: bool,
+    // TODO: could this be the same as our group / commit parser?
     pub major_increment_regex: Option<Regex>,
     pub minor_increment_regex: Option<Regex>,
 }
@@ -349,9 +350,11 @@ impl VersionUpdater {
 
 #[cfg(test)]
 mod tests {
+    use std::default::Default;
     use std::path::{Path, PathBuf};
 
-    use changelog::settings::{ChangelogScmSettings, ChangelogSettings};
+    use changelog::changelog::ChangelogKind;
+    use changelog::settings::{ChangelogScmSettings, ChangelogSettings, TemplateSettings};
     use scm::drivers::git::TagSort;
     use somever::VersioningScheme;
 
@@ -375,6 +378,21 @@ mod tests {
                 tag: None,
             },
             ChangelogSettings {
+                structure: ChangelogKind::Single,
+                templates: TemplateSettings {
+                    body: r###"
+{% if version -%}
+    ## [{{ version | trim_start_matches(pat="v") }}] - {{ timestamp | date(format="%Y-%m-%d") }}
+{% else -%}
+    ## [Unreleased]
+{% endif -%}
+{% for commit in commits -%}
+    - {{ commit.message }}
+{% endfor %}
+"###
+                    .to_string(),
+                    ..Default::default()
+                },
                 scm: ChangelogScmSettings {
                     commit_version: None,
                     commit_style: None,

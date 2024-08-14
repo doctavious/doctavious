@@ -29,7 +29,6 @@ pub enum MarkupError {
 
 pub type MarkupResult<T> = Result<T, MarkupError>;
 
-
 #[derive(Clone, Copy, Debug, Display, EnumIter, EnumString, VariantNames, PartialEq)]
 #[non_exhaustive]
 pub enum MarkupFormat {

@@ -1,6 +1,7 @@
 use std::fs;
 use std::io::Write;
 use std::path::Path;
+
 use doctavious_templating::{TemplateContext, Templates};
 use git_conventional::{Commit as GitConventionalCommit, Error};
 use scm::commit::{ScmCommit, TaggedCommits};
@@ -63,7 +64,6 @@ enum ChangeLogFormat {
 pub struct Changelog {
     releases: Vec<Release>,
     // settings: &'a ChangeLogSettings
-
     structure: ChangelogKind,
 
     // TODO: should we have a Template struct?
@@ -248,7 +248,6 @@ impl Changelog {
 
         Ok(())
     }
-
 
     pub fn generate<W: Write>(&self, out: &mut W) -> ChangelogResult<()> {
         // TODO: post processors

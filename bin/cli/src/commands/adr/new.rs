@@ -4,8 +4,9 @@ use clap::Parser;
 use doctavious_cli::cmd::design_decisions::adr;
 use doctavious_cli::errors::CliResult;
 use doctavious_cli::templating::AdrTemplateType;
-use strum::VariantNames;
 use markup::MarkupFormat;
+use strum::VariantNames;
+
 use crate::clap_enum_variants;
 
 // TODO: should number just be a string and allow people to add their own conventions like leading zeros?

@@ -4,11 +4,12 @@ use std::io::ErrorKind;
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
 
+use markup::{MarkupFormat, MARKUP_FORMAT_EXTENSIONS};
 use scm::drivers::{Scm, ScmRepository};
 use thiserror::Error;
 use unidecode::unidecode;
 use walkdir::{DirEntry, WalkDir};
-use markup::{MarkupFormat, MARKUP_FORMAT_EXTENSIONS};
+
 use crate::errors::{CliResult, DoctaviousCliError};
 use crate::file_structure::FileStructure;
 use crate::settings::DEFAULT_TEMPLATE_DIR;

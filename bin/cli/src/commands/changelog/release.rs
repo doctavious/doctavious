@@ -108,8 +108,6 @@ pub(crate) struct ReleaseCommand {
     /// Strips the given parts from the changelog.
     #[arg(short, long, value_name = "PART", value_enum)]
     pub strip: Option<StrippableChangelogSection>,
-
-    
     // -p, --prepend <PATH>             Prepends entries to the given changelog file [env: GIT_CLIFF_PREPEND=]
     // -o, --output [<PATH>]            Writes output to the given file [env: GIT_CLIFF_OUTPUT=]
     // -t, --tag <TAG>                  Sets the tag for the latest version [env: GIT_CLIFF_TAG=]
@@ -173,9 +171,7 @@ mod tests {
         };
 
         let settings = ChangelogSettings {
-            scm: Default::default(),
-            remote: None,
-            bump: None,
+            ..Default::default()
         };
 
         release_with_settings(cmd, settings).unwrap();

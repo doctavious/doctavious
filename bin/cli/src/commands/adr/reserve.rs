@@ -3,8 +3,9 @@ use std::path::PathBuf;
 use clap::Parser;
 use doctavious_cli::cmd::design_decisions::adr;
 use doctavious_cli::errors::CliResult;
-use strum::VariantNames;
 use markup::MarkupFormat;
+use strum::VariantNames;
+
 use crate::clap_enum_variants;
 
 /// Reserve ADR

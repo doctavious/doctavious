@@ -9,10 +9,11 @@ use std::{env, fs};
 use chrono::{DateTime, Local};
 use directories::UserDirs;
 use doctavious_templating::{TemplateContext, Templates};
+use markup::MarkupFormat;
 use serde::Serialize;
 use tracing::debug;
 use walkdir::{DirEntry, WalkDir};
-use markup::MarkupFormat;
+
 use crate::cmd::design_decisions::is_valid_file;
 use crate::edit;
 use crate::errors::{CliResult, DoctaviousCliError};
@@ -367,8 +368,8 @@ mod tests {
     use std::path::Path;
 
     use directories::BaseDirs;
-    use tempfile::TempDir;
     use markup::MarkupFormat;
+    use tempfile::TempDir;
     use testing::cleanup::CleanUp;
 
     use crate::cmd::til::{init, list, new, open};

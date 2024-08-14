@@ -3,8 +3,9 @@ use std::path::PathBuf;
 use clap::Parser;
 use doctavious_cli::cmd::til;
 use doctavious_cli::errors::CliResult;
-use strum::VariantNames;
 use markup::MarkupFormat;
+use strum::VariantNames;
+
 use crate::clap_enum_variants;
 
 /// Init Today I Learned (TIL)
