@@ -2,6 +2,7 @@ use std::collections::HashMap;
 use std::env;
 
 use doctavious_std::command;
+use doctavious_templating::Templates;
 use regex::Regex;
 use scm::drivers::git::TagSort;
 use scm::providers::ScmProviders;
@@ -10,14 +11,28 @@ use serde_json::Value;
 use somever::VersioningScheme;
 use tracing::warn;
 
+use crate::changelog::ChangelogKind;
 use crate::entries::ChangelogCommit;
 use crate::errors::{ChangelogErrors, ChangelogResult};
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct ChangelogSettings {
+    // TODO: not sure about the name. Where should this go?
+    pub structure: ChangelogKind,
+
+    pub templates: TemplateSettings,
+
     pub scm: ChangelogScmSettings,
     pub remote: Option<ChangelogRemoteSettings>,
     pub bump: Option<ChangelogBumpSettings>,
+}
+
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
+pub struct TemplateSettings {
+    pub header: Option<String>,
+    pub body: String,
+    pub footer: Option<String>,
+    pub trim: bool,
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
@@ -74,7 +89,12 @@ pub struct ConventionalCommitSettings {
 pub struct ReleaseNoteSettings {
     /// Category that flags commit as a breaking change.
     /// Defaults to breaking
-    pub breaking_change_category: Option<String>,
+    #[serde(default = "default_breaking_category")]
+    pub breaking_change_category: String,
+}
+
+fn default_breaking_category() -> String {
+    "breaking".to_string()
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]

@@ -42,6 +42,9 @@ pub enum DoctaviousCliError {
     #[error("io: {0}")]
     Io(#[from] std::io::Error),
 
+    #[error(transparent)]
+    MarkupError(#[from] markup::MarkupError),
+
     // TODO: fix this
     #[error("{0}")]
     NoConfirmation(String),
@@ -75,9 +78,6 @@ pub enum DoctaviousCliError {
     /// Errors that may occur when serializing types from TOML format.
     #[error("toml serialization error: `{0}`")]
     TomlSerializeError(#[from] toml::ser::Error),
-
-    #[error("Unknown markup extension for path: {0}")]
-    UnknownMarkupExtension(String),
 
     #[error(transparent)]
     Utf8Error(#[from] Utf8Error),

@@ -24,6 +24,7 @@ glob = { workspace = true }
 glob-match = { workspace = true }
 indexmap = { workspace = true, features = ["serde"] }
 lazy_static = { workspace = true }
+markup = { path = "../../lib/markup" }
 md5 = { workspace = true }
 minijinja = { workspace = true, features = ["loader"] }
 rayon = { workspace = true }

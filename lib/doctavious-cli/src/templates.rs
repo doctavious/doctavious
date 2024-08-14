@@ -1,8 +1,7 @@
 use std::fs;
 use std::io::BufRead;
 use std::path::{Path, PathBuf};
-
-use crate::markup_format::MarkupFormat;
+use markup::MarkupFormat;
 use crate::templating::TemplateType;
 
 pub(crate) fn get_template(dir: &Path, template_type: TemplateType, extension: &str) -> PathBuf {

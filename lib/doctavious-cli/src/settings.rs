@@ -15,10 +15,9 @@ use scm::providers::ScmProviders;
 use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
 use thiserror::Error;
-
+use markup::MarkupFormat;
 use crate::errors::CliResult;
 use crate::file_structure::FileStructure;
-use crate::markup_format::MarkupFormat;
 
 pub const DEFAULT_CONFIG_DIR: &str = ".doctavious";
 

@@ -16,12 +16,18 @@ pub struct ReleaseNote {
     pub category: Option<String>,
     pub description: String,
     pub commit: ScmCommit,
-    // TODO: breaking change - backward-incompatible change category
+    pub breaking_change: bool,
 }
 
-impl ReleaseNote {
-    // TODO: support for determining breaking change
-    pub fn parse_commit(commit: &ScmCommit) -> Vec<Self> {
+pub struct ReleaseNotes {
+    pub breaking_change_category: String,
+    // TODO: could we use commit / group parser to determine feature / minor / patch?
+    // what does knowing feature really provide? Way to determine how to bump? if so maybe just make
+    // it part of bump
+}
+
+impl ReleaseNotes {
+    pub fn parse_commit(&self, commit: &ScmCommit) -> Vec<ReleaseNote> {
         let mut release_notes = vec![];
         for line in commit.message.lines() {
             if RE.is_match(line) {
@@ -31,11 +37,16 @@ impl ReleaseNote {
                     .name("description")
                     .map_or(String::new(), |c| c.as_str().to_string());
 
+                let breaking_change = category
+                    .as_ref()
+                    .is_some_and(|c| *c == self.breaking_change_category);
+
                 if description.to_lowercase().trim() == "none" {
                     release_notes.push(ReleaseNote {
                         category,
                         description,
                         commit: commit.clone(),
+                        breaking_change,
                     });
                 }
             }

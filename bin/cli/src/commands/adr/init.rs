@@ -4,10 +4,9 @@ use clap::Parser;
 use doctavious_cli::cmd::design_decisions::adr;
 use doctavious_cli::errors::CliResult;
 use doctavious_cli::file_structure::FileStructure;
-use doctavious_cli::markup_format::MarkupFormat;
 use doctavious_cli::settings::DEFAULT_ADR_DIR;
 use strum::VariantNames;
-
+use markup::MarkupFormat;
 use crate::clap_enum_variants;
 
 /// Initialises the directory of architecture decision records:

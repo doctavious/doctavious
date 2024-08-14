@@ -13,6 +13,7 @@ git2 = { workspace = true }
 git-conventional = {  workspace = true, features = ["serde"] }
 glob = { workspace = true }
 lazy_static = { workspace = true }
+markup = { path = "../../lib/markup" }
 next_version = "0.2.12"
 regex = { workspace = true }
 remain = { workspace = true }

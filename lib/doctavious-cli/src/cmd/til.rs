@@ -12,12 +12,11 @@ use doctavious_templating::{TemplateContext, Templates};
 use serde::Serialize;
 use tracing::debug;
 use walkdir::{DirEntry, WalkDir};
-
+use markup::MarkupFormat;
 use crate::cmd::design_decisions::is_valid_file;
 use crate::edit;
 use crate::errors::{CliResult, DoctaviousCliError};
 use crate::files::{ensure_path, friendly_filename};
-use crate::markup_format::MarkupFormat;
 use crate::settings::{Config, SettingErrors, TilSettings, DEFAULT_TIL_DIR};
 use crate::templates::{get_template, get_template_content, get_title};
 use crate::templating::{TemplateType, TilTemplateType};
@@ -369,11 +368,11 @@ mod tests {
 
     use directories::BaseDirs;
     use tempfile::TempDir;
+    use markup::MarkupFormat;
     use testing::cleanup::CleanUp;
 
     use crate::cmd::til::{init, list, new, open};
     use crate::files::get_all_files;
-    use crate::markup_format::MarkupFormat;
     use crate::settings::Config;
 
     #[test]

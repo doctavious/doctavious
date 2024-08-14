@@ -6,7 +6,7 @@ use chrono::Local;
 use doctavious_templating::{TemplateContext, Templates};
 use scm::drivers::{Scm, ScmRepository};
 use serde::Serialize;
-
+use markup::MarkupFormat;
 use crate::cmd::design_decisions;
 use crate::cmd::design_decisions::{
     build_path, can_reserve, format_number, reserve_number, DesignDecisionErrors,
@@ -15,7 +15,6 @@ use crate::edit;
 use crate::errors::{CliResult, DoctaviousCliError};
 use crate::file_structure::FileStructure;
 use crate::files::ensure_path;
-use crate::markup_format::MarkupFormat;
 use crate::settings::{
     init_dir, load_settings, persist_settings, RFDSettings, DEFAULT_RFD_DIR,
     DEFAULT_RFD_RECORD_TEMPLATE_PATH, DEFAULT_RFD_TOC_TEMPLATE_PATH,
@@ -251,10 +250,9 @@ mod tests {
     use std::path::{Path, PathBuf};
 
     use tempfile::TempDir;
-
+    use markup::MarkupFormat;
     use crate::cmd::design_decisions::rfd::{add_custom_template, init, list, new};
     use crate::file_structure::FileStructure;
-    use crate::markup_format::MarkupFormat;
     use crate::templating::RfdTemplateType;
 
     #[test]

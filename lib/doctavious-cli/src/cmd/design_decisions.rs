@@ -8,10 +8,9 @@ use scm::drivers::{Scm, ScmRepository};
 use thiserror::Error;
 use unidecode::unidecode;
 use walkdir::{DirEntry, WalkDir};
-
+use markup::{MarkupFormat, MARKUP_FORMAT_EXTENSIONS};
 use crate::errors::{CliResult, DoctaviousCliError};
 use crate::file_structure::FileStructure;
-use crate::markup_format::{MarkupFormat, MARKUP_FORMAT_EXTENSIONS};
 use crate::settings::DEFAULT_TEMPLATE_DIR;
 
 pub mod adr;

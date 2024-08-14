@@ -3,9 +3,8 @@ use std::path::PathBuf;
 use clap::Parser;
 use doctavious_cli::cmd::design_decisions::rfd;
 use doctavious_cli::errors::CliResult;
-use doctavious_cli::markup_format::MarkupFormat;
 use strum::VariantNames;
-
+use markup::MarkupFormat;
 use crate::clap_enum_variants;
 
 /// New RFD

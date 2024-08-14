@@ -3,7 +3,7 @@ use std::path::PathBuf;
 use clap::Parser;
 use doctavious_cli::cmd::design_decisions::rfd::list;
 use doctavious_cli::errors::CliResult;
-use doctavious_cli::markup_format::MarkupFormat;
+use markup::MarkupFormat;
 
 /// List RFDs
 #[derive(Parser, Debug)]

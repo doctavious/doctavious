@@ -1,8 +1,10 @@
+use std::fs;
 use std::io::Write;
-
+use std::path::Path;
 use doctavious_templating::{TemplateContext, Templates};
 use git_conventional::{Commit as GitConventionalCommit, Error};
 use scm::commit::{ScmCommit, TaggedCommits};
+use serde_derive::{Deserialize, Serialize};
 use somever::{Calver, Somever, VersioningScheme};
 use strum::IntoEnumIterator;
 use tracing::{debug, trace, warn};
@@ -11,7 +13,7 @@ use crate::conventional::ConventionalCommit;
 use crate::entries::{ChangelogCommit, ChangelogEntry, Link};
 use crate::errors::{ChangelogErrors, ChangelogResult};
 use crate::release::Release;
-use crate::release_notes::ReleaseNote;
+use crate::release_notes::{ReleaseNote, ReleaseNotes};
 use crate::settings::{
     ChangelogScmSettings, ChangelogSettings, CommitStyleSettings, GroupParser, LinkParser,
 };
@@ -21,7 +23,7 @@ use crate::settings::{
 // Might be able to solve this just with specifying range/tags/commits and passing in a specific output file
 #[non_exhaustive]
 #[remain::sorted]
-#[derive(Default)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub enum ChangelogKind {
     Multiple,
     #[default]
@@ -61,9 +63,14 @@ enum ChangeLogFormat {
 pub struct Changelog {
     releases: Vec<Release>,
     // settings: &'a ChangeLogSettings
-    // body_template:   Template,
-    // footer_template: Option<Template>,
-    // config:          &'a Config,
+
+    structure: ChangelogKind,
+
+    // TODO: should we have a Template struct?
+    // TODO: should be within settings? Perhaps a `templates` section
+    header_template: Option<String>,
+    body_template: String,
+    footer_template: Option<String>,
 }
 
 impl Changelog {
@@ -100,8 +107,11 @@ impl Changelog {
 
                         changelog_entry_commits.push(c);
                     }
-                    CommitStyleSettings::ReleaseNote(_) => {
-                        let release_notes = ReleaseNote::parse_commit(&commit);
+                    CommitStyleSettings::ReleaseNote(settings) => {
+                        let release_notes = ReleaseNotes {
+                            breaking_change_category: settings.breaking_change_category.clone(),
+                        };
+                        let release_notes = release_notes.parse_commit(&commit);
                         for release_note in release_notes {
                             changelog_entry_commits
                                 .push(ChangelogCommit::from_release_note(&release_note));
@@ -155,7 +165,13 @@ impl Changelog {
         // TODO: sort releases based on settings
         // TODO: handle suffix
 
-        Ok(Self { releases })
+        Ok(Self {
+            releases,
+            structure: settings.structure,
+            header_template: settings.templates.header,
+            body_template: settings.templates.body,
+            footer_template: settings.templates.footer,
+        })
     }
 
     fn preprocess(mut tagged_commits: &mut Vec<TaggedCommits>, settings: &ChangelogSettings) {
@@ -209,25 +225,45 @@ impl Changelog {
     // TODO: process_releases
 
     // TODO: generate
+    pub fn generate_individual(&self, path: &Path) -> ChangelogResult<()> {
+        if path.is_file() {
+            // TODO: return error
+        }
+
+        fs::create_dir_all(path)?;
+
+        for release in &self.releases {
+            let context = TemplateContext::from_serialize(release)?;
+            let rendered = Templates::one_off(&self.body_template, context, false)?;
+            // write!(out, "{}", rendered)?;
+
+            let file_name = if let Some(version) = &release.version {
+                format!("{}.md", version)
+            } else {
+                "unreleased.md".to_string()
+            };
+
+            fs::write(path.join(file_name), rendered)?;
+        }
+
+        Ok(())
+    }
+
+
     pub fn generate<W: Write>(&self, out: &mut W) -> ChangelogResult<()> {
         // TODO: post processors
 
         // TODO: headers
 
         // TODO: support versions in different files
+        match self.structure {
+            ChangelogKind::Multiple => {}
+            ChangelogKind::Single => {}
+        }
+
         for release in &self.releases {
-            let template = r###"
-{% if version -%}
-    ## [{{ version | trim_start_matches(pat="v") }}] - {{ timestamp | date(format="%Y-%m-%d") }}
-{% else -%}
-    ## [Unreleased]
-{% endif -%}
-{% for commit in commits -%}
-    - {{ commit.message }}
-{% endfor %}
-"###;
             let context = TemplateContext::from_serialize(release)?;
-            let rendered = Templates::one_off(template, context, false)?;
+            let rendered = Templates::one_off(&self.body_template, context, false)?;
             write!(out, "{}", rendered)?;
         }
 

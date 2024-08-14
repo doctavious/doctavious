@@ -9,7 +9,7 @@ use doctavious_templating::{TemplateContext, Templates};
 use regex::RegexBuilder;
 use scm::drivers::{Scm, ScmRepository};
 use serde::Serialize;
-
+use markup::MarkupFormat;
 use crate::cmd::design_decisions;
 use crate::cmd::design_decisions::{
     build_path, can_reserve, format_number, reserve_number, DesignDecisionErrors, LinkReference,
@@ -18,7 +18,6 @@ use crate::edit;
 use crate::errors::{CliResult, DoctaviousCliError};
 use crate::file_structure::FileStructure;
 use crate::files::ensure_path;
-use crate::markup_format::MarkupFormat;
 use crate::settings::{
     init_dir, load_settings, persist_settings, AdrSettings, Settings, DEFAULT_ADR_DIR,
     DEFAULT_ADR_INIT_TEMPLATE_PATH, DEFAULT_ADR_RECORD_TEMPLATE_PATH,
@@ -465,13 +464,12 @@ mod tests {
     use std::path::{Path, PathBuf};
 
     use tempfile::TempDir;
-
+    use markup::MarkupFormat;
     use crate::cmd::design_decisions::adr::{
         add_custom_template, generate_toc, init, link, list, new,
     };
     use crate::cmd::design_decisions::LinkReference;
     use crate::file_structure::FileStructure;
-    use crate::markup_format::MarkupFormat;
     use crate::settings::DOCTAVIOUS_ENV_SETTINGS_PATH;
     use crate::templating::AdrTemplateType;
 

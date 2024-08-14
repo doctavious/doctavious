@@ -14,8 +14,9 @@ changelog = { path = "../../lib/changelog" }
 directories = { workspace = true }
 doctavious-cli = { path = "../../lib/doctavious-cli" }
 glob = { workspace  = true }
-keyring = "2"
+keyring = { workspace = true }
 lazy_static = { workspace = true }
+markup = { path = "../../lib/markup" }
 regex = { workspace = true }
 remain = { workspace = true }
 scm = { path = "../../lib/scm" }

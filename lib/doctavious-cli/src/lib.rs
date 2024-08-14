@@ -7,7 +7,6 @@ pub mod errors;
 pub mod file_structure;
 mod files;
 pub mod git;
-pub mod markup_format;
 pub mod settings;
 mod templates;
 pub mod templating;
