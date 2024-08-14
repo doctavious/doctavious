@@ -124,6 +124,7 @@ impl FromStr for Calver {
 }
 
 impl Display for Calver {
+    // TODO: might be better to just store raw
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
@@ -186,6 +187,15 @@ impl Somever {
         match self {
             Somever::Calver(c) => c.micro.map(|m| m as u64),
             Somever::Semver(s) => Some(s.patch),
+        }
+    }
+}
+
+impl Display for Somever {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Somever::Calver(c) => write!(f, "{}", c.to_string()),
+            Somever::Semver(s) => write!(f, "{}", s.to_string())
         }
     }
 }
