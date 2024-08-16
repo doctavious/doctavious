@@ -135,7 +135,7 @@ impl<'a> Templates<'a> {
     }
 
     /// Renders the template.
-    pub fn render(&self, template: &str, context: TemplateContext) -> TemplatingResult<String> {
+    pub fn render(&self, template: &str, context: &TemplateContext) -> TemplatingResult<String> {
         let tmpl = self.env.get_template(template)?;
         let context = &context.data;
 
@@ -144,7 +144,7 @@ impl<'a> Templates<'a> {
 
     pub fn one_off(
         template: &str,
-        context: TemplateContext,
+        context: &TemplateContext,
         escape: bool,
     ) -> TemplatingResult<String> {
         let mut env = Environment::new();
@@ -152,6 +152,6 @@ impl<'a> Templates<'a> {
             env.set_auto_escape_callback(|_| AutoEscape::Html);
         }
 
-        Ok(env.render_str(template, context.data)?)
+        Ok(env.render_str(template, &context.data)?)
     }
 }

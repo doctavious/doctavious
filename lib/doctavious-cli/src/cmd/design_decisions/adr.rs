@@ -116,7 +116,7 @@ pub fn new(
     // TODO: allow date to be customized
     context.insert("date", &Local::now().format("%Y-%m-%d").to_string());
 
-    let rendered = Templates::one_off(starting_content.as_str(), context, false)?;
+    let rendered = Templates::one_off(starting_content.as_str(), &context, false)?;
     fs::write(&output_path, rendered.as_bytes())?;
 
     if let Some(targets) = supersedes {
@@ -414,7 +414,7 @@ pub fn generate_toc(
 
     Ok(Templates::one_off(
         starting_content.as_str(),
-        context,
+        &context,
         false,
     )?)
 }

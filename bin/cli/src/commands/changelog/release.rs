@@ -1,11 +1,13 @@
 use std::path::PathBuf;
 use std::str::FromStr;
 
+use changelog::changelog::ChangelogOutputType;
 use clap::{Parser, ValueEnum};
 use doctavious_cli::changelog::cmd::release::{release, ChangelogReleaseOptions};
 use doctavious_cli::changelog::settings::{ChangelogCommitSort, ChangelogRange};
 use doctavious_cli::errors::CliResult;
 use glob::Pattern;
+use markup::MarkupFormat;
 use regex::Regex;
 use scm::drivers::git::TagSort;
 use strum::VariantNames;
@@ -19,6 +21,16 @@ pub enum StrippableChangelogSection {
     All,
 }
 
+// TODO: handling single vs individual changelogs
+// 1. could base if off output where if directory write individual otherwise write single.
+// if nothing is provided it defaults to single with file name being changelog.md
+// what I dont like about this I dont think we can determine if extension flag is required or not
+// 2. separate fields of output and output_dir
+// 3. --single <PATH> vs --individual <PATH>
+// 4. --individual / --multiple flag. keep output as is without the clap default. include output_format if multiple
+
+// TODO: handling output type for dir? if we are writing to a directory how do we know extension
+
 #[derive(Parser, Debug)]
 #[command()]
 pub(crate) struct ReleaseCommand {
@@ -27,38 +39,54 @@ pub(crate) struct ReleaseCommand {
 
     /// Sets the path to include related commits [env: DOCTAVIOUS_CHANGELOG_INCLUDE_PATH=]
     #[arg(long = "include_path", value_name = "PATH")]
-    include_paths: Option<Vec<Pattern>>,
+    pub include_paths: Option<Vec<Pattern>>,
 
     /// Sets the path to exclude related commits [env: DOCTAVIOUS_CHANGELOG_EXCLUDE_PATH=]
     #[arg(long = "exclude_path", value_name = "PATH")]
-    exclude_paths: Option<Vec<Pattern>>,
+    pub exclude_paths: Option<Vec<Pattern>>,
 
     /// Sets the git repository [env: DOCTAVIOUS_CHANGELOG_REPOSITORY=]
     /// To generate a changelog for multiple git repositories:
     #[arg(long = "repository", short)]
-    repositories: Option<Vec<PathBuf>>,
+    pub repositories: Option<Vec<PathBuf>>,
 
     // To calculate and set the next semantic version (i.e. bump the version) for the unreleased changes:
     /// Bumps the version for unreleased changes
     #[arg(long, action)]
     pub bump: bool,
 
+    #[arg(long, action)]
+    pub individual: bool,
+
     // env = "DOCTAVIOUS_CHANGELOG_OUTPUT",
+    #[arg(long, short, value_name = "PATH")]
+    pub output: Option<PathBuf>,
+
+    // env = "DOCTAVIOUS_CHANGELOG_OUTPUT_TYPE",
     #[arg(
         long,
-        short,
-        value_name = "PATH",
-        default_missing_value = "changelog.md"
+        value_name = "TYPE",
+        default_value_t = ChangelogOutputType::default(),
+        value_parser = clap_enum_variants!(ChangelogOutputType)
     )]
-    output: Option<PathBuf>,
+    pub output_type: ChangelogOutputType,
+
+    // DOCTAVIOUS_CHANGELOG_FORMAT
+    #[arg(
+        long,
+        value_name = "FORMAT",
+        value_parser = clap_enum_variants!(MarkupFormat),
+        requires = "individual"
+    )]
+    pub format: Option<MarkupFormat>,
 
     /// Sets the regex for matching git tags [env: DOCTAVIOUS_CHANGELOG_TAG_PATTERN=]
     #[arg(long, value_name = "PATTERN")]
-    tag_pattern: Option<Regex>,
+    pub tag_pattern: Option<Regex>,
 
     /// Sets custom commit messages to include in the changelog [env: DOCTAVIOUS_CHANGELOG_SKIP_COMMIT=]
     #[arg(long = "skip_commit", value_name = "COMMIT")]
-    skip_commits: Option<Vec<String>>,
+    pub skip_commits: Option<Vec<String>>,
 
     // TODO: could use -R and --range instead of index
     /// Sets the commit range to process [possible values: current, latest, unreleased, or
@@ -122,11 +150,17 @@ pub(crate) struct ReleaseCommand {
 
 pub(crate) fn execute(command: ReleaseCommand) -> CliResult<Option<String>> {
     let path = command.cwd.unwrap_or(std::env::current_dir()?);
+    let output_type = if command.individual {
+        ChangelogOutputType::Individual
+    } else {
+        ChangelogOutputType::Single
+    };
 
     release(ChangelogReleaseOptions {
         cwd: &path,
         repositories: command.repositories,
         output: command.output,
+        output_type,
         prepend: command.prepend,
         range: command.range,
         include_paths: command.include_paths,
@@ -145,6 +179,7 @@ pub(crate) fn execute(command: ReleaseCommand) -> CliResult<Option<String>> {
 mod tests {
     use std::path::PathBuf;
 
+    use changelog::changelog::ChangelogOutputType;
     use changelog::settings::ChangelogSettings;
     use doctavious_cli::changelog::cmd::release::{release_with_settings, ChangelogReleaseOptions};
     use scm::drivers::git::TagSort;
@@ -159,6 +194,7 @@ mod tests {
             cwd: cwd.as_path(),
             repositories: None,
             output: None,
+            output_type: ChangelogOutputType::Single,
             prepend: None,
             range: None,
             include_paths: None,

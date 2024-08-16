@@ -1,13 +1,16 @@
+use std::fmt::Display;
 use std::fs;
+use std::fs::File;
 use std::io::Write;
 use std::path::Path;
 
 use doctavious_templating::{TemplateContext, Templates};
 use git_conventional::{Commit as GitConventionalCommit, Error};
+use markup::MarkupFormat;
 use scm::commit::{ScmCommit, TaggedCommits};
 use serde_derive::{Deserialize, Serialize};
 use somever::{Calver, Somever, VersioningScheme};
-use strum::IntoEnumIterator;
+use strum::{Display, EnumIter, EnumString, IntoEnumIterator, VariantNames};
 use tracing::{debug, trace, warn};
 
 use crate::conventional::ConventionalCommit;
@@ -24,47 +27,20 @@ use crate::settings::{
 // Might be able to solve this just with specifying range/tags/commits and passing in a specific output file
 #[non_exhaustive]
 #[remain::sorted]
-#[derive(Clone, Debug, Default, Deserialize, Serialize)]
-pub enum ChangelogKind {
-    Multiple,
+#[derive(Clone, Debug, Display, Default, Deserialize, EnumString, Serialize, VariantNames)]
+#[serde(rename_all = "lowercase")]
+pub enum ChangelogOutputType {
+    Individual,
     #[default]
     Single,
-}
-
-#[remain::sorted]
-enum ChangeLogFormat {
-    /// changelog similar to cocogitto's format.
-    Cocogitto,
-
-    /// changelog that contains links to the commits.
-    Detailed,
-
-    /// changelog in the GitHub's format.
-    GitHub,
-
-    /// combination of the previous two formats.
-    GitHubKeepAChangelog,
-
-    /// changelog in Keep a Changelog format.
-    KeepAChangelog,
-
-    Minimal,
-
-    /// changelog with commits are grouped by their scopes.
-    Scoped,
-
-    /// changelog with commits grouped by their scopes and sorted by group.
-    ScopedSorted,
-
-    /// changelog for unconventional commits.
-    Unconventional,
 }
 
 #[derive(Debug)]
 pub struct Changelog {
     releases: Vec<Release>,
     // settings: &'a ChangeLogSettings
-    structure: ChangelogKind,
+    output_type: ChangelogOutputType,
+    format: MarkupFormat,
 
     // TODO: should we have a Template struct?
     // TODO: should be within settings? Perhaps a `templates` section
@@ -167,7 +143,8 @@ impl Changelog {
 
         Ok(Self {
             releases,
-            structure: settings.structure,
+            format: settings.format,
+            output_type: settings.output_type,
             header_template: settings.templates.header,
             body_template: settings.templates.body,
             footer_template: settings.templates.footer,
@@ -224,49 +201,68 @@ impl Changelog {
 
     // TODO: process_releases
 
-    // TODO: generate
-    pub fn generate_individual(&self, path: &Path) -> ChangelogResult<()> {
-        if path.is_file() {
+    pub fn generate_individual<P: AsRef<Path>>(&self, path: P) -> ChangelogResult<()> {
+        if path.as_ref().is_file() {
             // TODO: return error
         }
 
-        fs::create_dir_all(path)?;
+        fs::create_dir_all(&path)?;
 
+        // TODO: pass post processors into template rendering
         for release in &self.releases {
             let context = TemplateContext::from_serialize(release)?;
-            let rendered = Templates::one_off(&self.body_template, context, false)?;
-            // write!(out, "{}", rendered)?;
 
             let file_name = if let Some(version) = &release.version {
-                format!("{}.md", version)
+                format!("{}", version)
             } else {
-                "unreleased.md".to_string()
+                "unreleased.".to_string()
             };
+            let changelog_path = path
+                .as_ref()
+                .join(file_name)
+                .with_extension(self.format.to_string());
+            let mut f = File::options()
+                .create(true)
+                .append(true)
+                .open(changelog_path)?;
 
-            fs::write(path.join(file_name), rendered)?;
+            if let Some(header_template) = &self.header_template {
+                let header = Templates::one_off(header_template, &context, false)?;
+                writeln!(&mut f, "{}", header)?;
+            }
+
+            let body = Templates::one_off(&self.body_template, &context, false)?;
+            writeln!(&mut f, "{}", body)?;
+
+            if let Some(footer_template) = &self.footer_template {
+                let footer = Templates::one_off(footer_template, &context, false)?;
+                writeln!(&mut f, "{}", footer)?;
+            }
         }
 
         Ok(())
     }
 
     pub fn generate<W: Write>(&self, out: &mut W) -> ChangelogResult<()> {
-        // TODO: post processors
+        // TODO: pass post processors into template rendering
 
-        // TODO: headers
-
-        // TODO: support versions in different files
-        match self.structure {
-            ChangelogKind::Multiple => {}
-            ChangelogKind::Single => {}
+        if let Some(header_template) = &self.header_template {
+            let context = TemplateContext::from_serialize(&self.releases)?;
+            let footer = Templates::one_off(header_template, &context, false)?;
+            writeln!(out, "{}", footer)?;
         }
 
         for release in &self.releases {
             let context = TemplateContext::from_serialize(release)?;
-            let rendered = Templates::one_off(&self.body_template, context, false)?;
+            let rendered = Templates::one_off(&self.body_template, &context, false)?;
             write!(out, "{}", rendered)?;
         }
 
-        // TODO: footers
+        if let Some(footer_template) = &self.footer_template {
+            let context = TemplateContext::from_serialize(&self.releases)?;
+            let footer = Templates::one_off(footer_template, &context, false)?;
+            writeln!(out, "{}", footer)?;
+        }
 
         Ok(())
     }

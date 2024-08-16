@@ -3,6 +3,7 @@ use std::env;
 
 use doctavious_std::command;
 use doctavious_templating::Templates;
+use markup::MarkupFormat;
 use regex::Regex;
 use scm::drivers::git::TagSort;
 use scm::providers::ScmProviders;
@@ -11,15 +12,15 @@ use serde_json::Value;
 use somever::VersioningScheme;
 use tracing::warn;
 
-use crate::changelog::ChangelogKind;
+use crate::changelog::ChangelogOutputType;
 use crate::entries::ChangelogCommit;
 use crate::errors::{ChangelogErrors, ChangelogResult};
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct ChangelogSettings {
     // TODO: not sure about the name. Where should this go?
-    pub structure: ChangelogKind,
-
+    pub output_type: ChangelogOutputType,
+    pub format: MarkupFormat,
     pub templates: TemplateSettings,
 
     pub scm: ChangelogScmSettings,

@@ -36,7 +36,8 @@ pub enum MarkupFormat {
     Asciidoc,
     #[strum(serialize = "md")]
     Markdown,
-    // TODO: Other(str)?
+    // TODO: Markdoc
+    // TODO: RestructuredText
 }
 
 impl MarkupFormat {

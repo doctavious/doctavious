@@ -94,7 +94,7 @@ pub fn new(
     context.insert("title", &title);
     context.insert("date", &Local::now().format("%Y-%m-%d").to_string());
 
-    let rendered = Templates::one_off(starting_content.as_str(), context, false)?;
+    let rendered = Templates::one_off(starting_content.as_str(), &context, false)?;
 
     let edited = edit::edit(&rendered)?;
     fs::write(&output_path, edited)?;
@@ -201,7 +201,7 @@ pub(crate) fn generate_toc(
 
     Ok(Templates::one_off(
         starting_content.as_str(),
-        context,
+        &context,
         false,
     )?)
 }

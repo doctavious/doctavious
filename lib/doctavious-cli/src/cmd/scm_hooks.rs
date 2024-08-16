@@ -88,7 +88,7 @@ pub(crate) fn add_hook(hook: &str, path: &Path) -> CliResult<()> {
 
     let template = std::str::from_utf8(HOOK_TEMPLATE)?;
     let context = TemplateContext::from([("hook_name", hook)]);
-    let file = Templates::one_off(template, context, false)?;
+    let file = Templates::one_off(template, &context, false)?;
 
     Ok(options.open(path)?.write_all(file.as_bytes())?)
 }

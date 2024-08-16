@@ -160,7 +160,7 @@ pub fn new(
         context.insert("tags", &tags.join(" ").to_string());
     }
 
-    let rendered = Templates::one_off(template_content.as_str(), context, false)?;
+    let rendered = Templates::one_off(template_content.as_str(), &context, false)?;
 
     let edited = edit::edit(&rendered)?;
     fs::write(&path, edited)?;
@@ -275,7 +275,7 @@ pub fn generate_toc(dir: &Path, format: MarkupFormat) -> CliResult<()> {
     context.insert("til_count", &til_count);
     context.insert("tils", &all_tils);
 
-    let rendered = Templates::one_off(template.as_str(), context, false)?;
+    let rendered = Templates::one_off(template.as_str(), &context, false)?;
     let p = dir.join("README").with_extension(format.extension());
     fs::write(p, &rendered)?;
 

@@ -195,7 +195,7 @@ impl Display for Somever {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
             Somever::Calver(c) => write!(f, "{}", c.to_string()),
-            Somever::Semver(s) => write!(f, "{}", s.to_string())
+            Somever::Semver(s) => write!(f, "{}", s.to_string()),
         }
     }
 }

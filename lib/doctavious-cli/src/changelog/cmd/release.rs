@@ -4,7 +4,7 @@ use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
 use std::{fs, io};
 
-use changelog::changelog::Changelog;
+use changelog::changelog::{Changelog, ChangelogOutputType};
 use changelog::entries::{ChangelogCommit, ChangelogEntry};
 use changelog::errors::ChangelogErrors::ChangelogError;
 use changelog::release::Release;
@@ -30,6 +30,7 @@ pub struct ChangelogReleaseOptions<'a> {
     pub cwd: &'a Path,
     pub repositories: Option<Vec<PathBuf>>,
     pub output: Option<PathBuf>,
+    pub output_type: ChangelogOutputType,
     pub prepend: Option<PathBuf>,
     pub range: Option<ChangelogRange>,
     pub include_paths: Option<Vec<Pattern>>,
@@ -367,6 +368,7 @@ mod tests {
                 cwd: Path::new("../.."),
                 repositories: None,
                 output: Some(PathBuf::from("./test_changelog.md")),
+                output_type: ChangelogKind::Single,
                 prepend: None,
                 range: None,
                 include_paths: None,
@@ -379,6 +381,7 @@ mod tests {
             },
             ChangelogSettings {
                 structure: ChangelogKind::Single,
+                format: Default::default(),
                 templates: TemplateSettings {
                     body: r###"
 {% if version -%}
