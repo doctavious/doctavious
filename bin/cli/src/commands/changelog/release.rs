@@ -103,7 +103,7 @@ pub(crate) struct ReleaseCommand {
     pub tag_sort: TagSort,
 
     /// Prepends entries to the changelog file [env: DOCTAVIOUS_CHANGELOG_PREPEND=]
-    #[arg(long, short)]
+    #[arg(long, short, conflicts_with = "individual")]
     pub prepend: Option<PathBuf>,
 
     /// Sets the tag for the latest version.
