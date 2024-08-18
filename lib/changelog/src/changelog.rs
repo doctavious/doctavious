@@ -1,8 +1,8 @@
 use std::fmt::Display;
 use std::fs;
-use std::fs::File;
+use std::fs::{File, OpenOptions};
 use std::io::Write;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use doctavious_templating::{TemplateContext, Templates};
 use git_conventional::{Commit as GitConventionalCommit, Error};
@@ -18,9 +18,7 @@ use crate::entries::{ChangelogCommit, ChangelogEntry, Link};
 use crate::errors::{ChangelogErrors, ChangelogResult};
 use crate::release::Release;
 use crate::release_notes::{ReleaseNote, ReleaseNotes};
-use crate::settings::{
-    ChangelogScmSettings, ChangelogSettings, CommitStyleSettings, GroupParser, LinkParser,
-};
+use crate::settings::{ChangelogScmSettings, ChangelogSettings, CommitProcessor, CommitStyleSettings, GroupParser, LinkParser};
 
 // Not sure about the name but essentially controls if changelog should write details to a single
 // file or if they should be separated.
@@ -35,11 +33,29 @@ pub enum ChangelogOutputType {
     Single,
 }
 
+// pub struct IndividualChangelogOutput {
+//     path: PathBuf,
+//     format: MarkupFormat
+// }
+
+// pub struct SingleChangelogOutput {
+//     path: PathBuf,
+//     prepend: Option<PathBuf>
+// }
+
+// what if we did something like?
+// pub enum ChangelogOutput {
+//     Individual(PathBuf, MarkupFormat),
+//     Single(PathBuf, Option<PathBuf>),
+// }
+
 #[derive(Debug)]
 pub struct Changelog {
     releases: Vec<Release>,
     // settings: &'a ChangeLogSettings
+
     output_type: ChangelogOutputType,
+    // this feels odd as its only used if individual
     format: MarkupFormat,
 
     // TODO: should we have a Template struct?
@@ -47,6 +63,7 @@ pub struct Changelog {
     header_template: Option<String>,
     body_template: String,
     footer_template: Option<String>,
+    post_processors: Option<Vec<CommitProcessor>>
 }
 
 impl Changelog {
@@ -148,6 +165,7 @@ impl Changelog {
             header_template: settings.templates.header,
             body_template: settings.templates.body,
             footer_template: settings.templates.footer,
+            post_processors: settings.templates.post_processors
         })
     }
 
@@ -208,7 +226,6 @@ impl Changelog {
 
         fs::create_dir_all(&path)?;
 
-        // TODO: pass post processors into template rendering
         for release in &self.releases {
             let context = TemplateContext::from_serialize(release)?;
 
@@ -217,25 +234,27 @@ impl Changelog {
             } else {
                 "unreleased.".to_string()
             };
+
             let changelog_path = path
                 .as_ref()
                 .join(file_name)
                 .with_extension(self.format.to_string());
+
             let mut f = File::options()
                 .create(true)
                 .append(true)
                 .open(changelog_path)?;
 
             if let Some(header_template) = &self.header_template {
-                let header = Templates::one_off(header_template, &context, false)?;
+                let header = Self::render(header_template, &context, self.post_processors.as_ref())?;
                 writeln!(&mut f, "{}", header)?;
             }
 
-            let body = Templates::one_off(&self.body_template, &context, false)?;
+            let body = Self::render(&self.body_template, &context, self.post_processors.as_ref())?;
             writeln!(&mut f, "{}", body)?;
 
             if let Some(footer_template) = &self.footer_template {
-                let footer = Templates::one_off(footer_template, &context, false)?;
+                let footer = Self::render(footer_template, &context, self.post_processors.as_ref())?;
                 writeln!(&mut f, "{}", footer)?;
             }
         }
@@ -244,30 +263,56 @@ impl Changelog {
     }
 
     pub fn generate<W: Write>(&self, out: &mut W) -> ChangelogResult<()> {
-        // TODO: pass post processors into template rendering
-
         if let Some(header_template) = &self.header_template {
             let context = TemplateContext::from_serialize(&self.releases)?;
-            let footer = Templates::one_off(header_template, &context, false)?;
-            writeln!(out, "{}", footer)?;
+            let header = Self::render(header_template, &context, self.post_processors.as_ref())?;
+            writeln!(out, "{}", header)?;
         }
 
         for release in &self.releases {
             let context = TemplateContext::from_serialize(release)?;
-            let rendered = Templates::one_off(&self.body_template, &context, false)?;
-            write!(out, "{}", rendered)?;
+            let body = Self::render(&self.body_template, &context, self.post_processors.as_ref())?;
+            write!(out, "{}", body)?;
         }
 
         if let Some(footer_template) = &self.footer_template {
             let context = TemplateContext::from_serialize(&self.releases)?;
-            let footer = Templates::one_off(footer_template, &context, false)?;
+            let footer = Self::render(footer_template, &context, self.post_processors.as_ref())?;
             writeln!(out, "{}", footer)?;
         }
 
         Ok(())
     }
 
-    // TODO: prepend
+    fn render(
+        template: &str,
+        context: &TemplateContext,
+        post_processors: Option<&Vec<CommitProcessor>>
+    ) -> ChangelogResult<String> {
+        let mut rendered = Templates::one_off(template, &context, false)?;
+        if let Some(post_processors) = post_processors {
+            for postprocessor in post_processors {
+                postprocessor.replace(&mut rendered, vec![])?;
+            }
+        }
+
+        Ok(rendered)
+    }
+
+    /// Generates a changelog and prepends it to the given changelog.
+    pub fn prepend<W: Write>(&self, mut changelog: String, out: &mut W) -> ChangelogResult<()> {
+        // TODO: this implementation has problems such as if the header changed.
+        // I would like to go the AST route
+        if let Some(header_template) = &self.header_template {
+            let context = TemplateContext::from_serialize(&self.releases)?;
+            let header = Templates::one_off(header_template, &context, false)?;
+            changelog = changelog.replacen(&header, "", 1);
+        }
+
+        self.generate(out)?;
+        write!(out, "{changelog}")?;
+        Ok(())
+    }
 
     // Increments the version for the unreleased changes
     pub fn bump_version(&self) {

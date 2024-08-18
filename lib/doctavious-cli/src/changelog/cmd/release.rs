@@ -152,17 +152,9 @@ pub fn release_with_settings(
 
     // TODO: does it make sense to allow prepend and output together?
     if let Some(path) = &options.prepend {
-        let mut previous_changelog = fs::read_to_string(&path)?;
-        // remove header in previous changelog
-        // if let Some(header) = &self.config.changelog.header {
-        //     previous_changelog = previous_changelog.replacen(header, "", 1);
-        // }
-
-        let mut output = File::create(&path)?;
-        changelog.generate(&mut output)?;
-
-        // write previous changelog back
-        write!(output, "{previous_changelog}")?;
+        let previous_changelog = fs::read_to_string(&path)?;
+        let mut out = io::BufWriter::new(File::create(path)?);
+        changelog.prepend(previous_changelog, &mut out)?;
     }
 
     if let Some(path) = &options.output {
@@ -354,12 +346,12 @@ mod tests {
     use std::default::Default;
     use std::path::{Path, PathBuf};
 
-    use changelog::changelog::ChangelogKind;
+    use changelog::changelog::ChangelogOutputType;
     use changelog::settings::{ChangelogScmSettings, ChangelogSettings, TemplateSettings};
     use scm::drivers::git::TagSort;
     use somever::VersioningScheme;
 
-    use crate::changelog::cmd::release::{release, release_with_settings, ChangelogReleaseOptions};
+    use crate::changelog::cmd::release::{release_with_settings, ChangelogReleaseOptions};
 
     #[test]
     fn test_release() {
@@ -368,7 +360,7 @@ mod tests {
                 cwd: Path::new("../.."),
                 repositories: None,
                 output: Some(PathBuf::from("./test_changelog.md")),
-                output_type: ChangelogKind::Single,
+                output_type: ChangelogOutputType::Single,
                 prepend: None,
                 range: None,
                 include_paths: None,
@@ -380,7 +372,7 @@ mod tests {
                 tag: None,
             },
             ChangelogSettings {
-                structure: ChangelogKind::Single,
+                output_type: ChangelogOutputType::Single,
                 format: Default::default(),
                 templates: TemplateSettings {
                     body: r###"

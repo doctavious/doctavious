@@ -34,6 +34,8 @@ pub struct TemplateSettings {
     pub body: String,
     pub footer: Option<String>,
     pub trim: bool,
+    /// Changelog postprocessors.
+    pub post_processors: Option<Vec<CommitProcessor>>,
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
