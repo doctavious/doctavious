@@ -1,3 +1,4 @@
+use std::path::Path;
 /// This contains a set of helper functions for traversing JS program modules
 // TODO (Sean): I really dislike this implementation. There needs to be a better way
 // SWC might have something built in for traversing their AST or could likely implement Visitor
@@ -6,13 +7,14 @@ use std::sync::Arc;
 
 use swc::{try_with_handler, HandlerOpts};
 use swc_common::{FileName, SourceMap, GLOBALS};
+use swc_common::sync::Lrc;
 use swc_ecma_ast::Stmt::{Decl as DeclStmt, Expr as ExprStmt};
 use swc_ecma_ast::{
     ArrayLit, AssignExpr, BlockStmt, CallExpr, Decl, EsVersion, Expr, ExprOrSpread, FnExpr,
     Function, KeyValueProp, Lit, Module, ModuleDecl, ModuleItem, ObjectLit, Program, Prop,
     PropOrSpread, Stmt, TplElement, VarDeclarator,
 };
-use swc_ecma_parser::{EsConfig, Syntax};
+use swc_ecma_parser::{EsConfig, EsSyntax, Syntax};
 
 use crate::CifrsResult;
 
@@ -211,11 +213,11 @@ impl<'a> PropertyAccessor<'a> for KeyValueProp {
             return Some(self);
         }
 
-        return self.value.get_property(ident);
+        self.value.get_property(ident)
     }
 }
 
-pub fn parse_js_module(filename: FileName, src: String) -> CifrsResult<Program> {
+pub fn parse_js_module<P: AsRef<Path>>(filename: P, src: String) -> CifrsResult<Program> {
     let cm = Arc::<SourceMap>::default();
     let c = swc::Compiler::new(cm.clone());
     let output = GLOBALS.set(&Default::default(), || {
@@ -225,12 +227,12 @@ pub fn parse_js_module(filename: FileName, src: String) -> CifrsResult<Program> 
                 ..Default::default()
             },
             |handler| {
-                let fm = cm.new_source_file(filename, src);
+                let fm = cm.new_source_file(Lrc::new(filename.as_ref().to_owned().into()), src);
                 c.parse_js(
                     fm,
                     handler,
                     EsVersion::Es2020,
-                    Syntax::Es(EsConfig::default()),
+                    Syntax::Es(EsSyntax::default()),
                     swc::config::IsModule::Bool(true),
                     None,
                 )
