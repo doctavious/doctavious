@@ -3,7 +3,8 @@ use std::str::FromStr;
 
 use lazy_static::lazy_static;
 use regex::Regex;
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Serialize, Serializer};
+use serde::ser::SerializeStruct;
 use thiserror::Error;
 
 #[remain::sorted]
@@ -155,10 +156,33 @@ impl Display for Calver {
 
 // (<MAJOR>\d).(<MINOR>\d)(?<MICRO>.\d)(?<MODIFIER>.+)
 
-#[derive(Debug, Serialize)]
+#[derive(Debug)]
 pub enum Somever {
     Calver(Calver),
     Semver(semver::Version),
+}
+
+// TODO: impl Deserialize
+impl Serialize for Somever {
+    fn serialize<S>(&self, serializer: S) -> std::result::Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+
+        let mut somever = serializer.serialize_struct("Somever", 2)?;
+        match self {
+            Somever::Calver(c) => {
+                somever.serialize_field("type", "calver")?;
+                somever.serialize_field("value", c.to_string().as_str())?;
+            }
+            Somever::Semver(s) => {
+                somever.serialize_field("type", "semver")?;
+                somever.serialize_field("value", s.to_string().as_str())?;
+            }
+        }
+
+        somever.end()
+    }
 }
 
 impl Somever {

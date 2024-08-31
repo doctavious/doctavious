@@ -8,7 +8,7 @@ publish = false
 lazy_static = { workspace = true }
 regex = { workspace = true }
 remain = { workspace = true }
-semver = { workspace = true }
+semver = { workspace = true, features = ["serde"] }
 serde = { workspace = true }
 thiserror = { workspace = true }
 
