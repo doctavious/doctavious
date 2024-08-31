@@ -1,3 +1,5 @@
+mod filters;
+
 use std::collections::{BTreeMap, HashMap};
 use std::error::Error;
 
@@ -5,6 +7,8 @@ use minijinja::{AutoEscape, Environment};
 use serde::Serialize;
 use serde_json::{to_value, Value};
 use thiserror::Error;
+
+use crate::filters::groupby;
 
 #[remain::sorted]
 #[derive(Debug, Error)]
@@ -112,9 +116,9 @@ pub struct Templates<'a> {
 impl<'a> Templates<'a> {
     /// Constructs a new instance.
     pub fn new() -> TemplatingResult<Self> {
-        Ok(Self {
-            env: Environment::new(),
-        })
+        let env = Environment::new();
+        // env.add_fi
+        Ok(Self { env })
     }
 
     pub fn new_with_templates(templates: HashMap<&'a str, String>) -> TemplatingResult<Self> {
@@ -148,6 +152,7 @@ impl<'a> Templates<'a> {
         escape: bool,
     ) -> TemplatingResult<String> {
         let mut env = Environment::new();
+        env.add_filter("groupby", groupby);
         if escape {
             env.set_auto_escape_callback(|_| AutoEscape::Html);
         }
