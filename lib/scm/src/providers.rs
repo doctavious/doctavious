@@ -5,6 +5,7 @@ use serde_derive::{Deserialize, Serialize};
 
 use crate::commit::ScmSignature;
 
+// TODO: rename to ScmHostedProviders?
 #[derive(Clone, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
 #[serde(rename_all = "lowercase")]
 #[remain::sorted]

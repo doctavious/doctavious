@@ -41,7 +41,7 @@ pub trait ScmRepository {
     // options
     fn commits(
         &self,
-        range: &Option<ScmCommitRange>,
+        range: Option<&ScmCommitRange>,
         include_paths: Option<&Vec<Pattern>>,
         exclude_paths: Option<&Vec<Pattern>>,
         limit_commits: Option<usize>,
@@ -49,9 +49,11 @@ pub trait ScmRepository {
 
     // fn tagged_commits(&self) -> ScmResult<Vec<TaggedCommits>>;
 
+    // TODO: I wonder if we would be ok with include / exclude being globs rather than regex?
     fn tags(
         &self,
-        pattern: &Option<Regex>,
+        include: Option<&Regex>,
+        exclude: Option<&Regex>,
         sort: TagSort,
         suffix_order: Option<&Vec<String>>,
     ) -> ScmResult<IndexMap<String, ScmTag>>;
@@ -156,9 +158,12 @@ impl ScmRepository for Scm {
         }
     }
 
+    /// Retrieve Commits
+    ///
+    /// Commits sorted newest to oldest
     fn commits(
         &self,
-        range: &Option<ScmCommitRange>,
+        range: Option<&ScmCommitRange>,
         include_paths: Option<&Vec<Pattern>>,
         exclude_paths: Option<&Vec<Pattern>>,
         limit_commits: Option<usize>,
@@ -172,14 +177,15 @@ impl ScmRepository for Scm {
 
     fn tags(
         &self,
-        pattern: &Option<Regex>,
+        include: Option<&Regex>,
+        exclude: Option<&Regex>,
         sort: TagSort,
         suffix_order: Option<&Vec<String>>,
     ) -> ScmResult<IndexMap<String, ScmTag>> {
         match self {
-            Scm::Git(r) => r.tags(pattern, sort, suffix_order),
-            Scm::Hg(r) => r.tags(pattern, sort, suffix_order),
-            Scm::Svn(r) => r.tags(pattern, sort, suffix_order),
+            Scm::Git(r) => r.tags(include, exclude, sort, suffix_order),
+            Scm::Hg(r) => r.tags(include, exclude, sort, suffix_order),
+            Scm::Svn(r) => r.tags(include, exclude, sort, suffix_order),
         }
     }
 

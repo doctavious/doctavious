@@ -16,6 +16,7 @@ use crate::changelog::ChangelogOutputType;
 use crate::entries::ChangelogCommit;
 use crate::errors::{ChangelogErrors, ChangelogResult};
 
+// TODO: rename to ChangelogConfiguration and have nested ChangelogSettings
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct ChangelogSettings {
     // TODO: not sure about the name. Where should this go?
@@ -156,6 +157,7 @@ pub struct ChangelogScmSettings {
     /// If set to true, commits that are not matched by group_parsers are filtered out.
     pub filter_commits: Option<bool>,
 
+    // TODO: exclude_tags_pattern - should probably not be in SCM section
     /// Drop commits from the changelog
     #[serde(with = "serde_regex", default)]
     pub skip_tags: Option<Regex>,

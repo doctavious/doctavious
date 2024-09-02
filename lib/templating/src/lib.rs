@@ -8,7 +8,7 @@ use serde::Serialize;
 use serde_json::{to_value, Value};
 use thiserror::Error;
 
-use crate::filters::groupby;
+use crate::filters::{date, groupby};
 
 #[remain::sorted]
 #[derive(Debug, Error)]
@@ -153,6 +153,7 @@ impl<'a> Templates<'a> {
     ) -> TemplatingResult<String> {
         let mut env = Environment::new();
         env.add_filter("groupby", groupby);
+        env.add_filter("date", date);
         if escape {
             env.set_auto_escape_callback(|_| AutoEscape::Html);
         }

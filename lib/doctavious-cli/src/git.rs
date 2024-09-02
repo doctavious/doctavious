@@ -104,17 +104,12 @@ pub fn commits(repo: &Repository, range: Option<String>) -> CliResult<Vec<Commit
 /// Parses and returns a commit-tag map.
 ///
 /// It collects lightweight and annotated tags.
-pub fn tags(repo: &Repository, pattern: &Option<String>) -> CliResult<IndexMap<String, String>> {
+pub fn tags(repo: &Repository, pattern: Option<&str>) -> CliResult<IndexMap<String, String>> {
     let mut tags: Vec<(Commit, String)> = Vec::new();
 
     // from https://github.com/rust-lang/git2-rs/blob/master/examples/tag.rs
     // also check https://github.com/orhun/git-cliff/blob/main/git-cliff-core/src/repo.rs tags
-    for name in repo
-        .tag_names(pattern.as_deref())?
-        .iter()
-        .flatten()
-        .map(String::from)
-    {
+    for name in repo.tag_names(pattern)?.iter().flatten().map(String::from) {
         let obj = repo.revparse_single(name.as_str())?;
         if let Some(tag) = obj.as_tag() {
             if let Some(commit) = tag

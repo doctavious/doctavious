@@ -1,3 +1,5 @@
+use std::hash::{Hash, Hasher};
+
 use serde_derive::{Deserialize, Serialize};
 
 // TODO: could possibly make this an enum with an associated trait
@@ -39,7 +41,7 @@ pub struct ScmBranch {
     pub name: String,
 }
 
-#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct ScmTag {
     // TODO: might not need this
     pub id: Option<String>,
@@ -49,16 +51,18 @@ pub struct ScmTag {
 
     /// The message of the tag (only if it was annotated).
     pub message: Option<String>,
-    // TODO: should this have timestamp?
+
+    // TODO: optional or remove?
+    pub timestamp: i64,
+}
+
+impl Hash for ScmTag {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.id.hash(state);
+        self.name.hash(state);
+        self.message.hash(state);
+        self.timestamp.hash(state);
+    }
 }
 
 pub struct ScmCommitRange(pub String, pub Option<String>);
-
-/// Commits grouped by tag
-///
-/// tag will be none for Commits that are untagged
-pub struct TaggedCommits {
-    pub tag: Option<ScmTag>,
-    pub commits: Vec<ScmCommit>,
-    pub timestamp: i64,
-}

@@ -1,4 +1,5 @@
 pub mod changelog;
+pub mod commits;
 pub mod conventional;
 pub mod entries;
 pub mod errors;

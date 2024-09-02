@@ -5,14 +5,15 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use std::{fs, io};
 
 use changelog::changelog::{Changelog, ChangelogOutputType};
+use changelog::commits::ScmTaggedCommits;
 use changelog::entries::{ChangelogCommit, ChangelogEntry};
 use changelog::errors::ChangelogErrors::ChangelogError;
 use changelog::release::Release;
-use changelog::settings::ChangelogSettings;
+use changelog::settings::{ChangelogSettings, CommitParser};
 use glob::Pattern;
 use indexmap::IndexMap;
 use regex::Regex;
-use scm::commit::{ScmCommitRange, ScmTag, TaggedCommits};
+use scm::commit::{ScmCommit, ScmCommitRange, ScmTag};
 use scm::drivers::git::TagSort;
 use scm::drivers::{Scm, ScmRepository};
 use somever::Somever;
@@ -39,24 +40,31 @@ pub struct ChangelogReleaseOptions<'a> {
 
     pub skip_commits: Option<Vec<String>>,
 
-    /// Sets the tag for the latest version
+    /// Sets the regex for matching git tags.
     pub tag_pattern: Option<Regex>,
+    // TODO: do we want to also expose excluding tags here?
     pub tag: Option<String>,
 
     // TODO: this needs to fit into Somever sorting
     pub tag_sort: Option<TagSort>,
 }
 
+pub fn release(mut options: ChangelogReleaseOptions) -> CliResult<()> {
+    let settings: Settings = load_settings(options.cwd)?.into_owned();
+    let changelog_settings = settings.changelog.unwrap_or_default();
+
+    release_with_settings(options, changelog_settings)
+}
+
 // TODO: where to handle multiple changelog files
 pub fn release_with_settings(
     mut options: ChangelogReleaseOptions,
-    changelog_settings: ChangelogSettings,
+    mut changelog_settings: ChangelogSettings,
 ) -> CliResult<()> {
     if let Some(prepend) = options.prepend {
         options.prepend = Some(options.cwd.join(prepend));
     }
 
-    // TODO: this should maybe go in bin/cli? Do we need cwd for anything else?
     match options.repositories.as_mut() {
         Some(repositories) => repositories
             .iter_mut()
@@ -65,12 +73,16 @@ pub fn release_with_settings(
     };
 
     // TODO: how do we want to structure tag/commits from different repositories?
-    let mut tagged_commits = Vec::<TaggedCommits>::new();
+    // Do we want to include a label for the repo?
+    // TODO: configuration for unified?
+    // Could this be handled by a groupby in the template?
+    let mut tagged_commits = Vec::<ScmTaggedCommits>::new();
     for repository in options.repositories.as_ref().unwrap() {
         let scm = Scm::get(&repository)?;
 
         // load ignore_files (new line commits to skip)
         let mut skip_commits = Vec::new();
+        // TODO: const for .commitsignore path
         let ignore_commits_path = repository.join(".doctavious/changelog/.commitsignore");
         if ignore_commits_path.exists() {
             let commits = fs::read_to_string(ignore_commits_path)?
@@ -85,65 +97,90 @@ pub fn release_with_settings(
             skip_commits.extend(skip.to_vec());
         }
 
-        // TODO: handle skip list - process ignore commit file. Git cliff converts them into CommitParsers that skip
+        if let Some(skips) = changelog_settings.scm.skips.as_mut() {
+            for skip_commit in skip_commits {
+                skips.push(CommitParser {
+                    field: "id".to_string(),
+                    pattern: Regex::new(skip_commit.as_str())?,
+                })
+            }
+        }
 
+        // TODO: might make sense to move into SCM
+        // TODO: depending on if there are issues with the current log of determining which commits
+        // go with which tag we could explore using
+        // git tag --contains <commit>  -- this returns a tag
+        // git rev-list -1  <tag>   -- this returns a commit
+        // and then iterating up to that commit and repeating the process
+        // could potentially use `git describe --contains <commit>` but need to be careful about the
+        // output as it contains additional information outside of the main tag that we would need to
+        // parse. See https://stackoverflow.com/questions/62588666/how-to-interpret-the-output-of-git-describe-contains
+        // One bad thing about `git tag contains` is that it only allows inclusive pattern
         let mut tags = get_tags(&scm, &changelog_settings, &options)?;
         let commit_range = determine_commit_range(&scm, &tags, &options)?;
         let mut commits = scm.commits(
-            &commit_range,
+            commit_range.as_ref(),
             options.include_paths.as_ref(),
             options.exclude_paths.as_ref(),
             changelog_settings.scm.limit_commits,
         )?;
 
-        // let mut tagged_commits = IndexMap::new();
         let mut untagged_commits = vec![];
-        // TODO: double check if I need this reverse?
         for commit in commits.iter().rev() {
-            // Sort Oldest - lists newest first to oldest
-            if options.sort == ChangelogCommitSort::Newest {
-                untagged_commits.insert(0, commit.to_owned());
-            } else {
-                untagged_commits.push(commit.to_owned());
-            }
-
+            untagged_commits.push(commit.to_owned());
             if let Some(tag) = tags.get(&commit.id) {
-                tagged_commits.push(TaggedCommits {
-                    tag: Some(tag.to_owned()),
-                    commits: untagged_commits.clone(),
-                    timestamp: commit.timestamp,
+                let mut commits = std::mem::take(&mut untagged_commits);
+                if options.sort == ChangelogCommitSort::Newest {
+                    commits.reverse();
+                }
+
+                tagged_commits.push(ScmTaggedCommits {
+                    repository: repository
+                        .file_name()
+                        .unwrap_or_default()
+                        .to_string_lossy()
+                        .to_string(),
+                    tag: Some(tag.clone()), // might be able to get ownership with tags.shift_remove
+                    commits,
+                    timestamp: Some(tag.timestamp),
                 });
-                untagged_commits.clear();
             }
         }
 
         // handle untagged commits
         if !untagged_commits.is_empty() {
             // if tag is provided use as latest tag
-            if let Some(ref tag) = options.tag {
-                let latest_commit = if options.sort == ChangelogCommitSort::Newest {
-                    untagged_commits.first()
-                } else {
-                    untagged_commits.last()
-                };
+            let mut timestamp = None;
+            let tag = if let Some(ref tag) = options.tag {
+                let mut scm_tag = scm.get_tag(tag);
+                let now = SystemTime::now()
+                    .duration_since(UNIX_EPOCH)?
+                    .as_secs()
+                    .try_into()?;
 
-                if let Some(commit) = latest_commit {
-                    tagged_commits.push(TaggedCommits {
-                        tag: Some(scm.get_tag(tag)),
-                        commits: untagged_commits.clone(),
-                        timestamp: commit.timestamp,
-                    });
-                }
+                timestamp = Some(now);
+                scm_tag.timestamp = now;
+
+                Some(scm_tag)
             } else {
-                tagged_commits.push(TaggedCommits {
-                    tag: None,
-                    commits: untagged_commits.clone(),
-                    timestamp: SystemTime::now()
-                        .duration_since(UNIX_EPOCH)?
-                        .as_secs()
-                        .try_into()?,
-                });
+                None
+            };
+
+            let mut commits = std::mem::take(&mut untagged_commits);
+            if options.sort == ChangelogCommitSort::Newest {
+                commits.reverse();
             }
+
+            tagged_commits.push(ScmTaggedCommits {
+                repository: repository
+                    .file_name()
+                    .unwrap_or_default()
+                    .to_string_lossy()
+                    .to_string(),
+                tag,
+                commits,
+                timestamp,
+            });
         }
     }
 
@@ -167,13 +204,6 @@ pub fn release_with_settings(
     Ok(())
 }
 
-pub fn release(mut options: ChangelogReleaseOptions) -> CliResult<()> {
-    let settings: Settings = load_settings(options.cwd)?.into_owned();
-    let changelog_settings = settings.changelog.unwrap();
-
-    release_with_settings(options, changelog_settings)
-}
-
 fn get_tags(
     scm: &Scm,
     changelog_settings: &ChangelogSettings,
@@ -182,36 +212,15 @@ fn get_tags(
     let tag_sort = options
         .tag_sort
         .unwrap_or(changelog_settings.scm.tag_sort.unwrap_or_default());
-    let skip_regex = changelog_settings.scm.skip_tags.as_ref();
-    let ignore_regex = changelog_settings.scm.ignore_tags.as_ref();
 
     Ok(scm
         .tags(
-            &options.tag_pattern,
+            options.tag_pattern.as_ref(),
+            changelog_settings.scm.ignore_tags.as_ref(),
             tag_sort,
             changelog_settings.scm.version_suffixes.as_ref(),
         )?
         .into_iter()
-        .filter(|(_, tag)| {
-            let skip = skip_regex
-                .map(|r| r.is_match(&tag.name))
-                .unwrap_or_default();
-            let ignore = ignore_regex
-                .map(|r| {
-                    if r.as_str().trim().is_empty() {
-                        return false;
-                    }
-
-                    let ignore_tag = r.is_match(&tag.name);
-                    if ignore_tag {
-                        trace!("Ignoring release: {}", &tag.name)
-                    }
-                    ignore_tag
-                })
-                .unwrap_or_default();
-
-            skip || !ignore
-        })
         .collect::<IndexMap<String, ScmTag>>())
 }
 
@@ -341,6 +350,13 @@ impl VersionUpdater {
     }
 }
 
+pub struct TCommits {
+    pub repository_name: String,
+    pub tag: Option<ScmTag>,
+    pub commits: Vec<ScmCommit>,
+    pub timestamp: Option<i64>,
+}
+
 #[cfg(test)]
 mod tests {
     use std::default::Default;
@@ -352,6 +368,7 @@ mod tests {
     use somever::VersioningScheme;
 
     use crate::changelog::cmd::release::{release_with_settings, ChangelogReleaseOptions};
+    use crate::changelog::settings::ChangelogCommitSort;
 
     #[test]
     fn test_release() {
@@ -366,7 +383,7 @@ mod tests {
                 include_paths: None,
                 exclude_paths: None,
                 tag_sort: Some(TagSort::default()),
-                sort: Default::default(),
+                sort: ChangelogCommitSort::Oldest,
                 skip_commits: None,
                 tag_pattern: None,
                 tag: None,

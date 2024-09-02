@@ -41,8 +41,8 @@ impl FromStr for ChangelogRange {
 
 #[derive(Clone, Copy, Debug, Default, Display, EnumIter, EnumString, VariantNames, PartialEq)]
 pub enum ChangelogCommitSort {
-    #[default]
     Newest,
+    #[default]
     Oldest,
 }
 

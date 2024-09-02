@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::fmt::Display;
 use std::fs;
 use std::fs::{File, OpenOptions};
@@ -7,18 +8,22 @@ use std::path::{Path, PathBuf};
 use doctavious_templating::{TemplateContext, Templates};
 use git_conventional::{Commit as GitConventionalCommit, Error};
 use markup::MarkupFormat;
-use scm::commit::{ScmCommit, TaggedCommits};
+use scm::commit::ScmCommit;
 use serde_derive::{Deserialize, Serialize};
 use somever::{Calver, Somever, VersioningScheme};
 use strum::{Display, EnumIter, EnumString, IntoEnumIterator, VariantNames};
 use tracing::{debug, trace, warn};
 
+use crate::commits::ScmTaggedCommits;
 use crate::conventional::ConventionalCommit;
 use crate::entries::{ChangelogCommit, ChangelogEntry, Link};
 use crate::errors::{ChangelogErrors, ChangelogResult};
 use crate::release::Release;
 use crate::release_notes::{ReleaseNote, ReleaseNotes};
-use crate::settings::{ChangelogScmSettings, ChangelogSettings, CommitProcessor, CommitStyleSettings, GroupParser, LinkParser};
+use crate::settings::{
+    ChangelogScmSettings, ChangelogSettings, CommitProcessor, CommitStyleSettings, GroupParser,
+    LinkParser,
+};
 
 // Not sure about the name but essentially controls if changelog should write details to a single
 // file or if they should be separated.
@@ -53,7 +58,6 @@ pub enum ChangelogOutputType {
 pub struct Changelog {
     releases: Vec<Release>,
     // settings: &'a ChangeLogSettings
-
     output_type: ChangelogOutputType,
     // this feels odd as its only used if individual
     format: MarkupFormat,
@@ -63,15 +67,30 @@ pub struct Changelog {
     header_template: Option<String>,
     body_template: String,
     footer_template: Option<String>,
-    post_processors: Option<Vec<CommitProcessor>>
+    post_processors: Option<Vec<CommitProcessor>>,
 }
 
 impl Changelog {
     pub fn new(
-        mut tagged_commits: Vec<TaggedCommits>,
+        mut tagged_commits: Vec<ScmTaggedCommits>,
         settings: ChangelogSettings,
     ) -> ChangelogResult<Self> {
         let filter_commits = settings.scm.filter_commits.unwrap_or_default();
+
+        tagged_commits = tagged_commits
+            .into_iter()
+            .filter(|tc| {
+                if let Some(tag) = &tc.tag {
+                    let id = tag.clone().id.unwrap_or_default();
+                    if let Some(exclude) = &settings.scm.skip_tags {
+                        return !exclude.is_match(&id);
+                    }
+                }
+                true
+            })
+            .collect();
+
+        // TODO: not sure this need to be here. maybe put in loop below?
         Changelog::preprocess(&mut tagged_commits, &settings);
 
         let commit_style_settings = settings.scm.commit_style.unwrap_or_default();
@@ -142,7 +161,7 @@ impl Changelog {
 
             let tag = tagged_commit.tag;
             let version = if let Some(name) = tag.as_ref().map(|t| t.name.clone()) {
-                Some(Somever::new(&settings.scm.version_scheme, &name)?)
+                Some(Somever::new(settings.scm.version_scheme, &name)?)
             } else {
                 None
             };
@@ -150,6 +169,7 @@ impl Changelog {
             releases.push(Release {
                 version,
                 tag_id: tag.as_ref().and_then(|t| t.id.clone()),
+                repository: tagged_commit.repository,
                 commits: changelog_entries,
                 timestamp: tagged_commit.timestamp,
             });
@@ -158,6 +178,8 @@ impl Changelog {
         // TODO: sort releases based on settings
         // TODO: handle suffix
 
+        // println!("releases: [{:?}]", &releases);
+
         Ok(Self {
             releases,
             format: settings.format,
@@ -165,11 +187,11 @@ impl Changelog {
             header_template: settings.templates.header,
             body_template: settings.templates.body,
             footer_template: settings.templates.footer,
-            post_processors: settings.templates.post_processors
+            post_processors: settings.templates.post_processors,
         })
     }
 
-    fn preprocess(mut tagged_commits: &mut Vec<TaggedCommits>, settings: &ChangelogSettings) {
+    fn preprocess(mut tagged_commits: &mut Vec<ScmTaggedCommits>, settings: &ChangelogSettings) {
         tagged_commits.iter_mut().for_each(|tagged| {
             tagged.commits = tagged
                 .commits
@@ -246,7 +268,8 @@ impl Changelog {
                 .open(changelog_path)?;
 
             if let Some(header_template) = &self.header_template {
-                let header = Self::render(header_template, &context, self.post_processors.as_ref())?;
+                let header =
+                    Self::render(header_template, &context, self.post_processors.as_ref())?;
                 writeln!(&mut f, "{}", header)?;
             }
 
@@ -254,7 +277,8 @@ impl Changelog {
             writeln!(&mut f, "{}", body)?;
 
             if let Some(footer_template) = &self.footer_template {
-                let footer = Self::render(footer_template, &context, self.post_processors.as_ref())?;
+                let footer =
+                    Self::render(footer_template, &context, self.post_processors.as_ref())?;
                 writeln!(&mut f, "{}", footer)?;
             }
         }
@@ -263,17 +287,37 @@ impl Changelog {
     }
 
     pub fn generate<W: Write>(&self, out: &mut W) -> ChangelogResult<()> {
+        let r = HashMap::from([("releases", &self.releases)]);
+
         if let Some(header_template) = &self.header_template {
             let context = TemplateContext::from_serialize(&self.releases)?;
             let header = Self::render(header_template, &context, self.post_processors.as_ref())?;
             writeln!(out, "{}", header)?;
         }
 
-        for release in &self.releases {
-            let context = TemplateContext::from_serialize(release)?;
-            let body = Self::render(&self.body_template, &context, self.post_processors.as_ref())?;
-            write!(out, "{}", body)?;
-        }
+        // for release in &self.releases {
+        //     let context = TemplateContext::from_serialize(release)?;
+        //     let body = Self::render(&self.body_template, &context, self.post_processors.as_ref())?;
+        //     write!(out, "{}", body)?;
+        // }
+
+        // let mut r = HashMap::new();
+        // r.insert("map", HashMap::from([
+        //     ("foo", 1),
+        //     ("bar", 2),
+        //     ("baz", 100)
+        // ]));
+        //
+        // let mut context = TemplateContext::new();
+        // context.insert("map", &HashMap::from([
+        //     ("foo", 1),
+        //     ("bar", 2),
+        //     ("baz", 100)
+        // ]));
+
+        let context = TemplateContext::from_serialize(&r)?;
+        let body = Self::render(&self.body_template, &context, self.post_processors.as_ref())?;
+        write!(out, "{}", body)?;
 
         if let Some(footer_template) = &self.footer_template {
             let context = TemplateContext::from_serialize(&self.releases)?;
@@ -287,7 +331,7 @@ impl Changelog {
     fn render(
         template: &str,
         context: &TemplateContext,
-        post_processors: Option<&Vec<CommitProcessor>>
+        post_processors: Option<&Vec<CommitProcessor>>,
     ) -> ChangelogResult<String> {
         let mut rendered = Templates::one_off(template, &context, false)?;
         if let Some(post_processors) = post_processors {
@@ -324,7 +368,196 @@ impl Changelog {
 
 #[cfg(test)]
 mod test {
+    use std::fs::File;
+    use std::path::PathBuf;
+
+    use scm::commit::{ScmCommit, ScmSignature, ScmTag};
+
+    use crate::changelog::Changelog;
+    use crate::commits::ScmTaggedCommits;
+    use crate::settings::{ChangelogSettings, TemplateSettings};
 
     #[test]
-    fn changelog_generator() {}
+    fn test_generator_groupby_repo() {
+        let tagged_commits = vec![
+            ScmTaggedCommits {
+                repository: "lib".to_string(),
+                tag: Option::from(ScmTag {
+                    id: None,
+                    name: "1.0.0".to_string(),
+                    message: None,
+                    timestamp: 0,
+                }),
+                commits: vec![ScmCommit {
+                    id: "".to_string(),
+                    message: "Added feature A".to_string(),
+                    description: "".to_string(),
+                    body: "".to_string(),
+                    author: ScmSignature {
+                        name: None,
+                        email: None,
+                        timestamp: 0,
+                    },
+                    committer: ScmSignature {
+                        name: None,
+                        email: None,
+                        timestamp: 0,
+                    },
+                    timestamp: 0,
+                }],
+                timestamp: None,
+            },
+            ScmTaggedCommits {
+                repository: "bin".to_string(),
+                tag: Option::from(ScmTag {
+                    id: None,
+                    name: "1.0.0".to_string(),
+                    message: None,
+                    timestamp: 0,
+                }),
+                commits: vec![ScmCommit {
+                    id: "".to_string(),
+                    message: "Added feature A".to_string(),
+                    description: "".to_string(),
+                    body: "".to_string(),
+                    author: ScmSignature {
+                        name: None,
+                        email: None,
+                        timestamp: 0,
+                    },
+                    committer: ScmSignature {
+                        name: None,
+                        email: None,
+                        timestamp: 0,
+                    },
+                    timestamp: 0,
+                }],
+                timestamp: None,
+            },
+        ];
+
+        let settings = ChangelogSettings {
+            output_type: Default::default(),
+            format: Default::default(),
+            templates: TemplateSettings {
+                body: r###"
+{% if version -%}
+    ## [{{ version }}] - {{ timestamp }}
+{% else -%}
+    ## [Unreleased]
+{% endif -%}
+{% for group, releases in releases|groupby("repository") -%}
+    - {{ group }}
+    {% for release in releases -%}
+        {% for commit in release.commits -%}
+        - {{ commit.message }}
+        {% endfor %}
+    {% endfor %}
+{% endfor %}
+"###
+                .to_string(),
+                ..Default::default()
+            },
+            scm: Default::default(),
+            remote: None,
+            bump: None,
+        };
+
+        let changelog = Changelog::new(tagged_commits, settings).unwrap();
+
+        let mut output = File::create(PathBuf::from("./groupby_repo_changelog.md")).unwrap();
+        changelog.generate(&mut output).unwrap()
+    }
+
+    #[test]
+    fn test_generator_groupby_version() {
+        let tagged_commits = vec![
+            ScmTaggedCommits {
+                repository: "lib".to_string(),
+                tag: Option::from(ScmTag {
+                    id: None,
+                    name: "1.0.0".to_string(),
+                    message: None,
+                    timestamp: 0,
+                }),
+                commits: vec![ScmCommit {
+                    id: "".to_string(),
+                    message: "Added feature A".to_string(),
+                    description: "".to_string(),
+                    body: "".to_string(),
+                    author: ScmSignature {
+                        name: None,
+                        email: None,
+                        timestamp: 0,
+                    },
+                    committer: ScmSignature {
+                        name: None,
+                        email: None,
+                        timestamp: 0,
+                    },
+                    timestamp: 1725164895,
+                }],
+                timestamp: None,
+            },
+            ScmTaggedCommits {
+                repository: "bin".to_string(),
+                tag: Option::from(ScmTag {
+                    id: None,
+                    name: "1.0.0".to_string(),
+                    message: None,
+                    timestamp: 0,
+                }),
+                commits: vec![ScmCommit {
+                    id: "".to_string(),
+                    message: "Added feature A".to_string(),
+                    description: "".to_string(),
+                    body: "".to_string(),
+                    author: ScmSignature {
+                        name: None,
+                        email: None,
+                        timestamp: 0,
+                    },
+                    committer: ScmSignature {
+                        name: None,
+                        email: None,
+                        timestamp: 0,
+                    },
+                    timestamp: 1725164895,
+                }],
+                timestamp: None,
+            },
+        ];
+
+        let settings = ChangelogSettings {
+            output_type: Default::default(),
+            format: Default::default(),
+            templates: TemplateSettings {
+                body: r###"
+{% if version -%}
+    ## [{{ version }}] - {{ timestamp | dateformat(format="%Y-%m-%d") }}
+{% else -%}
+    ## [Unreleased]
+{% endif -%}
+{% for group, releases in releases|groupby("version.value") -%}
+    - {{ group }}
+    {% for release in releases -%}
+        {% for commit in release.commits -%}
+        - {{ commit.message }} - {{ commit.timestamp|date(format="%Y-%m-%d") }}
+        {% endfor %}
+    {% endfor %}
+{% endfor %}
+"###
+                .to_string(),
+                ..Default::default()
+            },
+            scm: Default::default(),
+            remote: None,
+            bump: None,
+        };
+
+        let changelog = Changelog::new(tagged_commits, settings).unwrap();
+
+        let mut output = File::create(PathBuf::from("./groupby_version_changelog.md")).unwrap();
+        changelog.generate(&mut output).unwrap()
+    }
 }

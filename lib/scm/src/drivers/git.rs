@@ -429,7 +429,7 @@ impl ScmRepository for GitScmRepository {
     /// Sorts the commits by their time.
     fn commits(
         &self,
-        range: &Option<ScmCommitRange>,
+        range: Option<&ScmCommitRange>,
         include_paths: Option<&Vec<Pattern>>,
         exclude_paths: Option<&Vec<Pattern>>,
         limit_commits: Option<usize>,
@@ -467,12 +467,12 @@ impl ScmRepository for GitScmRepository {
 
         if let Some(exclude_paths) = exclude_paths {
             for exclude_path in exclude_paths {
-                path_specs.push(exclude_path.to_string());
+                path_specs.push(format!(":(exclude){}", exclude_path));
             }
         }
 
         if !path_specs.is_empty() {
-            args.push("--".to_string());
+            args.push("-- .".to_string());
             args.extend(path_specs);
         }
 
@@ -492,7 +492,9 @@ impl ScmRepository for GitScmRepository {
     /// It collects lightweight and annotated tags.
     fn tags(
         &self,
-        pattern: &Option<Regex>,
+        // TODO: list can accept multiple patterns
+        include: Option<&Regex>,
+        exclude: Option<&Regex>,
         sort: TagSort,
         suffix_order: Option<&Vec<String>>,
     ) -> ScmResult<IndexMap<String, ScmTag>> {
@@ -526,7 +528,8 @@ impl ScmRepository for GitScmRepository {
             .split(|&b| b == b'\n')
             .filter(|&x| !x.is_empty())
             .filter_map(|line| std::str::from_utf8(line).ok())
-            .filter(|tag_name| pattern.as_ref().map_or(true, |p| p.is_match(tag_name)))
+            .filter(|tag_name| include.as_ref().map_or(true, |p| p.is_match(tag_name)))
+            .filter(|tag_name| exclude.as_ref().map_or(true, |p| !p.is_match(tag_name)))
             .map(|s| s.to_string())
             .collect::<Vec<String>>();
 
@@ -540,6 +543,7 @@ impl ScmRepository for GitScmRepository {
                     .map(|target| target.into_commit().ok())
                     .flatten()
                 {
+                    let timestamp = commit.time().seconds();
                     tags.push((
                         commit.into(),
                         ScmTag {
@@ -548,17 +552,20 @@ impl ScmRepository for GitScmRepository {
                             message: tag
                                 .message()
                                 .map(|msg| TAG_SIGNATURE_REGEX.replace(msg, "").trim().to_owned()),
+                            timestamp,
                         },
                     ));
                 }
             } else if let Ok(commit) = obj.into_commit() {
                 let commit_id = commit.id().to_string();
+                let timestamp = commit.time().seconds();
                 tags.push((
                     commit.into(),
                     ScmTag {
                         id: Some(commit_id),
                         name,
                         message: None,
+                        timestamp,
                     },
                 ));
             }
@@ -590,6 +597,8 @@ impl ScmRepository for GitScmRepository {
                 command.current_dir(git_workdir);
             }
 
+            // TODO: confirm this gets lightweight and annotated tags
+            // if using `--all` need to remove prefix e.g. `tags/` / `head/`
             let output = command
                 .args(["describe", "--tags", &last_tag_commit])
                 .output()?;
@@ -617,11 +626,18 @@ impl ScmRepository for GitScmRepository {
                 message: tag
                     .message()
                     .map(|msg| TAG_SIGNATURE_REGEX.replace(msg, "").trim().to_owned()),
+                timestamp: self
+                    .inner
+                    .find_commit(tag.id())
+                    .map(|c| c.time().seconds())
+                    .unwrap_or_default(),
             },
+            // TODO: should probably return None
             _ => ScmTag {
                 id: None,
                 name: name.to_owned(),
                 message: None,
+                timestamp: 0,
             },
         }
     }
@@ -728,7 +744,7 @@ mod tests {
         ];
         let commits = scm
             .commits(
-                &None,
+                None,
                 None, //Some(&include),
                 Some(&exclude),
                 None,
@@ -743,7 +759,7 @@ mod tests {
     fn git_cliff_tags() {
         println!("{:?}", env::current_dir().unwrap());
         let scm = GitScmRepository::new("../../../../git-cliff").unwrap();
-        let commits = scm.tags(&None, TagSort::Version, None).unwrap();
+        let commits = scm.tags(None, None, TagSort::Version, None).unwrap();
         for c in commits {
             println!("{:?}", &c);
         }

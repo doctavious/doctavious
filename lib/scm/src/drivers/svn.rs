@@ -42,7 +42,7 @@ impl ScmRepository for SvnScmRepository {
 
     fn commits(
         &self,
-        range: &Option<ScmCommitRange>,
+        range: Option<&ScmCommitRange>,
         include_paths: Option<&Vec<Pattern>>,
         exclude_paths: Option<&Vec<Pattern>>,
         limit_commits: Option<usize>,
@@ -52,7 +52,8 @@ impl ScmRepository for SvnScmRepository {
 
     fn tags(
         &self,
-        pattern: &Option<Regex>,
+        include: Option<&Regex>,
+        exclude: Option<&Regex>,
         sort: TagSort,
         suffix_order: Option<&Vec<String>>,
     ) -> ScmResult<IndexMap<String, ScmTag>> {

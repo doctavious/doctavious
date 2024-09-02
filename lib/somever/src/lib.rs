@@ -1,10 +1,13 @@
+mod calendar;
+
+use std::cmp::Ordering;
 use std::fmt::{Display, Formatter, Write};
 use std::str::FromStr;
 
-use lazy_static::lazy_static;
-use regex::Regex;
-use serde::{Deserialize, Serialize, Serializer};
+pub use calendar::Calver;
+use semver::{BuildMetadata, Prerelease};
 use serde::ser::SerializeStruct;
+use serde::{Deserialize, Serialize, Serializer};
 use thiserror::Error;
 
 #[remain::sorted]
@@ -31,7 +34,7 @@ pub type SomeverResult<T> = Result<T, SomeverError>;
 pub trait Bumpable {}
 
 #[remain::sorted]
-#[derive(Clone, Debug, Default, Deserialize, Serialize)]
+#[derive(Clone, Copy, Debug, Default, Deserialize, Serialize)]
 #[serde(rename_all = "lowercase")]
 pub enum VersioningScheme {
     // do we need to know more information? Such as format/separator so each part can be
@@ -40,121 +43,6 @@ pub enum VersioningScheme {
     #[default]
     Semver,
 }
-
-// do we need a separator?
-// whats the best way to handle parsing micro from modifier?
-// how to handle sorting modifier?
-#[derive(Debug, Deserialize, Eq, Ord, PartialEq, PartialOrd, Serialize)]
-pub struct Calver {
-    pub major: u16,
-    pub minor: u8,
-    pub micro: Option<u16>,
-    pub modifier: Option<String>,
-    pub separator: char,
-}
-
-lazy_static! {
-    static ref RE: Regex =
-        Regex::new(r"(?<major>\d+)[.-](?<minor>\d+)([.-](?<micro>\d+))?(?<modifier>.+)?").unwrap();
-}
-
-impl Calver {
-    pub fn parse(text: &str) -> SomeverResult<Self> {
-        Calver::from_str(text)
-    }
-}
-
-impl FromStr for Calver {
-    type Err = SomeverError;
-
-    fn from_str(text: &str) -> Result<Self, Self::Err> {
-        if text.is_empty() {
-            return Err(SomeverError::Empty);
-        }
-
-        // not the most performant way of doing this but good enough for now
-        let caps = RE
-            .captures(text)
-            .ok_or(SomeverError::InvalidFormat(text.to_string()))?;
-        // .map_err(|e|Err(SomeverError::ParseInt(text.to_string())))?;
-
-        let major_match = caps
-            .name("major")
-            .ok_or(SomeverError::InvalidFormat(text.to_string()))?;
-        // .map_err(|e|Err(SomeverError::ParseInt(text.to_string())))?;
-
-        let major = major_match
-            .as_str()
-            .parse::<u16>()
-            .map_err(|e| SomeverError::ParseInt(text.to_string()))?;
-
-        let separator = text
-            .chars()
-            .nth(major_match.len())
-            .ok_or(SomeverError::InvalidFormat(text.to_string()))?;
-        // .map_err(|e|SomeverError::ParseInt(text.to_string()))?;
-
-        let minor = caps
-            .name("minor")
-            .ok_or(SomeverError::InvalidFormat(text.to_string()))?
-            .as_str()
-            .parse::<u8>()
-            .map_err(|e| SomeverError::ParseInt(text.to_string()))?;
-
-        let micro = if let Some(micro) = caps.name("micro") {
-            Some(
-                micro
-                    .as_str()
-                    .parse::<u16>()
-                    .map_err(|e| SomeverError::ParseInt(text.to_string()))?,
-            )
-        } else {
-            None
-        };
-
-        let modifier = caps.name("modifier").map(|m| m.as_str().to_string());
-
-        Ok(Self {
-            major,
-            minor,
-            micro,
-            modifier,
-            separator,
-        })
-    }
-}
-
-impl Display for Calver {
-    // TODO: might be better to just store raw
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "{}.{}.{:?}{:?}",
-            self.major, self.minor, self.micro, self.modifier
-        )
-    }
-}
-
-// Want to support the following
-// YYYY - Full year - 2006, 2016, 2106
-// YY - Short year - 6, 16, 106
-// 0Y - Zero-padded year - 06, 16, 106
-// MM - Short month - 1, 2 ... 11, 12
-// 0M - Zero-padded month - 01, 02 ... 11, 12
-// WW - Short week (since start of year) - 1, 2, 33, 52
-// 0W - Zero-padded week - 01, 02, 33, 52
-// DD - Short day - 1, 2 ... 30, 31
-// 0D - Zero-padded day - 01, 02 ... 30, 31
-
-// Examples
-// https://stripe.com/blog/api-versioning - YYYY-MM-DD
-// https://unity3d.com/unity/whats-new/ - YYYY.MINOR.MICRO
-// https://www.cockroachlabs.com/blog/calendar-versioning/ - YY.RELEASE_NUMBER.PATCH
-// two-digit year for the major component and release number within the year for the minor one
-// For patch releases, we'll use the third, "micro" number in the versioning scheme to indicate the
-// patch number, omitting the micro number on the first release number for external representations of the version number.
-
-// (<MAJOR>\d).(<MINOR>\d)(?<MICRO>.\d)(?<MODIFIER>.+)
 
 #[derive(Debug)]
 pub enum Somever {
@@ -168,7 +56,6 @@ impl Serialize for Somever {
     where
         S: Serializer,
     {
-
         let mut somever = serializer.serialize_struct("Somever", 2)?;
         match self {
             Somever::Calver(c) => {
@@ -185,8 +72,28 @@ impl Serialize for Somever {
     }
 }
 
+impl PartialEq for Somever {
+    fn eq(&self, other: &Self) -> bool {
+        self.to_string() == other.to_string()
+    }
+}
+
+impl Eq for Somever {}
+
+impl PartialOrd for Somever {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(
+            self.major()
+                .cmp(&other.major())
+                .then(self.minor().cmp(&other.minor()))
+                .then(self.patch().cmp(&other.patch()))
+                .then(self.modifier().cmp(&other.modifier())),
+        )
+    }
+}
+
 impl Somever {
-    pub fn new(scheme: &VersioningScheme, value: &str) -> SomeverResult<Self> {
+    pub fn new(scheme: VersioningScheme, value: &str) -> SomeverResult<Self> {
         Ok(match scheme {
             VersioningScheme::Calver => Somever::Calver(Calver::parse(value)?),
             VersioningScheme::Semver => Somever::Semver(semver::Version::parse(value)?),
@@ -204,6 +111,23 @@ impl Somever {
         match self {
             Somever::Calver(c) => c.minor as u64,
             Somever::Semver(s) => s.minor,
+        }
+    }
+
+    // TODO: would like to be able to sort this via something like git versionsort.suffix
+    //      I think we would need to pass in a Vec of suffixes and then use the index to sort
+    pub fn modifier(&self) -> Option<&str> {
+        match self {
+            Somever::Calver(c) => c.modifier.as_ref().map(|s| s.as_str()),
+            Somever::Semver(s) => {
+                if s.pre != Prerelease::EMPTY {
+                    Some(s.pre.as_str())
+                } else if s.build != BuildMetadata::EMPTY {
+                    Some(s.build.as_str())
+                } else {
+                    None
+                }
+            }
         }
     }
 
@@ -226,7 +150,7 @@ impl Display for Somever {
 
 #[cfg(test)]
 mod tests {
-    use crate::Calver;
+    use crate::{Calver, Somever, VersioningScheme};
 
     #[test]
     fn should_parse_and_sort() {
@@ -249,8 +173,55 @@ mod tests {
 
         versions.sort();
 
-        for v in versions {
-            println!("{:?}", v.to_string());
-        }
+        assert_eq!(
+            vec![
+                "6.1.28",
+                "6.52.1",
+                "24.1",
+                "24.1.28",
+                "24.1.28-final",
+                "2024.1-suffix",
+                "2024.1.suffix",
+                "2024.1.28",
+                "2024.1.28-final",
+                "2024.1.28-suffix",
+                "2024-6-28",
+            ],
+            versions
+                .iter()
+                .map(|v| v.to_string())
+                .collect::<Vec<String>>()
+        );
+    }
+
+    // TODO: confirm deserialization
+    #[test]
+    fn serde() {
+        assert_eq!(
+            "{\"type\":\"calver\",\"value\":\"2024.9.2\"}".to_string(),
+            serde_json::to_string(&Somever::Calver(Calver::parse("2024.9.2").unwrap())).unwrap()
+        );
+        assert_eq!(
+            "{\"type\":\"calver\",\"value\":\"2024.9.2\"}".to_string(),
+            serde_json::to_string(&Somever::new(VersioningScheme::Calver, "2024.9.2").unwrap())
+                .unwrap()
+        );
+
+        // let calver: Calver = serde_json::from_str("{\"type\":\"calver\",\"value\":\"2024.9.2\"}").unwrap();
+        // assert_eq!(calver.major, 2024);
+        // assert_eq!(calver.minor, 9);
+        // assert_eq!(calver.micro.unwrap_or_default(), 2);
+        // assert_eq!(calver.modifier.unwrap_or_default(), "-suffix");
+
+        assert_eq!(
+            "{\"type\":\"semver\",\"value\":\"1.5.2\"}".to_string(),
+            serde_json::to_string(&Somever::Semver(semver::Version::parse("1.5.2").unwrap()))
+                .unwrap()
+        );
+        assert_eq!(
+            "{\"type\":\"semver\",\"value\":\"1.5.2\"}".to_string(),
+            serde_json::to_string(&Somever::new(VersioningScheme::Semver, "1.5.2").unwrap())
+                .unwrap()
+        );
     }
 }
