@@ -79,7 +79,7 @@ pub(crate) fn detect<P: AsRef<Path>, T: Detectable>(cwd: P, framework: &T) -> Op
     }
 
     if results.iter().all(|&r| r.is_some()) {
-        return *results.first().unwrap();
+        return *results.first()?;
     }
 
     None
@@ -94,7 +94,12 @@ fn check<'a, P: AsRef<Path>, T: Detectable>(
     match item {
         FrameworkDetectionItem::Config { content } => {
             for config in framework.get_configuration_files() {
-                if check_file(cwd.as_ref().join(config), content).is_some() {
+                if check_file(
+                    cwd.as_ref().join(config),
+                    content.as_ref().map(|x| x.as_str()),
+                )
+                .is_some()
+                {
                     return Some(MatchResult { project: None });
                 }
             }
@@ -118,7 +123,12 @@ fn check<'a, P: AsRef<Path>, T: Detectable>(
             None
         }
         FrameworkDetectionItem::File { path, content } => {
-            if check_file(cwd.as_ref().join(path), content).is_some() {
+            if check_file(
+                cwd.as_ref().join(path),
+                content.as_ref().map(|x| x.as_str()),
+            )
+            .is_some()
+            {
                 return Some(MatchResult { project: None });
             }
 
@@ -127,7 +137,7 @@ fn check<'a, P: AsRef<Path>, T: Detectable>(
     }
 }
 
-fn check_file<'a, P: AsRef<Path>>(path: P, pattern: &Option<String>) -> Option<MatchResult> {
+fn check_file<'a, P: AsRef<Path>>(path: P, pattern: Option<&str>) -> Option<MatchResult> {
     if let Ok(file_content) = fs::read_to_string(path) {
         if let Some(pattern) = pattern {
             let reg = RegexBuilder::new(pattern)

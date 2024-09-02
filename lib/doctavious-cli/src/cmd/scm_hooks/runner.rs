@@ -200,8 +200,10 @@ impl<'a> ScmHookRunner<'a> {
     // TODO: probably need to pass in scripts dir
     pub fn run_all(&self) -> Vec<ScmHookRunnerResult<ScmHookRunnerOutcome>> {
         return if self.options.force
-            || ExecutionChecker::check(&self.options.hook.skip, &self.options.hook.only)
-        {
+            || ExecutionChecker::check(
+                self.options.hook.skip.as_ref(),
+                self.options.hook.only.as_ref(),
+            ) {
             self.run_executions()
         } else {
             // TODO: should logging skips be a flag?
@@ -304,7 +306,8 @@ impl<'a> ScmHookRunner<'a> {
         script: &HookScript,
         path: &Path,
     ) -> Result<(), ScmHookRunnerError> {
-        if self.options.force || ExecutionChecker::check(&script.skip, &script.only) {
+        if self.options.force || ExecutionChecker::check(script.skip.as_ref(), script.only.as_ref())
+        {
             // TODO: convert to hashset?
             // TODO: is there a way to avoid the &Vec<String> and the &String for contains?
             if let Some(exclude_tags) = &self.options.hook.exclude_tags {
@@ -373,7 +376,9 @@ impl<'a> ScmHookRunner<'a> {
         name: &str,
         command: &HookCommand,
     ) -> Result<(), ScmHookRunnerError> {
-        if self.options.force || ExecutionChecker::check(&command.skip, &command.only) {
+        if self.options.force
+            || ExecutionChecker::check(command.skip.as_ref(), command.only.as_ref())
+        {
             // TODO: convert to hashset?
             if let Some(exclude_tags) = &self.options.hook.exclude_tags {
                 if exclude_tags.contains(&name.to_string()) {
@@ -443,8 +448,8 @@ impl ExecutionChecker {
     ///
     /// return true if execution should run and false if execution should be skipped
     pub fn check(
-        skip: &Option<ScmHookConditionalExecution>,
-        only: &Option<ScmHookConditionalExecution>,
+        skip: Option<&ScmHookConditionalExecution>,
+        only: Option<&ScmHookConditionalExecution>,
     ) -> bool {
         if let Some(skip) = skip {
             if Self::matches(skip) {

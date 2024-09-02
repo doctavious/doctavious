@@ -304,9 +304,9 @@ impl FrameworkConfigurationFormat {
                     Some("json") => Ok(Self::Json(serde_json::from_str(&content)?)),
                     Some("yaml") | Some("yml") => Ok(Self::Yaml(serde_yaml::from_str(&content)?)),
                     Some("toml") => Ok(Self::Toml(content)),
-                    Some("js") | Some("ts") | Some("mjs") | Some("cjs") => Ok(Self::EcmaScript(
-                        parse_js_module(path, content)?,
-                    )),
+                    Some("js") | Some("ts") | Some("mjs") | Some("cjs") => {
+                        Ok(Self::EcmaScript(parse_js_module(path, content)?))
+                    }
                     Some("py") => Ok(Self::Python(content)),
                     // TODO (Sean): we should just skip or warn
                     _ => Err(CifrsError::UnknownFrameworkFormat(

@@ -6,8 +6,8 @@ use std::path::Path;
 use std::sync::Arc;
 
 use swc::{try_with_handler, HandlerOpts};
-use swc_common::{FileName, SourceMap, GLOBALS};
 use swc_common::sync::Lrc;
+use swc_common::{FileName, SourceMap, GLOBALS};
 use swc_ecma_ast::Stmt::{Decl as DeclStmt, Expr as ExprStmt};
 use swc_ecma_ast::{
     ArrayLit, AssignExpr, BlockStmt, CallExpr, Decl, EsVersion, Expr, ExprOrSpread, FnExpr,
