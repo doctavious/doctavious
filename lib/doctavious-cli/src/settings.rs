@@ -16,6 +16,7 @@ use scm::providers::ScmProviders;
 use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
 use thiserror::Error;
+use tracing::warn;
 
 use crate::errors::CliResult;
 use crate::file_structure::FileStructure;
@@ -154,8 +155,8 @@ pub struct Settings {
     #[serde(rename(serialize = "til"))]
     #[serde(alias = "til")]
     pub til_settings: Option<TilSettings>,
+
     // TODO: snippets
-    // TODO: changelog
     pub changelog: Option<ChangelogSettings>,
 }
 
@@ -383,22 +384,21 @@ pub(crate) fn get_settings_file(cwd: &Path) -> PathBuf {
     cwd.join(DEFAULT_CONFIG_DIR).join(DEFAULT_CONFIG_NAME)
 }
 
-// TODO: Cow doesnt seem to make sense here anymore
-// TODO: get_settings_file should check if_file / is_dir
-// TODO: if settings_path doesnt exist error instead of default? or at least warn about using default
-// configuration
-pub(crate) fn load_settings<'a>(cwd: &Path) -> CliResult<Cow<'a, Settings>> {
-    let settings_path = get_settings_file(cwd);
-    let settings = if settings_path.is_file() {
-        get_settings(&settings_path)?
+pub fn load_settings(path: &Path) -> CliResult<Settings> {
+    Ok(if path.is_file() {
+        get_settings(path)?
     } else {
-        Settings::default()
-    };
-
-    Ok(Cow::Owned(settings))
+        let path = get_settings_file(path);
+        if path.is_file() {
+            get_settings(&path)?
+        } else {
+            warn!("Unable to find Doctavious config file at {path}. Using default settings");
+            Settings::default()
+        }
+    })
 }
 
-pub(crate) fn get_settings(path: &Path) -> CliResult<Settings> {
+pub fn get_settings(path: &Path) -> CliResult<Settings> {
     let contents = fs::read_to_string(path)?;
     Ok(toml::from_str(contents.as_str())?)
 }

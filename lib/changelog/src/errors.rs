@@ -18,6 +18,9 @@ pub enum ChangelogErrors {
     #[error(transparent)]
     IoError(#[from] std::io::Error),
 
+    #[error("regex error: {0}")]
+    RegexError(#[from] regex::Error),
+
     #[error(transparent)]
     SerdeJson(#[from] serde_json::Error),
 

@@ -41,9 +41,12 @@ impl FromStr for ChangelogRange {
 
 #[derive(Clone, Copy, Debug, Default, Display, EnumIter, EnumString, VariantNames, PartialEq)]
 pub enum ChangelogCommitSort {
-    Newest,
+    /// Whether to sort starting with the newest element.
+    Newest_First,
+
+    /// Whether to sort starting with the oldest element.
     #[default]
-    Oldest,
+    Oldest_First,
 }
 
 impl ChangelogCommitSort {

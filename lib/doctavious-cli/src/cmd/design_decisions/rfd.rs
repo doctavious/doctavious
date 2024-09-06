@@ -32,7 +32,7 @@ pub fn init(
     structure: FileStructure,
     format: MarkupFormat,
 ) -> CliResult<PathBuf> {
-    let mut settings = load_settings(cwd)?.into_owned();
+    let mut settings = load_settings(cwd)?;
     let path = path.unwrap_or_else(|| PathBuf::from(DEFAULT_RFD_DIR));
     let dir = cwd.join(path);
     if dir.exists() {

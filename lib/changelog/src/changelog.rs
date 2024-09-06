@@ -8,6 +8,7 @@ use std::path::{Path, PathBuf};
 use doctavious_templating::{TemplateContext, Templates};
 use git_conventional::{Commit as GitConventionalCommit, Error};
 use markup::MarkupFormat;
+use regex::{Regex, RegexBuilder};
 use scm::commit::ScmCommit;
 use serde_derive::{Deserialize, Serialize};
 use somever::{Calver, Somever, VersioningScheme};
@@ -70,20 +71,37 @@ pub struct Changelog {
     post_processors: Option<Vec<CommitProcessor>>,
 }
 
+// TODO: This is duplicated. Put in common place
+fn convert_to_regex(patterns: Option<&Vec<String>>) -> ChangelogResult<Option<Vec<Regex>>> {
+    Ok(if let Some(patterns) = patterns {
+        let mut regexs = Vec::new();
+        for p in patterns {
+            regexs.push(RegexBuilder::new(p).size_limit(100).build()?)
+        }
+        Some(regexs)
+    } else {
+        None
+    })
+}
+
 impl Changelog {
     pub fn new(
         mut tagged_commits: Vec<ScmTaggedCommits>,
         settings: ChangelogSettings,
     ) -> ChangelogResult<Self> {
         let filter_commits = settings.scm.filter_commits.unwrap_or_default();
-
+        let ignore_tags = convert_to_regex(settings.scm.ignore_tags.as_ref())?;
         tagged_commits = tagged_commits
             .into_iter()
             .filter(|tc| {
                 if let Some(tag) = &tc.tag {
                     let id = tag.clone().id.unwrap_or_default();
-                    if let Some(exclude) = &settings.scm.skip_tags {
-                        return !exclude.is_match(&id);
+                    if let Some(ignores) = &ignore_tags {
+                        for ignore in ignores {
+                            if ignore.is_match(&id) {
+                                return false;
+                            }
+                        }
                     }
                 }
                 true
@@ -136,9 +154,9 @@ impl Changelog {
 
                 let protect_breaking = settings.scm.protect_breaking_commits.unwrap_or_default();
                 'commits: for commit in changelog_entry_commits {
-                    if let Some(skips) = &settings.scm.skips {
-                        for skip in skips {
-                            if skip.is_match(&commit)? && !(commit.breaking && protect_breaking) {
+                    if let Some(ignores) = &settings.scm.ignore {
+                        for ignore in ignores {
+                            if ignore.is_match(&commit)? && !(commit.breaking && protect_breaking) {
                                 debug!("skipping commit {}", &commit.id);
                                 continue 'commits;
                             }

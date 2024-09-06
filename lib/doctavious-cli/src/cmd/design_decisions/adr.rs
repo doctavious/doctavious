@@ -40,7 +40,7 @@ pub fn init(
     structure: FileStructure,
     format: MarkupFormat,
 ) -> CliResult<PathBuf> {
-    let mut settings: Settings = load_settings(cwd)?.into_owned();
+    let mut settings: Settings = load_settings(cwd)?;
     if settings.adr_settings.is_some() {
         return Err(DoctaviousCliError::DesignDecisionErrors(
             DesignDecisionErrors::DesignDocAlreadyInitialized,
@@ -87,7 +87,7 @@ pub fn new(
     supersedes: Option<Vec<String>>,
     links: Option<Vec<String>>,
 ) -> CliResult<PathBuf> {
-    let settings = load_settings(cwd)?.into_owned();
+    let settings = load_settings(cwd)?;
     let dir = get_adr_dir(cwd, true)?;
 
     let format = settings.get_adr_template_format(format);

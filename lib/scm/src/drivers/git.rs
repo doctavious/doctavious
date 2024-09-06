@@ -492,9 +492,8 @@ impl ScmRepository for GitScmRepository {
     /// It collects lightweight and annotated tags.
     fn tags(
         &self,
-        // TODO: list can accept multiple patterns
-        include: Option<&Regex>,
-        exclude: Option<&Regex>,
+        includes: Option<&Vec<Regex>>,
+        excludes: Option<&Vec<Regex>>,
         sort: TagSort,
         suffix_order: Option<&Vec<String>>,
     ) -> ScmResult<IndexMap<String, ScmTag>> {
@@ -528,8 +527,28 @@ impl ScmRepository for GitScmRepository {
             .split(|&b| b == b'\n')
             .filter(|&x| !x.is_empty())
             .filter_map(|line| std::str::from_utf8(line).ok())
-            .filter(|tag_name| include.as_ref().map_or(true, |p| p.is_match(tag_name)))
-            .filter(|tag_name| exclude.as_ref().map_or(true, |p| !p.is_match(tag_name)))
+            .filter(|tag_name| {
+                if let Some(includes) = includes {
+                    for include in includes {
+                        if include.is_match(tag_name) {
+                            return true;
+                        }
+                    }
+                }
+
+                false
+            })
+            .filter(|tag_name| {
+                if let Some(excludes) = excludes {
+                    for exclude in excludes {
+                        if exclude.is_match(tag_name) {
+                            return false;
+                        }
+                    }
+                }
+
+                true
+            })
             .map(|s| s.to_string())
             .collect::<Vec<String>>();
 

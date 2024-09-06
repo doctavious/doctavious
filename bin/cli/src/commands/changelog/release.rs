@@ -3,13 +3,15 @@ use std::str::FromStr;
 
 use changelog::changelog::ChangelogOutputType;
 use clap::{Parser, ValueEnum};
-use doctavious_cli::changelog::cmd::release::{release, ChangelogReleaseOptions};
+use doctavious_cli::changelog::cmd::release::{release, BumpOption, ChangelogReleaseOptions};
 use doctavious_cli::changelog::settings::{ChangelogCommitSort, ChangelogRange};
 use doctavious_cli::errors::CliResult;
+use doctavious_cli::settings::Settings;
 use glob::Pattern;
 use markup::MarkupFormat;
 use regex::Regex;
 use scm::drivers::git::TagSort;
+use serde::{Deserialize, Serialize};
 use strum::VariantNames;
 
 use crate::clap_enum_variants;
@@ -34,65 +36,115 @@ pub enum StrippableChangelogSection {
 #[derive(Parser, Debug)]
 #[command()]
 pub(crate) struct ReleaseCommand {
-    #[arg(long, short)]
+    #[arg(
+        long,
+        short,
+        env = "DOCTAVIOUS_CHANGELOG_WORKDIR",
+        value_parser = ReleaseCommand::parse_dir
+    )]
     pub cwd: Option<PathBuf>,
 
-    /// Sets the path to include related commits [env: DOCTAVIOUS_CHANGELOG_INCLUDE_PATH=]
-    #[arg(long = "include_path", value_name = "PATH")]
+    /// Path of the Doctavious config you use. If not present will default to configuration present
+    /// in the working directory
+    #[arg(
+	    long,
+	    env = "DOCTAVIOUS_CONFIG",
+	    value_name = "PATH",
+	    // default_value = DEFAULT_CONFIG,
+	    value_parser = ReleaseCommand::parse_dir
+    )]
+    pub config: Option<PathBuf>,
+
+    /// Path
+    #[arg(
+        long = "include_path",
+        value_name = "PATH",
+        env = "DOCTAVIOUS_CHANGELOG_INCLUDE_PATH"
+    )]
     pub include_paths: Option<Vec<Pattern>>,
 
-    /// Sets the path to exclude related commits [env: DOCTAVIOUS_CHANGELOG_EXCLUDE_PATH=]
-    #[arg(long = "exclude_path", value_name = "PATH")]
+    /// Sets the path to exclude related commits
+    #[arg(
+        long = "exclude_path",
+        value_name = "PATH",
+        env = "DOCTAVIOUS_CHANGELOG_EXCLUDE_PATH"
+    )]
     pub exclude_paths: Option<Vec<Pattern>>,
 
-    /// Sets the git repository [env: DOCTAVIOUS_CHANGELOG_REPOSITORY=]
-    /// To generate a changelog for multiple git repositories:
-    #[arg(long = "repository", short)]
+    /// The Git repositories to use. Useful to generate a changelog for multiple git repositories
+    #[arg(
+        long = "repository",
+        short,
+        value_name = "PATH",
+        env = "DOCTAVIOUS_CHANGELOG_REPOSITORIES",
+        value_parser = ReleaseCommand::parse_dir
+    )]
     pub repositories: Option<Vec<PathBuf>>,
-
-    // To calculate and set the next semantic version (i.e. bump the version) for the unreleased changes:
-    /// Bumps the version for unreleased changes
-    #[arg(long, action)]
-    pub bump: bool,
 
     #[arg(long, action)]
     pub individual: bool,
 
-    // env = "DOCTAVIOUS_CHANGELOG_OUTPUT",
-    #[arg(long, short, value_name = "PATH")]
+    #[arg(
+        long,
+        short,
+        value_name = "PATH",
+        env = "DOCTAVIOUS_CHANGELOG_OUTPUT",
+        value_parser = ReleaseCommand::parse_dir
+    )]
     pub output: Option<PathBuf>,
 
-    // env = "DOCTAVIOUS_CHANGELOG_OUTPUT_TYPE",
     #[arg(
         long,
         value_name = "TYPE",
         default_value_t = ChangelogOutputType::default(),
-        value_parser = clap_enum_variants!(ChangelogOutputType)
+        value_parser = clap_enum_variants!(ChangelogOutputType),
+        env = "DOCTAVIOUS_CHANGELOG_OUTPUT_TYPE"
     )]
     pub output_type: ChangelogOutputType,
 
-    // DOCTAVIOUS_CHANGELOG_FORMAT
     #[arg(
         long,
         value_name = "FORMAT",
         value_parser = clap_enum_variants!(MarkupFormat),
-        requires = "individual"
+        requires = "individual",
+        env = "DOCTAVIOUS_CHANGELOG_FORMAT"
     )]
     pub format: Option<MarkupFormat>,
 
-    /// Sets the regex for matching git tags [env: DOCTAVIOUS_CHANGELOG_TAG_PATTERN=]
-    #[arg(long, value_name = "PATTERN")]
-    pub tag_pattern: Option<Regex>,
+    /// Patterns for tags that should be included in the changelog
+    #[arg(
+        long = "tag_pattern",
+        value_name = "PATTERN",
+        env = "DOCTAVIOUS_CHANGELOG_TAG_PATTERNS"
+    )]
+    pub tag_patterns: Option<Vec<String>>,
 
-    /// Sets custom commit messages to include in the changelog [env: DOCTAVIOUS_CHANGELOG_SKIP_COMMIT=]
-    #[arg(long = "skip_commit", value_name = "COMMIT")]
-    pub skip_commits: Option<Vec<String>>,
+    /// Patterns for tags that should be skpped but the associated commits be part
+    /// of the next valid tag
+    #[arg(
+        long = "skip_tag_pattern",
+        value_name = "PATTERN",
+        env = "DOCTAVIOUS_CHANGELOG_SKIP_PATTERNS"
+    )]
+    pub skip_tag_patterns: Option<Vec<String>>,
 
-    // TODO: could use -R and --range instead of index
-    /// Sets the commit range to process [possible values: current, latest, unreleased, or
-    /// in the format of <START>..<END>]
-    #[arg(index = 1)]
-    pub range: Option<ChangelogRange>,
+    /// Patterns for tags that should be ignored.
+    /// Associated commits will not be present in the changelog
+    #[arg(
+        long = "ignore_tag_pattern",
+        value_name = "PATTERN",
+        env = "DOCTAVIOUS_CHANGELOG_IGNORE_TAG_PATTERNS"
+    )]
+    pub ignore_tag_patterns: Option<Vec<String>>,
+
+    /// Commits IDs that will be ignored and not present in the changelog
+    /// Will be merged with `.commitsignore` if present
+    #[arg(
+        long = "ignore_commit",
+        value_name = "COMMIT",
+        env = "DOCTAVIOUS_CHANGELOG_IGNORE_COMMITS"
+    )]
+    pub ignore_commits: Option<Vec<String>>,
 
     /// Determines method of sorting tags
     #[arg(
@@ -102,8 +154,14 @@ pub(crate) struct ReleaseCommand {
     )]
     pub tag_sort: TagSort,
 
-    /// Prepends entries to the changelog file [env: DOCTAVIOUS_CHANGELOG_PREPEND=]
-    #[arg(long, short, conflicts_with = "individual")]
+    /// Prepends entries to the changelog file
+    #[arg(
+        long,
+        short,
+        conflicts_with = "individual",
+        env = "DOCTAVIOUS_CHANGELOG_PREPEND",
+        value_parser = ReleaseCommand::parse_dir
+    )]
     pub prepend: Option<PathBuf>,
 
     /// Sets the tag for the latest version.
@@ -115,13 +173,13 @@ pub(crate) struct ReleaseCommand {
     )]
     pub tag: Option<String>,
 
-    /// Sets sorting of the commits inside sections.
+    /// Determines how commits should be sorted within tags
     #[arg(
         long,
         default_value_t = ChangelogCommitSort::default(),
         value_parser = clap_enum_variants!(ChangelogCommitSort)
     )]
-    pub sort: ChangelogCommitSort,
+    pub commit_sort: ChangelogCommitSort,
 
     /// Sets the template for the changelog body.
     #[arg(
@@ -136,16 +194,49 @@ pub(crate) struct ReleaseCommand {
     /// Strips the given parts from the changelog.
     #[arg(short, long, value_name = "PART", value_enum)]
     pub strip: Option<StrippableChangelogSection>,
-    // -p, --prepend <PATH>             Prepends entries to the given changelog file [env: GIT_CLIFF_PREPEND=]
-    // -o, --output [<PATH>]            Writes output to the given file [env: GIT_CLIFF_OUTPUT=]
-    // -t, --tag <TAG>                  Sets the tag for the latest version [env: GIT_CLIFF_TAG=]
-    // -b, --body <TEMPLATE>            Sets the template for the changelog body [env: GIT_CLIFF_TEMPLATE=]
-    // -s, --strip <PART>               Strips the given parts from the changelog [possible values: header, footer, all]
-    // --sort <SORT>                Sets sorting of the commits inside sections [default: oldest] [possible values: oldest, newest]
 
-    // "'-u' or '-l' is not specified",
+    /// Bumps the version for unreleased changes
+    #[arg(
+        long,
+        value_name = "BUMP",
+        default_missing_value = "auto",
+        value_parser = clap_enum_variants!(BumpOption),
+        conflicts_with = "tag",
+    )]
+    pub bump: Option<BumpOption>,
 
-    // "'-o' and '-p' can only be used together if they point to different files",
+    // /// Prints changelog context as JSON.
+    // #[arg(
+    //     short = 'x',
+    //     long,
+    // )]
+    // pub context: bool,
+    //
+    // /// Generates changelog from a JSON context.
+    // #[arg(
+    //     long,
+    //     value_name = "PATH",
+    //     // value_parser = ReleaseCommand::parse_dir,
+    // 	env = "DOCTAVIOUS_CHANGELOG_CONTEXT",
+    // DOCTAVIOUS_CHANGELOG_PREPEND
+    // )]
+    // pub from_context: Option<PathBuf>,
+
+    // TODO: could use -R and --range instead of index
+    /// Sets the commit range to process [possible values: current, latest, unreleased, or
+    /// in the format of <START>..<END>]
+    #[arg(index = 1)]
+    pub range: Option<ChangelogRange>,
+}
+
+impl ReleaseCommand {
+    /// Custom string parser for directories.
+    ///
+    /// Expands the tilde (`~`) character in the beginning of the
+    /// input string into contents of the path returned by [`home_dir`].
+    fn parse_dir(dir: &str) -> Result<PathBuf, String> {
+        Ok(PathBuf::from(shellexpand::tilde(dir).to_string()))
+    }
 }
 
 pub(crate) fn execute(command: ReleaseCommand) -> CliResult<Option<String>> {
@@ -155,6 +246,12 @@ pub(crate) fn execute(command: ReleaseCommand) -> CliResult<Option<String>> {
     } else {
         ChangelogOutputType::Single
     };
+
+    // let settings: Settings = load_settings(command.cwd)?.into_owned();
+    // pub fn release_with_settings(
+    //     mut options: ChangelogReleaseOptions,
+    //     mut changelog_settings: ChangelogSettings,
+    // )
 
     release(ChangelogReleaseOptions {
         cwd: &path,
@@ -166,10 +263,12 @@ pub(crate) fn execute(command: ReleaseCommand) -> CliResult<Option<String>> {
         include_paths: command.include_paths,
         exclude_paths: command.exclude_paths,
         tag_sort: Some(command.tag_sort),
-        sort: command.sort,
-        tag_pattern: command.tag_pattern,
+        commit_sort: command.commit_sort,
+        tag_patterns: command.tag_patterns,
+        skip_tag_patterns: command.skip_tag_patterns,
+        ignore_tag_patterns: command.ignore_tag_patterns,
         tag: command.tag,
-        skip_commits: command.skip_commits,
+        ignore_commits: command.ignore_commits,
     })?;
 
     Ok(None)
@@ -200,10 +299,12 @@ mod tests {
             include_paths: None,
             exclude_paths: None,
             tag_sort: Some(TagSort::default()),
-            sort: Default::default(),
-            tag_pattern: None,
+            commit_sort: Default::default(),
+            tag_patterns: None,
+            skip_tag_patterns: None,
+            ignore_tag_patterns: None,
             tag: None,
-            skip_commits: None,
+            ignore_commits: None,
         };
 
         let settings = ChangelogSettings {

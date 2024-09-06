@@ -33,7 +33,7 @@ pub fn run(
     synchronize_hooks: bool,
     force: bool,
 ) -> CliResult<()> {
-    let settings: Settings = load_settings(cwd)?.into_owned();
+    let settings: Settings = load_settings(cwd)?;
     let Some(scm_settings) = settings.scmhook_settings else {
         return Err(DoctaviousCliError::SettingError(
             SettingErrors::SectionNotFound(

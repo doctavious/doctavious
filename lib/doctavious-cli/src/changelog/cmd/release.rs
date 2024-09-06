@@ -12,11 +12,13 @@ use changelog::release::Release;
 use changelog::settings::{ChangelogSettings, CommitParser};
 use glob::Pattern;
 use indexmap::IndexMap;
-use regex::Regex;
+use regex::{Regex, RegexBuilder};
 use scm::commit::{ScmCommit, ScmCommitRange, ScmTag};
 use scm::drivers::git::TagSort;
 use scm::drivers::{Scm, ScmRepository};
+use serde::{Deserialize, Serialize};
 use somever::Somever;
+use strum::{Display, EnumString, VariantNames};
 use tracing::{trace, warn};
 
 use crate::changelog::settings::{ChangelogCommitSort, ChangelogRange};
@@ -36,21 +38,51 @@ pub struct ChangelogReleaseOptions<'a> {
     pub range: Option<ChangelogRange>,
     pub include_paths: Option<Vec<Pattern>>,
     pub exclude_paths: Option<Vec<Pattern>>,
-    pub sort: ChangelogCommitSort,
+    pub commit_sort: ChangelogCommitSort,
 
-    pub skip_commits: Option<Vec<String>>,
+    pub ignore_commits: Option<Vec<String>>,
 
-    /// Sets the regex for matching git tags.
-    pub tag_pattern: Option<Regex>,
-    // TODO: do we want to also expose excluding tags here?
+    /// Changes to these will be retained
+    pub tag_patterns: Option<Vec<String>>,
+
+    /// Changes belonging to these releases will be included in the next non-skipped release
+    pub skip_tag_patterns: Option<Vec<String>>,
+
+    /// Changes belonging to these releases will not appear in the changelog
+    pub ignore_tag_patterns: Option<Vec<String>>,
+
     pub tag: Option<String>,
 
     // TODO: this needs to fit into Somever sorting
     pub tag_sort: Option<TagSort>,
 }
 
+#[remain::sorted]
+#[derive(
+    Clone, Debug, Display, Default, Deserialize, EnumString, Eq, PartialEq, Serialize, VariantNames,
+)]
+pub enum BumpOption {
+    #[default]
+    Auto,
+    Specific(BumpType),
+}
+
+/// Version bump type.
+#[derive(
+    Clone, Copy, Debug, Default, Deserialize, EnumString, Eq, PartialEq, Serialize, VariantNames,
+)]
+pub enum BumpType {
+    /// Bump major version.
+    Major,
+    /// Bump minor version.
+    Minor,
+    /// Bump patch version.
+    #[default]
+    Patch,
+}
+
 pub fn release(mut options: ChangelogReleaseOptions) -> CliResult<()> {
-    let settings: Settings = load_settings(options.cwd)?.into_owned();
+    let settings: Settings = load_settings(options.cwd)?;
     let changelog_settings = settings.changelog.unwrap_or_default();
 
     release_with_settings(options, changelog_settings)
@@ -81,7 +113,7 @@ pub fn release_with_settings(
         let scm = Scm::get(&repository)?;
 
         // load ignore_files (new line commits to skip)
-        let mut skip_commits = Vec::new();
+        let mut ignore_commits = Vec::new();
         // TODO: const for .commitsignore path
         let ignore_commits_path = repository.join(".doctavious/changelog/.commitsignore");
         if ignore_commits_path.exists() {
@@ -90,15 +122,15 @@ pub fn release_with_settings(
                 .filter(|v| !(v.starts_with('#') || v.trim().is_empty()))
                 .map(|v| String::from(v.trim()))
                 .collect::<Vec<String>>();
-            skip_commits.extend(commits);
+            ignore_commits.extend(commits);
         }
 
-        if let Some(ref skip) = options.skip_commits {
-            skip_commits.extend(skip.to_vec());
+        if let Some(ref skip) = options.ignore_commits {
+            ignore_commits.extend(skip.to_vec());
         }
 
-        if let Some(skips) = changelog_settings.scm.skips.as_mut() {
-            for skip_commit in skip_commits {
+        if let Some(skips) = changelog_settings.scm.ignore.as_mut() {
+            for skip_commit in ignore_commits {
                 skips.push(CommitParser {
                     field: "id".to_string(),
                     pattern: Regex::new(skip_commit.as_str())?,
@@ -118,6 +150,7 @@ pub fn release_with_settings(
         // One bad thing about `git tag contains` is that it only allows inclusive pattern
         let mut tags = get_tags(&scm, &changelog_settings, &options)?;
         let commit_range = determine_commit_range(&scm, &tags, &options)?;
+
         let mut commits = scm.commits(
             commit_range.as_ref(),
             options.include_paths.as_ref(),
@@ -130,7 +163,7 @@ pub fn release_with_settings(
             untagged_commits.push(commit.to_owned());
             if let Some(tag) = tags.get(&commit.id) {
                 let mut commits = std::mem::take(&mut untagged_commits);
-                if options.sort == ChangelogCommitSort::Newest {
+                if options.commit_sort == ChangelogCommitSort::Newest_First {
                     commits.reverse();
                 }
 
@@ -167,7 +200,7 @@ pub fn release_with_settings(
             };
 
             let mut commits = std::mem::take(&mut untagged_commits);
-            if options.sort == ChangelogCommitSort::Newest {
+            if options.commit_sort == ChangelogCommitSort::Newest_First {
                 commits.reverse();
             }
 
@@ -213,10 +246,13 @@ fn get_tags(
         .tag_sort
         .unwrap_or(changelog_settings.scm.tag_sort.unwrap_or_default());
 
+    let include_patterns = convert_to_regex(options.tag_patterns.as_ref())?;
+    let skip_tag_patterns = convert_to_regex(changelog_settings.scm.skip_tags.as_ref())?;
+
     Ok(scm
         .tags(
-            options.tag_pattern.as_ref(),
-            changelog_settings.scm.ignore_tags.as_ref(),
+            include_patterns.as_ref(),
+            skip_tag_patterns.as_ref(),
             tag_sort,
             changelog_settings.scm.version_suffixes.as_ref(),
         )?
@@ -294,6 +330,19 @@ fn determine_commit_range(
     };
 
     Ok(commit_range)
+}
+
+// TODO: put in a common place
+fn convert_to_regex(patterns: Option<&Vec<String>>) -> CliResult<Option<Vec<Regex>>> {
+    Ok(if let Some(patterns) = patterns {
+        let mut regexs = Vec::new();
+        for p in patterns {
+            regexs.push(RegexBuilder::new(p).size_limit(100).build()?)
+        }
+        Some(regexs)
+    } else {
+        None
+    })
 }
 
 pub struct VersionUpdater {
@@ -383,9 +432,11 @@ mod tests {
                 include_paths: None,
                 exclude_paths: None,
                 tag_sort: Some(TagSort::default()),
-                sort: ChangelogCommitSort::Oldest,
-                skip_commits: None,
-                tag_pattern: None,
+                commit_sort: ChangelogCommitSort::Oldest_First,
+                ignore_commits: None,
+                tag_patterns: None,
+                skip_tag_patterns: None,
+                ignore_tag_patterns: None,
                 tag: None,
             },
             ChangelogSettings {
@@ -409,7 +460,7 @@ mod tests {
                     commit_version: None,
                     commit_style: None,
                     commit_preprocessors: None,
-                    skips: None,
+                    ignore: None,
                     group_parsers: None,
                     link_parsers: None,
                     protect_breaking_commits: None,

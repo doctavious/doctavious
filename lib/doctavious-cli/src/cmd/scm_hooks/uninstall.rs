@@ -16,7 +16,7 @@ use crate::settings::{load_settings, persist_settings, SettingErrors, Settings};
 /// Doctavious hooks are the only hook files removed unless `force` is set to true and then all
 /// hook files will be deleted.
 pub fn uninstall(cwd: &Path, force: bool, remove_settings: bool) -> CliResult<()> {
-    let mut settings: Settings = load_settings(cwd)?.into_owned();
+    let mut settings: Settings = load_settings(cwd)?;
 
     delete_hooks(cwd, force)?;
 

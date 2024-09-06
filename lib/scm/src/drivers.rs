@@ -52,8 +52,8 @@ pub trait ScmRepository {
     // TODO: I wonder if we would be ok with include / exclude being globs rather than regex?
     fn tags(
         &self,
-        include: Option<&Regex>,
-        exclude: Option<&Regex>,
+        include: Option<&Vec<Regex>>,
+        exclude: Option<&Vec<Regex>>,
         sort: TagSort,
         suffix_order: Option<&Vec<String>>,
     ) -> ScmResult<IndexMap<String, ScmTag>>;
@@ -177,15 +177,15 @@ impl ScmRepository for Scm {
 
     fn tags(
         &self,
-        include: Option<&Regex>,
-        exclude: Option<&Regex>,
+        includes: Option<&Vec<Regex>>,
+        excludes: Option<&Vec<Regex>>,
         sort: TagSort,
         suffix_order: Option<&Vec<String>>,
     ) -> ScmResult<IndexMap<String, ScmTag>> {
         match self {
-            Scm::Git(r) => r.tags(include, exclude, sort, suffix_order),
-            Scm::Hg(r) => r.tags(include, exclude, sort, suffix_order),
-            Scm::Svn(r) => r.tags(include, exclude, sort, suffix_order),
+            Scm::Git(r) => r.tags(includes, excludes, sort, suffix_order),
+            Scm::Hg(r) => r.tags(includes, excludes, sort, suffix_order),
+            Scm::Svn(r) => r.tags(includes, excludes, sort, suffix_order),
         }
     }
 

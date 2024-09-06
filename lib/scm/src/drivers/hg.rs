@@ -56,8 +56,8 @@ impl ScmRepository for HgScmRepository {
 
     fn tags(
         &self,
-        include: Option<&Regex>,
-        exclude: Option<&Regex>,
+        includes: Option<&Vec<Regex>>,
+        excludes: Option<&Vec<Regex>>,
         sort: TagSort,
         suffix_order: Option<&Vec<String>>,
     ) -> ScmResult<IndexMap<String, ScmTag>> {

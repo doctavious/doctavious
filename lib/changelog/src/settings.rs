@@ -23,19 +23,31 @@ pub struct ChangelogSettings {
     pub output_type: ChangelogOutputType,
     pub format: MarkupFormat,
     pub templates: TemplateSettings,
-
     pub scm: ChangelogScmSettings,
     pub remote: Option<ChangelogRemoteSettings>,
     pub bump: Option<ChangelogBumpSettings>,
 }
 
+// changelog - changelog settings
+// release - release settings
+// commit - commit / scm
+// remote
+
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct TemplateSettings {
+    /// A template to be rendered as the changelog's header.
     pub header: Option<String>,
+
+    /// A template to be rendered for changelog's releases.
     pub body: String,
+
+    /// A template to be rendered as the changelog's footer.
     pub footer: Option<String>,
+
+    /// Whether to remove leading and trailing whitespaces from all lines of the changelog's body.
     pub trim: bool,
-    /// Changelog postprocessors.
+
+    /// A list of postprocessors using regex to modify the changelog.
     pub post_processors: Option<Vec<CommitProcessor>>,
 }
 
@@ -142,7 +154,8 @@ pub struct ChangelogScmSettings {
     /// Commit preprocessors.
     pub commit_preprocessors: Option<Vec<CommitProcessor>>,
 
-    pub skips: Option<Vec<CommitParser>>,
+    // Commits to ignore
+    pub ignore: Option<Vec<CommitParser>>,
 
     /// Group parsers.
     pub group_parsers: Option<Vec<GroupParser>>,
@@ -157,15 +170,12 @@ pub struct ChangelogScmSettings {
     /// If set to true, commits that are not matched by group_parsers are filtered out.
     pub filter_commits: Option<bool>,
 
-    // TODO: exclude_tags_pattern - should probably not be in SCM section
-    /// Drop commits from the changelog
-    #[serde(with = "serde_regex", default)]
-    pub skip_tags: Option<Regex>,
+    /// Regexes to skip matched tags.
+    /// include skipped tagged commits into the next tag.
+    pub skip_tags: Option<Vec<String>>,
 
-    /// Regex to ignore matched tags.
-    /// include ignored commits into the next tag.
-    #[serde(with = "serde_regex", default)]
-    pub ignore_tags: Option<Regex>,
+    /// Drop commits from the changelog
+    pub ignore_tags: Option<Vec<String>>,
 
     /// How to sort tags
     pub tag_sort: Option<TagSort>,
