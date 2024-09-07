@@ -5,6 +5,7 @@ use std::fs::{File, OpenOptions};
 use std::io::Write;
 use std::path::{Path, PathBuf};
 
+use doctavious_std::regex::convert_to_regex;
 use doctavious_templating::{TemplateContext, Templates};
 use git_conventional::{Commit as GitConventionalCommit, Error};
 use markup::MarkupFormat;
@@ -58,11 +59,6 @@ pub enum ChangelogOutputType {
 #[derive(Debug)]
 pub struct Changelog {
     releases: Vec<Release>,
-    // settings: &'a ChangeLogSettings
-    output_type: ChangelogOutputType,
-    // this feels odd as its only used if individual
-    format: MarkupFormat,
-
     // TODO: should we have a Template struct?
     // TODO: should be within settings? Perhaps a `templates` section
     header_template: Option<String>,
@@ -72,17 +68,6 @@ pub struct Changelog {
 }
 
 // TODO: This is duplicated. Put in common place
-fn convert_to_regex(patterns: Option<&Vec<String>>) -> ChangelogResult<Option<Vec<Regex>>> {
-    Ok(if let Some(patterns) = patterns {
-        let mut regexs = Vec::new();
-        for p in patterns {
-            regexs.push(RegexBuilder::new(p).size_limit(100).build()?)
-        }
-        Some(regexs)
-    } else {
-        None
-    })
-}
 
 impl Changelog {
     pub fn new(
@@ -200,8 +185,6 @@ impl Changelog {
 
         Ok(Self {
             releases,
-            format: settings.format,
-            output_type: settings.output_type,
             header_template: settings.templates.header,
             body_template: settings.templates.body,
             footer_template: settings.templates.footer,
@@ -259,7 +242,11 @@ impl Changelog {
 
     // TODO: process_releases
 
-    pub fn generate_individual<P: AsRef<Path>>(&self, path: P) -> ChangelogResult<()> {
+    pub fn generate_individual<P: AsRef<Path>>(
+        &self,
+        path: P,
+        format: MarkupFormat,
+    ) -> ChangelogResult<()> {
         if path.as_ref().is_file() {
             // TODO: return error
         }
@@ -278,7 +265,7 @@ impl Changelog {
             let changelog_path = path
                 .as_ref()
                 .join(file_name)
-                .with_extension(self.format.to_string());
+                .with_extension(format.extension());
 
             let mut f = File::options()
                 .create(true)
@@ -455,8 +442,7 @@ mod test {
         ];
 
         let settings = ChangelogSettings {
-            output_type: Default::default(),
-            format: Default::default(),
+            output: Default::default(),
             templates: TemplateSettings {
                 body: r###"
 {% if version -%}
@@ -547,8 +533,7 @@ mod test {
         ];
 
         let settings = ChangelogSettings {
-            output_type: Default::default(),
-            format: Default::default(),
+            output: Default::default(),
             templates: TemplateSettings {
                 body: r###"
 {% if version -%}

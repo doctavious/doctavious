@@ -10,6 +10,7 @@ use changelog::entries::{ChangelogCommit, ChangelogEntry};
 use changelog::errors::ChangelogErrors::ChangelogError;
 use changelog::release::Release;
 use changelog::settings::{ChangelogSettings, CommitParser};
+use doctavious_std::regex::convert_to_regex;
 use glob::Pattern;
 use indexmap::IndexMap;
 use regex::{Regex, RegexBuilder};
@@ -31,6 +32,7 @@ use crate::settings::{load_settings, Settings};
 // pass in config path instead of cwd
 pub struct ChangelogReleaseOptions<'a> {
     pub cwd: &'a Path,
+    pub config_path: Option<&'a Path>,
     pub repositories: Option<Vec<PathBuf>>,
     pub output: Option<PathBuf>,
     pub output_type: ChangelogOutputType,
@@ -82,7 +84,8 @@ pub enum BumpType {
 }
 
 pub fn release(mut options: ChangelogReleaseOptions) -> CliResult<()> {
-    let settings: Settings = load_settings(options.cwd)?;
+    let settings_path = options.config_path.unwrap_or(options.cwd);
+    let settings: Settings = load_settings(settings_path)?;
     let changelog_settings = settings.changelog.unwrap_or_default();
 
     release_with_settings(options, changelog_settings)
@@ -332,19 +335,6 @@ fn determine_commit_range(
     Ok(commit_range)
 }
 
-// TODO: put in a common place
-fn convert_to_regex(patterns: Option<&Vec<String>>) -> CliResult<Option<Vec<Regex>>> {
-    Ok(if let Some(patterns) = patterns {
-        let mut regexs = Vec::new();
-        for p in patterns {
-            regexs.push(RegexBuilder::new(p).size_limit(100).build()?)
-        }
-        Some(regexs)
-    } else {
-        None
-    })
-}
-
 pub struct VersionUpdater {
     pub features_always_increment_minor: bool,
     pub breaking_always_increment_major: bool,
@@ -424,6 +414,7 @@ mod tests {
         release_with_settings(
             ChangelogReleaseOptions {
                 cwd: Path::new("../.."),
+                config_path: None,
                 repositories: None,
                 output: Some(PathBuf::from("./test_changelog.md")),
                 output_type: ChangelogOutputType::Single,

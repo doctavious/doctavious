@@ -6,7 +6,7 @@ use clap::{Parser, ValueEnum};
 use doctavious_cli::changelog::cmd::release::{release, BumpOption, ChangelogReleaseOptions};
 use doctavious_cli::changelog::settings::{ChangelogCommitSort, ChangelogRange};
 use doctavious_cli::errors::CliResult;
-use doctavious_cli::settings::Settings;
+use doctavious_cli::settings::{load_settings, Settings};
 use glob::Pattern;
 use markup::MarkupFormat;
 use regex::Regex;
@@ -247,14 +247,9 @@ pub(crate) fn execute(command: ReleaseCommand) -> CliResult<Option<String>> {
         ChangelogOutputType::Single
     };
 
-    // let settings: Settings = load_settings(command.cwd)?.into_owned();
-    // pub fn release_with_settings(
-    //     mut options: ChangelogReleaseOptions,
-    //     mut changelog_settings: ChangelogSettings,
-    // )
-
     release(ChangelogReleaseOptions {
         cwd: &path,
+        config_path: command.config.as_ref().map(|c| c.as_path()),
         repositories: command.repositories,
         output: command.output,
         output_type,
@@ -291,6 +286,7 @@ mod tests {
 
         let cmd = ChangelogReleaseOptions {
             cwd: cwd.as_path(),
+            config_path: None,
             repositories: None,
             output: None,
             output_type: ChangelogOutputType::Single,

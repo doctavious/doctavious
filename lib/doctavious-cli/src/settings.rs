@@ -14,7 +14,6 @@ use scm::drivers::git::TagSort;
 use scm::hooks::ScmHook;
 use scm::providers::ScmProviders;
 use serde::{Deserialize, Serialize};
-use serde_with::skip_serializing_none;
 use thiserror::Error;
 use tracing::warn;
 
@@ -130,33 +129,39 @@ impl Config {
 
 // TODO: should this include output?
 // TODO: should this be aware of CWD?
-#[skip_serializing_none]
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct Settings {
     // TODO: I dont think this is needed
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub template_format: Option<MarkupFormat>,
 
+    #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(rename(serialize = "adr"))]
     #[serde(alias = "adr")]
     pub adr_settings: Option<AdrSettings>,
 
+    #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(rename(serialize = "build"))]
     #[serde(alias = "build")]
     pub build_settings: Option<BuildSettings>,
 
+    #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(rename(serialize = "scmhook"))]
     #[serde(alias = "scmhook")]
     pub scmhook_settings: Option<ScmHookSettings>,
 
+    #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(rename(serialize = "rfd"))]
     #[serde(alias = "rfd")]
     pub rfd_settings: Option<RFDSettings>,
 
+    #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(rename(serialize = "til"))]
     #[serde(alias = "til")]
     pub til_settings: Option<TilSettings>,
 
     // TODO: snippets
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub changelog: Option<ChangelogSettings>,
 }
 
@@ -392,7 +397,10 @@ pub fn load_settings(path: &Path) -> CliResult<Settings> {
         if path.is_file() {
             get_settings(&path)?
         } else {
-            warn!("Unable to find Doctavious config file at {path}. Using default settings");
+            warn!(
+                "Unable to find Doctavious config file at {}. Using default settings",
+                path.as_path().as_os_str().to_string_lossy()
+            );
             Settings::default()
         }
     })

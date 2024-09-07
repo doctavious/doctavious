@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 use std::env;
+use std::path::PathBuf;
 
 use doctavious_std::command;
 use doctavious_templating::Templates;
@@ -10,22 +11,68 @@ use scm::providers::ScmProviders;
 use serde_derive::{Deserialize, Serialize};
 use serde_json::Value;
 use somever::VersioningScheme;
+use strum::{Display, EnumString, VariantNames};
 use tracing::warn;
 
-use crate::changelog::ChangelogOutputType;
+use crate::changelog::{Changelog, ChangelogOutputType};
 use crate::entries::ChangelogCommit;
 use crate::errors::{ChangelogErrors, ChangelogResult};
 
-// TODO: rename to ChangelogConfiguration and have nested ChangelogSettings
+// TODO: rename to ChangelogConfiguration?
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct ChangelogSettings {
-    // TODO: not sure about the name. Where should this go?
-    pub output_type: ChangelogOutputType,
-    pub format: MarkupFormat,
+    #[serde(flatten)]
+    pub output: ChangelogOutput,
     pub templates: TemplateSettings,
     pub scm: ChangelogScmSettings,
     pub remote: Option<ChangelogRemoteSettings>,
     pub bump: Option<ChangelogBumpSettings>,
+}
+
+#[non_exhaustive]
+#[remain::sorted]
+#[derive(Clone, Debug, Display, Deserialize, EnumString, Serialize, VariantNames)]
+#[serde(rename_all = "lowercase")]
+#[serde(tag = "type")]
+pub enum ChangelogOutput {
+    Individual(IndividualChangelogOutput),
+    Single(SingleChangelogOutput),
+}
+
+impl Default for ChangelogOutput {
+    fn default() -> Self {
+        Self::Single(SingleChangelogOutput::default())
+    }
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub struct IndividualChangelogOutput {
+    path: PathBuf,
+    format: MarkupFormat,
+}
+
+impl Default for IndividualChangelogOutput {
+    fn default() -> Self {
+        Self {
+            path: PathBuf::from("./changelogs/"),
+            format: MarkupFormat::default(),
+        }
+    }
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub struct SingleChangelogOutput {
+    path: PathBuf,
+    prepend: Option<PathBuf>,
+}
+
+impl Default for SingleChangelogOutput {
+    fn default() -> Self {
+        Self {
+            path: PathBuf::from("changelog.md"),
+            prepend: None,
+        }
+    }
 }
 
 // changelog - changelog settings
