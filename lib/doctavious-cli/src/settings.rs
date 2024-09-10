@@ -1,10 +1,11 @@
-use std::borrow::Cow;
-use std::collections::HashMap;
+use std::fs;
 use std::io::ErrorKind;
 use std::path::{Path, PathBuf};
-use std::{env, fs};
 
-use changelog::settings::{ChangelogScmSettings, ChangelogSettings};
+use changelog::settings::{
+    ChangelogBumpSettings, ChangelogCommitSettings, ChangelogOutput, ChangelogRemoteSettings,
+    ChangelogSettings, TemplateSettings,
+};
 use directories::ProjectDirs;
 use doctavious_std::command;
 use indexmap::IndexMap;
@@ -129,6 +130,7 @@ impl Config {
 
 // TODO: should this include output?
 // TODO: should this be aware of CWD?
+// DoctaviousConfigurationFile
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct Settings {
     // TODO: I dont think this is needed
@@ -146,6 +148,9 @@ pub struct Settings {
     pub build_settings: Option<BuildSettings>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub changelog: Option<ChangelogSettings>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
     #[serde(rename(serialize = "scmhook"))]
     #[serde(alias = "scmhook")]
     pub scmhook_settings: Option<ScmHookSettings>,
@@ -159,10 +164,7 @@ pub struct Settings {
     #[serde(rename(serialize = "til"))]
     #[serde(alias = "til")]
     pub til_settings: Option<TilSettings>,
-
     // TODO: snippets
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub changelog: Option<ChangelogSettings>,
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
@@ -178,6 +180,33 @@ pub struct AdrSettings {
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
+pub struct BuildSettings {
+    pub command: String,
+
+    // also allow for env var ex: SKIP_INSTALL_DEPS
+    pub skip_install: bool,
+    // build_command
+    // framework - This value overrides the Framework in Project Settings.
+    // ignore_build_command
+    // install_command
+    // output_directory
+}
+
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
+pub struct ChangelogConfiguration {
+    // pub range: Option<ChangelogRange>,
+    // pub include_paths: Option<Vec<Pattern>>,
+    // pub exclude_paths: Option<Vec<Pattern>>,
+    // pub commit_sort: ChangelogCommitSort,
+    #[serde(flatten)]
+    pub output: ChangelogOutput,
+    pub templates: TemplateSettings,
+    pub scm: ChangelogCommitSettings,
+    pub remote: Option<ChangelogRemoteSettings>,
+    pub bump: Option<ChangelogBumpSettings>,
+}
+
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct RFDSettings {
     pub dir: Option<String>,
 
@@ -189,30 +218,17 @@ pub struct RFDSettings {
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
+pub struct ScmHookSettings {
+    pub hooks: IndexMap<String, ScmHook>,
+}
+
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct TilSettings {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub dir: Option<PathBuf>,
 
     #[serde(default)]
     pub template_format: MarkupFormat,
-}
-
-#[derive(Clone, Debug, Default, Deserialize, Serialize)]
-pub struct ScmHookSettings {
-    pub hooks: IndexMap<String, ScmHook>,
-}
-
-#[derive(Clone, Debug, Default, Deserialize, Serialize)]
-pub struct BuildSettings {
-    pub command: String,
-
-    // also allow for env var ex: SKIP_INSTALL_DEPS
-    pub skip_install: bool,
-    // build_command
-    // framework - This value overrides the Framework in Project Settings.
-    // ignore_build_command
-    // install_command
-    // output_directory
 }
 
 impl Settings {
@@ -453,7 +469,7 @@ pub fn init_dir(dir: &Path) -> CliResult<()> {
         Ok(_) => Ok(()),
         Err(e) if e.kind() == ErrorKind::AlreadyExists => {
             eprintln!("the directory {} already exists", dir.to_string_lossy());
-            return Err(e.into());
+            Err(e.into())
         }
         Err(e) => {
             eprintln!(
@@ -461,7 +477,7 @@ pub fn init_dir(dir: &Path) -> CliResult<()> {
                 dir.to_string_lossy(),
                 e
             );
-            return Err(e.into());
+            Err(e.into())
         }
     }
 }

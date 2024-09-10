@@ -1,3 +1,4 @@
+use std::cmp::Ordering;
 use std::collections::HashMap;
 use std::fmt::Display;
 use std::fs;
@@ -23,7 +24,7 @@ use crate::errors::{ChangelogErrors, ChangelogResult};
 use crate::release::Release;
 use crate::release_notes::{ReleaseNote, ReleaseNotes};
 use crate::settings::{
-    ChangelogScmSettings, ChangelogSettings, CommitProcessor, CommitStyleSettings, GroupParser,
+    ChangelogCommitSettings, ChangelogSettings, CommitProcessor, CommitStyleSettings, GroupParser,
     LinkParser,
 };
 
@@ -40,22 +41,6 @@ pub enum ChangelogOutputType {
     Single,
 }
 
-// pub struct IndividualChangelogOutput {
-//     path: PathBuf,
-//     format: MarkupFormat
-// }
-
-// pub struct SingleChangelogOutput {
-//     path: PathBuf,
-//     prepend: Option<PathBuf>
-// }
-
-// what if we did something like?
-// pub enum ChangelogOutput {
-//     Individual(PathBuf, MarkupFormat),
-//     Single(PathBuf, Option<PathBuf>),
-// }
-
 #[derive(Debug)]
 pub struct Changelog {
     releases: Vec<Release>,
@@ -67,16 +52,55 @@ pub struct Changelog {
     post_processors: Option<Vec<CommitProcessor>>,
 }
 
-// TODO: This is duplicated. Put in common place
-
 impl Changelog {
     pub fn new(
         mut tagged_commits: Vec<ScmTaggedCommits>,
         settings: ChangelogSettings,
     ) -> ChangelogResult<Self> {
-        let filter_commits = settings.scm.filter_commits.unwrap_or_default();
-        let ignore_tags = convert_to_regex(settings.scm.ignore_tags.as_ref())?;
-        tagged_commits = tagged_commits
+        tagged_commits = Self::ignore_tags(tagged_commits, settings.release.ignore_tags.as_ref())?;
+
+        let mut releases: Vec<Release> = vec![];
+        for mut tagged_commit in tagged_commits {
+            Self::preprocess(&mut tagged_commit, &settings);
+            let changelog_entries = Self::process(&mut tagged_commit, &settings)?;
+
+            // TODO: Should we have a ReleaseVersion which could be None as unreleased
+            //       or a version / tag associated?
+            let tag = tagged_commit.tag;
+            let version = if let Some(name) = tag.as_ref().map(|t| t.name.to_string()) {
+                Some(Somever::new(settings.version_scheme, &name)?)
+            } else {
+                None
+            };
+
+            releases.push(Release {
+                version,
+                tag_id: tag.as_ref().and_then(|t| t.id.clone()),
+                repository: tagged_commit.repository,
+                commits: changelog_entries,
+                timestamp: tagged_commit.timestamp,
+            });
+        }
+
+        // TODO: add option to sort by version vs time
+        //       should it replace the option for sorting tags? Is that still beneficial?
+        Self::sort_releases(&mut releases, settings.version_suffixes.as_ref());
+
+        Ok(Self {
+            releases,
+            header_template: settings.template.header,
+            body_template: settings.template.body,
+            footer_template: settings.template.footer,
+            post_processors: settings.template.post_processors,
+        })
+    }
+
+    fn ignore_tags(
+        tagged_commits: Vec<ScmTaggedCommits>,
+        ignore: Option<&Vec<String>>,
+    ) -> ChangelogResult<Vec<ScmTaggedCommits>> {
+        let ignore_tags = convert_to_regex(ignore)?;
+        Ok(tagged_commits
             .into_iter()
             .filter(|tc| {
                 if let Some(tag) = &tc.tag {
@@ -91,156 +115,181 @@ impl Changelog {
                 }
                 true
             })
-            .collect();
+            .collect())
+    }
 
-        // TODO: not sure this need to be here. maybe put in loop below?
-        Changelog::preprocess(&mut tagged_commits, &settings);
-
-        let commit_style_settings = settings.scm.commit_style.unwrap_or_default();
-        let mut releases: Vec<Release> = vec![];
-
-        for tagged_commit in tagged_commits {
-            let mut changelog_entries = Vec::new();
-            for mut commit in tagged_commit.commits {
-                let mut changelog_entry_commits = vec![];
-                match &commit_style_settings {
-                    CommitStyleSettings::Conventional(settings) => {
-                        let conventional_commit = GitConventionalCommit::parse(&commit.message);
-                        let c = match conventional_commit {
-                            Ok(conv) => ChangelogCommit::from_conventional(ConventionalCommit {
-                                commit: commit.clone(),
-                                conv,
-                            }),
-                            Err(e) => {
-                                if settings.include_unconventional.unwrap_or_default() {
-                                    ChangelogCommit::from_scm_commit(&commit);
-                                }
-
-                                return Err(ChangelogErrors::ChangelogError(e.to_string()));
+    fn preprocess(mut tagged_commits: &mut ScmTaggedCommits, settings: &ChangelogSettings) {
+        let commit_preprocessors = &settings.commit.commit_preprocessors;
+        let commit_style_settings = &settings.commit.commit_style;
+        tagged_commits.commits = tagged_commits
+            .commits
+            .iter()
+            .cloned()
+            .filter_map(|mut commit| {
+                if let Some(preprocessors) = commit_preprocessors {
+                    // TODO: would we prefer to fail after first or just warn and apply all preprocessors
+                    if let Err(e) = preprocessors.iter().try_for_each(|preprocessor| {
+                        preprocessor.replace(&mut commit.message, vec![])?;
+                        Ok::<(), ChangelogErrors>(())
+                    }) {
+                        warn!(
+                            "{} - {} ({})",
+                            commit.id[..7].to_string(),
+                            e,
+                            &commit.message
+                        );
+                        return None;
+                    }
+                }
+                Some(commit)
+            })
+            .flat_map(|commit| {
+                if commit_style_settings.split_lines() {
+                    commit
+                        .message
+                        .lines()
+                        .filter_map(|line| {
+                            if !line.is_empty() {
+                                let mut c = commit.clone();
+                                c.message = line.to_string();
+                                Some(c)
+                            } else {
+                                None
                             }
-                        };
+                        })
+                        .collect()
+                } else {
+                    vec![commit]
+                }
+            })
+            .collect::<Vec<ScmCommit>>()
+    }
 
-                        changelog_entry_commits.push(c);
-                    }
-                    CommitStyleSettings::ReleaseNote(settings) => {
-                        let release_notes = ReleaseNotes {
-                            breaking_change_category: settings.breaking_change_category.clone(),
-                        };
-                        let release_notes = release_notes.parse_commit(&commit);
-                        for release_note in release_notes {
-                            changelog_entry_commits
-                                .push(ChangelogCommit::from_release_note(&release_note));
+    fn process(
+        tagged_commits: &ScmTaggedCommits,
+        settings: &ChangelogSettings,
+    ) -> ChangelogResult<Vec<ChangelogEntry>> {
+        let mut changelog_entries = Vec::new();
+
+        let commit_style_settings = &settings.commit.commit_style;
+        let protect_breaking = settings.protect_breaking_commits;
+        let filter_commits = settings.exclude_ungrouped;
+
+        for commit in &tagged_commits.commits {
+            let mut changelog_entry_commits = vec![];
+            match &commit_style_settings {
+                CommitStyleSettings::Conventional(settings) => {
+                    let conventional_commit = GitConventionalCommit::parse(&commit.message);
+                    let c = match conventional_commit {
+                        Ok(conv) => ChangelogCommit::from_conventional(ConventionalCommit {
+                            commit: commit.clone(),
+                            conv,
+                        }),
+                        Err(e) => {
+                            if settings.include_unconventional {
+                                ChangelogCommit::from_scm_commit(&commit);
+                            }
+
+                            return Err(ChangelogErrors::ChangelogError(e.to_string()));
                         }
-                    }
-                    CommitStyleSettings::Standard(_) => {
-                        changelog_entry_commits.push(ChangelogCommit::from_scm_commit(&commit));
-                    }
-                };
+                    };
 
-                let protect_breaking = settings.scm.protect_breaking_commits.unwrap_or_default();
-                'commits: for commit in changelog_entry_commits {
-                    if let Some(ignores) = &settings.scm.ignore {
-                        for ignore in ignores {
-                            if ignore.is_match(&commit)? && !(commit.breaking && protect_breaking) {
-                                debug!("skipping commit {}", &commit.id);
+                    changelog_entry_commits.push(c);
+                }
+                CommitStyleSettings::ReleaseNote(settings) => {
+                    let release_notes = ReleaseNotes {
+                        breaking_change_category: settings.breaking_change_category.clone(),
+                    };
+                    let release_notes = release_notes.parse_commit(&commit);
+                    for release_note in release_notes {
+                        changelog_entry_commits
+                            .push(ChangelogCommit::from_release_note(&release_note));
+                    }
+                }
+                CommitStyleSettings::Standard(_) => {
+                    changelog_entry_commits.push(ChangelogCommit::from_scm_commit(&commit));
+                }
+            };
+
+            'commits: for commit in changelog_entry_commits {
+                if let Some(ignores) = &settings.commit.ignore {
+                    for ignore in ignores {
+                        if ignore.is_match(&commit)? {
+                            if commit.breaking && protect_breaking {
+                                debug!("Cant ignore commit {} as its a breaking change and protect_breaking_commits setting is enabled", &commit.id);
+                            } else {
+                                debug!("ignoring commit {}", &commit.id);
                                 continue 'commits;
                             }
                         }
                     }
+                }
 
-                    let mut entry = ChangelogEntry::new(
-                        commit,
-                        settings.scm.group_parsers.as_ref(),
-                        settings.scm.link_parsers.as_ref(),
-                    )?;
+                let entry = ChangelogEntry::new(
+                    commit,
+                    settings.commit.group_parsers.as_ref(),
+                    settings.commit.link_parsers.as_ref(),
+                )?;
 
-                    if entry.matched_group_parser || !filter_commits {
-                        changelog_entries.push(entry);
-                    } else if filter_commits {
-                        trace!("Commit {} does not belong to any group", &entry.id())
-                    }
+                if entry.matched_group_parser || !filter_commits {
+                    changelog_entries.push(entry);
+                } else if filter_commits {
+                    debug!(
+                        "Skipping commit {} as it does not belong to any group",
+                        &entry.id()
+                    )
                 }
             }
-
-            let tag = tagged_commit.tag;
-            let version = if let Some(name) = tag.as_ref().map(|t| t.name.clone()) {
-                Some(Somever::new(settings.scm.version_scheme, &name)?)
-            } else {
-                None
-            };
-
-            releases.push(Release {
-                version,
-                tag_id: tag.as_ref().and_then(|t| t.id.clone()),
-                repository: tagged_commit.repository,
-                commits: changelog_entries,
-                timestamp: tagged_commit.timestamp,
-            });
         }
 
-        // TODO: sort releases based on settings
-        // TODO: handle suffix
-
-        // println!("releases: [{:?}]", &releases);
-
-        Ok(Self {
-            releases,
-            header_template: settings.templates.header,
-            body_template: settings.templates.body,
-            footer_template: settings.templates.footer,
-            post_processors: settings.templates.post_processors,
-        })
+        Ok(changelog_entries)
     }
 
-    fn preprocess(mut tagged_commits: &mut Vec<ScmTaggedCommits>, settings: &ChangelogSettings) {
-        tagged_commits.iter_mut().for_each(|tagged| {
-            tagged.commits = tagged
-                .commits
-                .iter()
-                .cloned()
-                .filter_map(|mut commit| {
-                    if let Some(preprocessors) = &settings.scm.commit_preprocessors {
-                        for preprocessor in preprocessors {
-                            if let Err(e) = preprocessor.replace(&mut commit.message, vec![]) {
-                                warn!(
-                                    "{} - {} ({})",
-                                    commit.id[..7].to_string(),
-                                    e,
-                                    &commit.message
-                                );
-                                // TODO: would we prefer to fail after first or just warn and apply all preprocessors
-                                return None;
-                            }
-                        }
-                    }
-                    Some(commit)
-                })
-                .flat_map(|commit| {
-                    let commit_style_settings =
-                        settings.scm.commit_style.clone().unwrap_or_default();
-                    if commit_style_settings.split_lines() {
-                        commit
-                            .message
-                            .lines()
-                            .filter_map(|line| {
-                                if !line.is_empty() {
-                                    let mut c = commit.clone();
-                                    c.message = line.to_string();
-                                    Some(c)
-                                } else {
-                                    None
-                                }
-                            })
-                            .collect()
-                    } else {
-                        vec![commit]
-                    }
-                })
-                .collect::<Vec<ScmCommit>>()
-        })
-    }
+    pub(crate) fn sort_releases(
+        releases: &mut Vec<Release>,
+        version_suffixes: Option<&Vec<String>>,
+    ) {
+        releases.sort_by(|a, b| {
+            if b.version.is_some() && a.version.is_none() {
+                return Ordering::Less;
+            }
 
-    // TODO: process_releases
+            if b.version.is_none() && a.version.is_some() {
+                return Ordering::Greater;
+            }
+
+            if b.version.is_none() && a.version.is_none() {
+                return Ordering::Equal;
+            }
+
+            let a_version = a.version.as_ref().unwrap();
+            let b_version = b.version.as_ref().unwrap();
+
+            let mut o = b_version
+                .major()
+                .cmp(&a_version.major())
+                .then(b_version.minor().cmp(&a_version.minor()))
+                .then(b_version.patch().cmp(&a_version.patch()));
+
+            let a_modifier = a_version.modifier().unwrap_or_default();
+            let b_modifier = b_version.modifier().unwrap_or_default();
+            if let Some(version_suffixes) = &version_suffixes {
+                let a_modifier_index = version_suffixes
+                    .iter()
+                    .position(|s| s.to_lowercase() == a_modifier.to_lowercase())
+                    .unwrap_or(0);
+                let b_modifier_index = version_suffixes
+                    .iter()
+                    .position(|s| s.to_lowercase() == b_modifier.to_lowercase())
+                    .unwrap_or(0);
+                o = o.then(b_modifier_index.cmp(&a_modifier_index));
+            } else {
+                o = o.then(b_modifier.cmp(&a_modifier));
+            }
+
+            o
+        });
+    }
 
     pub fn generate_individual<P: AsRef<Path>>(
         &self,
@@ -300,26 +349,6 @@ impl Changelog {
             writeln!(out, "{}", header)?;
         }
 
-        // for release in &self.releases {
-        //     let context = TemplateContext::from_serialize(release)?;
-        //     let body = Self::render(&self.body_template, &context, self.post_processors.as_ref())?;
-        //     write!(out, "{}", body)?;
-        // }
-
-        // let mut r = HashMap::new();
-        // r.insert("map", HashMap::from([
-        //     ("foo", 1),
-        //     ("bar", 2),
-        //     ("baz", 100)
-        // ]));
-        //
-        // let mut context = TemplateContext::new();
-        // context.insert("map", &HashMap::from([
-        //     ("foo", 1),
-        //     ("bar", 2),
-        //     ("baz", 100)
-        // ]));
-
         let context = TemplateContext::from_serialize(&r)?;
         let body = Self::render(&self.body_template, &context, self.post_processors.as_ref())?;
         write!(out, "{}", body)?;
@@ -377,7 +406,9 @@ mod test {
     use std::path::PathBuf;
 
     use scm::commit::{ScmCommit, ScmSignature, ScmTag};
+    use somever::{Somever, VersioningScheme};
 
+    use super::Release;
     use crate::changelog::Changelog;
     use crate::commits::ScmTaggedCommits;
     use crate::settings::{ChangelogSettings, TemplateSettings};
@@ -443,7 +474,7 @@ mod test {
 
         let settings = ChangelogSettings {
             output: Default::default(),
-            templates: TemplateSettings {
+            template: TemplateSettings {
                 body: r###"
 {% if version -%}
     ## [{{ version }}] - {{ timestamp }}
@@ -462,9 +493,15 @@ mod test {
                 .to_string(),
                 ..Default::default()
             },
-            scm: Default::default(),
+            commit: Default::default(),
+            release: Default::default(),
             remote: None,
             bump: None,
+            protect_breaking_commits: false,
+            exclude_ungrouped: false,
+            commit_version: None,
+            version_scheme: Default::default(),
+            version_suffixes: None,
         };
 
         let changelog = Changelog::new(tagged_commits, settings).unwrap();
@@ -534,7 +571,7 @@ mod test {
 
         let settings = ChangelogSettings {
             output: Default::default(),
-            templates: TemplateSettings {
+            template: TemplateSettings {
                 body: r###"
 {% if version -%}
     ## [{{ version }}] - {{ timestamp | dateformat(format="%Y-%m-%d") }}
@@ -553,14 +590,89 @@ mod test {
                 .to_string(),
                 ..Default::default()
             },
-            scm: Default::default(),
+            commit: Default::default(),
+            release: Default::default(),
             remote: None,
             bump: None,
+            protect_breaking_commits: false,
+            exclude_ungrouped: false,
+            commit_version: None,
+            version_scheme: Default::default(),
+            version_suffixes: None,
         };
 
         let changelog = Changelog::new(tagged_commits, settings).unwrap();
 
         let mut output = File::create(PathBuf::from("./groupby_version_changelog.md")).unwrap();
         changelog.generate(&mut output).unwrap()
+    }
+
+    #[test]
+    fn sort_releases() {
+        let mut releases = vec![
+            Release {
+                version: Some(Somever::new(VersioningScheme::Semver, "1.0.0").unwrap()),
+                tag_id: None,
+                repository: "".to_string(),
+                commits: vec![],
+                timestamp: None,
+            },
+            Release {
+                version: Some(Somever::new(VersioningScheme::Semver, "1.0.0-alpha").unwrap()),
+                tag_id: None,
+                repository: "".to_string(),
+                commits: vec![],
+                timestamp: None,
+            },
+            Release {
+                version: Some(Somever::new(VersioningScheme::Semver, "1.0.0-final").unwrap()),
+                tag_id: None,
+                repository: "".to_string(),
+                commits: vec![],
+                timestamp: None,
+            },
+            Release {
+                version: Some(Somever::new(VersioningScheme::Semver, "1.0.0-rc").unwrap()),
+                tag_id: None,
+                repository: "".to_string(),
+                commits: vec![],
+                timestamp: None,
+            },
+            Release {
+                version: None,
+                tag_id: None,
+                repository: "".to_string(),
+                commits: vec![],
+                timestamp: None,
+            },
+        ];
+
+        // TODO: would like these to include the prefix but not sure we can with semver implementation
+        let version_suffixes = vec![
+            "alpha".to_string(),
+            "rc".to_string(),
+            "".to_string(),
+            "final".to_string(),
+        ];
+
+        Changelog::sort_releases(&mut releases, Some(&version_suffixes));
+        println!("{:?}", releases);
+        assert!(&releases[0].version.is_none());
+        assert_eq!(
+            "1.0.0-final".to_string(),
+            releases[1].version.as_ref().unwrap().to_string()
+        );
+        assert_eq!(
+            "1.0.0".to_string(),
+            releases[2].version.as_ref().unwrap().to_string()
+        );
+        assert_eq!(
+            "1.0.0-rc".to_string(),
+            releases[3].version.as_ref().unwrap().to_string()
+        );
+        assert_eq!(
+            "1.0.0-alpha".to_string(),
+            releases[4].version.as_ref().unwrap().to_string()
+        );
     }
 }

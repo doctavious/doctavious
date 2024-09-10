@@ -4,6 +4,7 @@ use std::path::PathBuf;
 
 use doctavious_std::command;
 use doctavious_templating::Templates;
+use glob::Pattern;
 use markup::MarkupFormat;
 use regex::Regex;
 use scm::drivers::git::TagSort;
@@ -11,22 +12,67 @@ use scm::providers::ScmProviders;
 use serde_derive::{Deserialize, Serialize};
 use serde_json::Value;
 use somever::VersioningScheme;
-use strum::{Display, EnumString, VariantNames};
+use strum::{Display, EnumIter, EnumString, VariantNames};
 use tracing::warn;
 
 use crate::changelog::{Changelog, ChangelogOutputType};
 use crate::entries::ChangelogCommit;
 use crate::errors::{ChangelogErrors, ChangelogResult};
 
+pub struct ChangelogConfigurationFile {}
+
+pub struct ChangelogConfiguration {
+    // pub range: Option<ChangelogRange>,
+    // pub include_paths: Option<Vec<Pattern>>,
+    // pub exclude_paths: Option<Vec<Pattern>>,
+    // pub commit_sort: ChangelogCommitSort,
+
+    // #[serde(flatten)]
+    // pub output: ChangelogOutput,
+    // pub templates: TemplateSettings,
+    // pub scm: ChangelogScmSettings,
+    // pub remote: Option<ChangelogRemoteSettings>,
+    // pub bump: Option<ChangelogBumpSettings>,
+}
+
 // TODO: rename to ChangelogConfiguration?
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct ChangelogSettings {
     #[serde(flatten)]
     pub output: ChangelogOutput,
-    pub templates: TemplateSettings,
-    pub scm: ChangelogScmSettings,
+    pub template: TemplateSettings,
+    pub commit: ChangelogCommitSettings,
+    pub release: ChangelogReleaseConfiguration,
     pub remote: Option<ChangelogRemoteSettings>,
     pub bump: Option<ChangelogBumpSettings>,
+
+    /// Whether to protect all breaking changes from being skipped by a commit parser.
+    pub protect_breaking_commits: bool,
+
+    /// Whether to exclude entries that do not belong to any group from the changelog.
+    pub exclude_ungrouped: bool,
+
+    pub commit_version: Option<VersioningScheme>,
+    pub version_scheme: VersioningScheme,
+    /// determine the sorting order of tags with different suffixes
+    /// The placement of the main release tag relative to tags with various suffixes can be
+    /// determined by specifying the empty suffix among those other suffixes.
+    pub version_suffixes: Option<Vec<String>>,
+}
+
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
+pub struct ChangelogReleaseConfiguration {
+    pub tag_patterns: Option<Vec<String>>,
+
+    /// Regexes to skip matched tags.
+    /// include skipped tagged commits into the next tag.
+    pub skip_tags: Option<Vec<String>>,
+
+    /// Drop commits from the changelog
+    pub ignore_tags: Option<Vec<String>>,
+
+    /// How to sort tags
+    pub tag_sort: Option<TagSort>,
 }
 
 #[non_exhaustive]
@@ -75,11 +121,6 @@ impl Default for SingleChangelogOutput {
     }
 }
 
-// changelog - changelog settings
-// release - release settings
-// commit - commit / scm
-// remote
-
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct TemplateSettings {
     /// A template to be rendered as the changelog's header.
@@ -126,7 +167,7 @@ pub struct ChangelogBumpSettings {
     ///
     /// - A patch version update if the major version is 0.
     /// - A minor version update otherwise.
-    pub features_always_bump_minor: Option<bool>,
+    pub features_always_bump_minor: bool,
 
     /// Configures 0 -> 1 major version increments for breaking changes.
     ///
@@ -136,16 +177,16 @@ pub struct ChangelogBumpSettings {
     ///
     /// - A minor version update if the major version is 0.
     /// - A major version update otherwise.
-    pub breaking_always_bump_major: Option<bool>,
+    pub breaking_always_bump_major: bool,
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct ConventionalCommitSettings {
     /// Whether to include unconventional commits.
-    pub include_unconventional: Option<bool>,
+    pub include_unconventional: bool,
 
     /// Whether to split commits by line, processing each line as an individual commit.
-    pub split_commits: Option<bool>,
+    pub split_commits: bool,
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
@@ -163,7 +204,7 @@ fn default_breaking_category() -> String {
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct StandardCommitSettings {
     /// Whether to split commits by line, processing each line as an individual commit.
-    pub split_commits: Option<bool>,
+    pub split_commits: bool,
 }
 
 #[remain::sorted]
@@ -178,9 +219,9 @@ pub enum CommitStyleSettings {
 impl CommitStyleSettings {
     pub fn split_lines(&self) -> bool {
         match self {
-            CommitStyleSettings::Conventional(s) => s.split_commits.unwrap_or_default(),
+            CommitStyleSettings::Conventional(s) => s.split_commits,
             CommitStyleSettings::ReleaseNote(_) => false,
-            CommitStyleSettings::Standard(s) => s.split_commits.unwrap_or_default(),
+            CommitStyleSettings::Standard(s) => s.split_commits,
         }
     }
 }
@@ -191,12 +232,9 @@ impl Default for CommitStyleSettings {
     }
 }
 
-// TODO: dont really like the name
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
-pub struct ChangelogScmSettings {
-    pub commit_version: Option<VersioningScheme>,
-
-    pub commit_style: Option<CommitStyleSettings>,
+pub struct ChangelogCommitSettings {
+    pub commit_style: CommitStyleSettings,
 
     /// Commit preprocessors.
     pub commit_preprocessors: Option<Vec<CommitProcessor>>,
@@ -210,36 +248,11 @@ pub struct ChangelogScmSettings {
     /// Link parsers.
     pub link_parsers: Option<Vec<LinkParser>>,
 
-    /// Whether to protect all breaking changes from being skipped by a commit parser.
-    pub protect_breaking_commits: Option<bool>,
-
-    /// Whether to filter out commits.
-    /// If set to true, commits that are not matched by group_parsers are filtered out.
-    pub filter_commits: Option<bool>,
-
-    /// Regexes to skip matched tags.
-    /// include skipped tagged commits into the next tag.
-    pub skip_tags: Option<Vec<String>>,
-
-    /// Drop commits from the changelog
-    pub ignore_tags: Option<Vec<String>>,
-
-    /// How to sort tags
-    pub tag_sort: Option<TagSort>,
-
-    // TODO: use enum? oldest / newest
     /// Sorting of the commits inside sections.
-    pub sort_commits: Option<String>,
+    pub sort_commits: Option<ChangelogCommitSort>,
 
     /// Limit the number of commits included in the changelog.
     pub limit_commits: Option<usize>,
-
-    pub version_scheme: VersioningScheme,
-
-    /// determine the sorting order of tags with different suffixes
-    /// The placement of the main release tag relative to tags with various suffixes can be
-    /// determined by specifying the empty suffix among those other suffixes.
-    pub version_suffixes: Option<Vec<String>>,
 }
 
 /// Parser for grouping commits.
@@ -393,6 +406,35 @@ pub struct LinkParser {
 
     /// The string used to generate the link text.
     pub text: Option<String>,
+}
+
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    Default,
+    Display,
+    Deserialize,
+    EnumIter,
+    EnumString,
+    VariantNames,
+    PartialEq,
+    Serialize,
+)]
+pub enum ChangelogCommitSort {
+    /// Whether to sort starting with the newest element.
+    Newest_First,
+
+    /// Whether to sort starting with the oldest element.
+    #[default]
+    Oldest_First,
+}
+
+impl ChangelogCommitSort {
+    #[must_use]
+    pub const fn variants() -> &'static [&'static str] {
+        <Self as strum::VariantNames>::VARIANTS
+    }
 }
 
 #[cfg(test)]

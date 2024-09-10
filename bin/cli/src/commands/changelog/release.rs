@@ -2,9 +2,12 @@ use std::path::PathBuf;
 use std::str::FromStr;
 
 use changelog::changelog::ChangelogOutputType;
+use changelog::settings::ChangelogCommitSort;
 use clap::{Parser, ValueEnum};
-use doctavious_cli::changelog::cmd::release::{release, BumpOption, ChangelogReleaseOptions};
-use doctavious_cli::changelog::settings::{ChangelogCommitSort, ChangelogRange};
+use doctavious_cli::changelog::release::cmd::release;
+use doctavious_cli::changelog::release::configuration::{
+    BumpOption, ChangelogRange, ChangelogReleaseOptions, StrippableChangelogSection,
+};
 use doctavious_cli::errors::CliResult;
 use doctavious_cli::settings::{load_settings, Settings};
 use glob::Pattern;
@@ -15,13 +18,6 @@ use serde::{Deserialize, Serialize};
 use strum::VariantNames;
 
 use crate::clap_enum_variants;
-
-#[derive(Debug, Clone, Copy, ValueEnum)]
-pub enum StrippableChangelogSection {
-    Header,
-    Footer,
-    All,
-}
 
 // TODO: handling single vs individual changelogs
 // 1. could base if off output where if directory write individual otherwise write single.
@@ -264,49 +260,11 @@ pub(crate) fn execute(command: ReleaseCommand) -> CliResult<Option<String>> {
         ignore_tag_patterns: command.ignore_tag_patterns,
         tag: command.tag,
         ignore_commits: command.ignore_commits,
+        strip: command.strip,
     })?;
 
     Ok(None)
 }
 
 #[cfg(test)]
-mod tests {
-    use std::path::PathBuf;
-
-    use changelog::changelog::ChangelogOutputType;
-    use changelog::settings::ChangelogSettings;
-    use doctavious_cli::changelog::cmd::release::{release_with_settings, ChangelogReleaseOptions};
-    use scm::drivers::git::TagSort;
-
-    #[test]
-    fn validate_release() {
-        let cwd = PathBuf::from("../../");
-
-        println!("{}", cwd.canonicalize().unwrap().to_string_lossy());
-
-        let cmd = ChangelogReleaseOptions {
-            cwd: cwd.as_path(),
-            config_path: None,
-            repositories: None,
-            output: None,
-            output_type: ChangelogOutputType::Single,
-            prepend: None,
-            range: None,
-            include_paths: None,
-            exclude_paths: None,
-            tag_sort: Some(TagSort::default()),
-            commit_sort: Default::default(),
-            tag_patterns: None,
-            skip_tag_patterns: None,
-            ignore_tag_patterns: None,
-            tag: None,
-            ignore_commits: None,
-        };
-
-        let settings = ChangelogSettings {
-            ..Default::default()
-        };
-
-        release_with_settings(cmd, settings).unwrap();
-    }
-}
+mod tests {}

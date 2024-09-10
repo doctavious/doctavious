@@ -42,7 +42,7 @@ impl ChangelogCommit {
     pub fn from_scm_commit(commit: &ScmCommit) -> Self {
         Self {
             id: commit.id.to_string(),
-            message: commit.message.to_string(),
+            message: commit.message.trim().to_string(),
             description: commit.description.to_string(),
             body: commit.body.to_string(),
             footers: None, // TODO: parse footers for ScmCommit
@@ -60,9 +60,9 @@ impl ChangelogCommit {
     pub fn from_release_note(release_note: &ReleaseNote) -> Self {
         Self {
             id: release_note.commit.id.to_string(),
-            message: release_note.commit.message.to_string(),
-            description: release_note.commit.description.to_string(),
-            body: release_note.commit.body.to_string(),
+            message: release_note.commit.message.trim().to_string(),
+            description: release_note.commit.description.trim().to_string(),
+            body: release_note.commit.body.trim().to_string(),
             footers: None, // TODO: parse footers for ScmCommit
             timestamp: release_note.commit.timestamp,
             commit_style: "".to_string(),
@@ -78,9 +78,9 @@ impl ChangelogCommit {
     pub fn from_conventional(conventional: ConventionalCommit) -> Self {
         Self {
             id: conventional.commit.id.to_string(),
-            message: conventional.commit.message.to_string(),
-            description: conventional.commit.description.to_string(),
-            body: conventional.commit.body.to_string(),
+            message: conventional.commit.message.trim().to_string(),
+            description: conventional.commit.description.trim().to_string(),
+            body: conventional.commit.body.trim().to_string(),
             footers: Some(
                 conventional
                     .conv

@@ -1,2 +1,2 @@
-pub mod cmd;
-pub mod settings;
+pub mod init;
+pub mod release;
