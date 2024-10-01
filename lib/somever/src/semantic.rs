@@ -50,8 +50,8 @@ impl FromStr for Semver {
         // TODO: can I do something about text being consistently shadowed?
         let (prefix, text) = version_prefix(text.trim());
         let (major, text) = numeric_identifier(text)?;
-        let (minor, text) = get_numeric_identifier(text);
-        let (patch, text) = get_numeric_identifier(text);
+        let (minor, text) = get_numeric_identifier(text)?;
+        let (patch, text) = get_numeric_identifier(text)?;
 
         let mut prerelease = None;
         let mut lenient_prerelease = false;
@@ -92,6 +92,7 @@ impl FromStr for Semver {
             let (ident, text) = prerelease_identifier(text)?;
             if ident.is_empty() {
                 // TODO: return Err(Error::new(ErrorKind::EmptySegment(pos)));
+                return Err(SomeverError::Invalid);
             }
 
             if Semver::is_release_identifier(ident) {
@@ -120,6 +121,7 @@ impl FromStr for Semver {
             let (ident, text) = build_identifier(text)?;
             if ident.is_empty() {
                 // TODO: return Err(Error::new(ErrorKind::EmptySegment(pos)));
+                return Err(SomeverError::Invalid);
             }
 
             // This logic is defined in lenient-semver crate. Does it make sense to keep?
@@ -136,6 +138,10 @@ impl FromStr for Semver {
             text
         };
 
+        if let Some(unexpected) = text.chars().next() {
+            return Err(SomeverError::Invalid);
+            // return Err(Error::new(ErrorKind::UnexpectedCharAfter(pos, unexpected)));
+        }
 
         Ok(Self {
             prefix: prefix.map(ToString::to_string),
@@ -151,15 +157,21 @@ impl FromStr for Semver {
 
 }
 
-fn get_numeric_identifier(input: &str) -> (u64, &str) {
+fn get_numeric_identifier(input: &str) -> SomeverResult<(u64, &str)> {
     let (found_dot, text) = dot(input);
     if found_dot {
+        // TODO: how to handle invalid case like "1."
         if let Some((num, text)) = numeric_identifier(text).ok() {
-            return (num, text);
+            return Ok((num, text));
         }
+
+        if text.is_empty() {
+            return Err(SomeverError::Invalid);
+        }
+
     }
 
-    (0, input)
+    Ok((0, input))
 }
 
 fn numeric_identifier(input: &str) -> SomeverResult<(u64, &str)> {
@@ -177,7 +189,7 @@ fn numeric_identifier(input: &str) -> SomeverResult<(u64, &str)> {
         {
             Some(sum) => value = sum,
             // None => return Err(Error::new(ErrorKind::Overflow(pos))),
-            None => return Err(SomeverError::Invalid()),
+            None => return Err(SomeverError::Invalid),
         }
         len += 1;
     }
@@ -186,10 +198,10 @@ fn numeric_identifier(input: &str) -> SomeverResult<(u64, &str)> {
         Ok((value, &input[len..]))
     } else if let Some(unexpected) = input[len..].chars().next() {
         // Err(Error::new(ErrorKind::UnexpectedChar(pos, unexpected)))
-        Err(SomeverError::Invalid())
+        Err(SomeverError::Invalid)
     } else {
         // Err(Error::new(ErrorKind::UnexpectedEnd(pos)))
-        Err(SomeverError::Invalid())
+        Err(SomeverError::Invalid)
     }
 }
 
@@ -248,7 +260,7 @@ fn lenient_identifiers(input: &str) -> SomeverResult<(Option<String>, Option<Str
                         Ok((prerelease, build, input))
                     } else {
                         // return Err(Error::new(ErrorKind::EmptySegment(pos)));
-                        Err(SomeverError::Invalid())
+                        Err(SomeverError::Invalid)
                     }
                 }
 
@@ -285,7 +297,7 @@ fn identifier(input: &str) -> SomeverResult<(&str, &str)> {
 
     loop {
         match input.as_bytes().get(accumulated_len + segment_len) {
-            Some(b'A'..=b'Z') | Some(b'a'..=b'z') | Some(b'-') => {
+            Some(b'A'..=b'Z') | Some(b'a'..=b'z') => {
                 segment_len += 1;
             }
             Some(b'0'..=b'9') => {
@@ -297,12 +309,12 @@ fn identifier(input: &str) -> SomeverResult<(&str, &str)> {
                         Ok(("", input))
                     } else {
                         // return Err(Error::new(ErrorKind::EmptySegment(pos)));
-                        Err(SomeverError::Invalid())
+                        Err(SomeverError::Invalid)
                     }
                 }
 
                 accumulated_len += segment_len;
-                if boundary == Some(&b'.') {
+                if boundary == Some(&b'.') || boundary == Some(&b'-') {
                     accumulated_len += 1;
                     segment_len = 0;
                 } else {
@@ -376,6 +388,7 @@ fn prerelease_separator(lenient: bool) -> &'static str {
 mod tests {
     use crate::semantic::Semver;
     use crate::SomeverResult;
+    use crate::SomeverError;
     use test_case::test_case;
 
     fn full_semver(
@@ -399,7 +412,13 @@ mod tests {
             build_prerelease_release_identifier
         }
     }
-    
+
+    #[test]
+    fn t() {
+        let r = Semver::parse("1 abc".to_string());
+        println!("{:?}", r);
+    }
+
     #[test_case("1" => Ok(Semver::new(1, 0, 0)); "major only")]
     #[test_case("1.2" => Ok(Semver::new(1, 2, 0)); "major.minor")]
     #[test_case("1.2.3" => Ok(Semver::new(1, 2, 3)); "major.minor.patch")]
@@ -516,6 +535,47 @@ mod tests {
     #[test_case("V2.3.4" => Ok(full_semver(Some("V"), 2, 3, 4, None, false, None, false)))]
     #[test_case("V4.2.4-2" => Ok(full_semver(Some("V"), 4, 2, 4, Some("2"), false, None, false)))]
     fn should_allow_version_prefix(input: &str) -> SomeverResult<Semver> {
+        Semver::parse(input.into())
+    }
+
+    #[test_case("" => Err(SomeverError::Empty); "empty input")]
+    #[test_case(" " => Err(SomeverError::Invalid); "whitespace input")]
+    #[test_case("." => Err(SomeverError::Invalid); "dot")]
+    #[test_case("🙈" => Err(SomeverError::Invalid); "emoji")]
+    #[test_case("v" => Err(SomeverError::Invalid); "v")]
+    #[test_case("val" => Err(SomeverError::Invalid); "val")]
+    #[test_case("1." => Err(SomeverError::Invalid); "eoi after major")]
+    #[test_case("1.2.3-" => Err(SomeverError::Invalid); "eoi after hyphen")]
+    #[test_case("1.2.3- " => Err(SomeverError::Invalid); "whitespace after hyphen")]
+    #[test_case("1.2.3+" => Err(SomeverError::Invalid); "eoi after plus")]
+    #[test_case("1.2.3+ " => Err(SomeverError::Invalid); "whitespace after plus")]
+    #[test_case("1.2.3-." => Err(SomeverError::Invalid); "prerelease trailing dot")]
+    #[test_case("1.2.3--" => Err(SomeverError::Invalid); "prerelease trailing hyphen")]
+    #[test_case("1.2.3-+" => Err(SomeverError::Invalid); "prerelease trailing plus")]
+    #[test_case("1.2.3-🙈" => Err(SomeverError::Invalid); "prerelease trailing emoji")]
+    #[test_case("1.2.3+." => Err(SomeverError::Invalid); "build trailing dot")]
+    #[test_case("1.2.3+-" => Err(SomeverError::Invalid); "build trailing hyphen")]
+    #[test_case("1.2.3++" => Err(SomeverError::Invalid); "build trailing plus")]
+    #[test_case("1.2.3+🙈" => Err(SomeverError::Invalid); "build trailing emoji")]
+    #[test_case("v.1.2.3" => Err(SomeverError::Invalid); "v followed by dot")]
+    #[test_case("v-1.2.3" => Err(SomeverError::Invalid); "v followed by hyphen")]
+    #[test_case("v+1.2.3" => Err(SomeverError::Invalid); "v followed by plus")]
+    #[test_case("vv1.2.3" => Err(SomeverError::Invalid); "v followed by v")]
+    #[test_case("v v1.2.3" => Err(SomeverError::Invalid); "v followed by whitespace")]
+    #[test_case("a1.2.3" => Err(SomeverError::Invalid); "starting with a")]
+    #[test_case("a.b.c" => Err(SomeverError::Invalid); "non-numeric major")]
+    #[test_case("1.+.0" => Err(SomeverError::Invalid); "plus as minor")]
+    #[test_case("1.2.." => Err(SomeverError::Invalid); "dot as patch")]
+    #[test_case("123456789012345678901234567890" => Err(SomeverError::Invalid); "number overflows u64")]
+    #[test_case("1 abc" => Err(SomeverError::Invalid); "a following parsed number 1")]
+    #[test_case("1.2.3 abc" => Err(SomeverError::Invalid); "a following parsed number 1.2.3")]
+    #[test_case("1.*" => Err(SomeverError::Invalid); "asterisk as early prerelease")]
+    #[test_case("1.2.3-*" => Err(SomeverError::Invalid); "asterisk as prerelease")]
+    #[test_case("1.2.3-ab*" => Err(SomeverError::Invalid); "asterisk within prerelease")]
+    #[test_case("1.?" => Err(SomeverError::Invalid); "question mark as early prerelease")]
+    #[test_case("1.2.3-?" => Err(SomeverError::Invalid); "question mark as prerelease")]
+    #[test_case("1.2.3-ab?" => Err(SomeverError::Invalid); "question mark within prerelease")]
+    fn should_error_when_invalid(input: &str) -> SomeverResult<Semver> {
         Semver::parse(input.into())
     }
 

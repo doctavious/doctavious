@@ -19,7 +19,7 @@ pub enum SomeverError {
     Empty,
 
     #[error("invalid")]
-    Invalid(),
+    Invalid,
 
     #[error("Invalid version format: {0}")]
     InvalidFormat(String),
