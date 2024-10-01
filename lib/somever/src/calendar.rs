@@ -43,6 +43,7 @@ pub struct Calver {
     pub micro: Option<u16>,
     pub modifier: Option<String>,
     pub separator: char,
+    // pub format: String,
 }
 
 impl Calver {
@@ -122,5 +123,59 @@ impl Display for Calver {
         }
 
         Ok(())
+    }
+}
+
+pub(crate) struct FormatConvention {
+    pub(crate) representation: &'static str,
+    pub(crate) format: &'static str,
+}
+
+impl FormatConvention {
+    fn conventions() {
+        let YYYY = FormatConvention {
+            representation: "YYYY",
+            format: "%04d",
+        };
+
+        let YY = FormatConvention {
+            representation: "YY",
+            format: "%d",
+        };
+
+        let zeroY = FormatConvention {
+            representation: "0Y",
+            format: "%02d",
+        };
+
+        let MM = FormatConvention {
+            representation: "MM",
+            format: "%d",
+        };
+
+        let M0 = FormatConvention {
+            representation: "M0",
+            format: "%02d",
+        };
+
+        let zeroM = FormatConvention {
+            representation: "0M",
+            format: "%02d",
+        };
+
+        let DD = FormatConvention {
+            representation: "DD",
+            format: "%d",
+        };
+
+        let D0 = FormatConvention {
+            representation: "DD",
+            format: "%d",
+        };
+
+        let zeroD = FormatConvention {
+            representation: "0D",
+            format: "%02d",
+        };
     }
 }
