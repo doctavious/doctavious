@@ -1,6 +1,9 @@
-use crate::{SomeverError, SomeverResult};
 use std::fmt::{Display, Formatter};
 use std::str::FromStr;
+
+use thiserror::Error;
+
+use crate::{SomeverError, SomeverResult};
 
 /// An lenient implementation of semantic version (semver).
 /// Semver crate implements a fairly strict semver implementation and we need something that isn't
@@ -36,7 +39,41 @@ pub struct Semver {
     pub lenient_prerelease: bool,
     // pub build: BuildMetadata,
     pub build: Option<String>,
-    pub build_prerelease_release_identifier: bool
+    pub build_prerelease_release_identifier: bool,
+}
+
+#[remain::sorted]
+#[derive(Debug, Error, PartialEq)]
+pub enum SemanticError {
+    #[error("Version text is empty")]
+    Empty,
+
+    #[error("invalid")]
+    Invalid,
+
+    #[error("Invalid version format: {0}")]
+    InvalidFormat(String),
+
+    // TODO: maybe map to better error
+    // #[error(transparent)]
+    // ParseInt(#[from] ParseIntError),
+    #[error("Could not parse {0} into digit")]
+    ParseInt(String),
+
+    // #[error("...")]
+    // EmptySegment(Position),
+    //
+    // #[error("...")]
+    // Overflow(Position),
+    #[error("...")]
+    UnexpectedChar(String), // Position,String
+
+                            // UnexpectedCharAfter Position,String
+                            // UnexpectedChar Position,String
+                            // UnexpectedEnd Position
+
+                            // #[error(transparent)]
+                            // SemverError(#[from] semver::Error),
 }
 
 impl FromStr for Semver {
@@ -83,7 +120,6 @@ impl FromStr for Semver {
             text
         };
 
-
         let text = if let Some(text) = text.strip_prefix('-') {
             if prerelease.is_some() {
                 // TODO: return error
@@ -111,7 +147,6 @@ impl FromStr for Semver {
             // (Prerelease::EMPTY, text)
             text
         };
-
 
         let text = if let Some(text) = text.strip_prefix('+') {
             if build.is_some() {
@@ -151,10 +186,9 @@ impl FromStr for Semver {
             prerelease,
             lenient_prerelease,
             build,
-            build_prerelease_release_identifier
+            build_prerelease_release_identifier,
         })
     }
-
 }
 
 fn get_numeric_identifier(input: &str) -> SomeverResult<(u64, &str)> {
@@ -168,7 +202,6 @@ fn get_numeric_identifier(input: &str) -> SomeverResult<(u64, &str)> {
         if text.is_empty() {
             return Err(SomeverError::Invalid);
         }
-
     }
 
     Ok((0, input))
@@ -248,7 +281,12 @@ fn lenient_identifiers(input: &str) -> SomeverResult<(Option<String>, Option<Str
             }
             Some(b'A'..=b'Z') | Some(b'a'..=b'z') => {
                 if build.is_none() && accumulated_len != 0 {
-                    build = Some(input.split_at(accumulated_len - segment_len - 1).0.to_string());
+                    build = Some(
+                        input
+                            .split_at(accumulated_len - segment_len - 1)
+                            .0
+                            .to_string(),
+                    );
                     accumulated_len = 0;
                 }
                 accumulation_has_nondigit = true;
@@ -261,7 +299,7 @@ fn lenient_identifiers(input: &str) -> SomeverResult<(Option<String>, Option<Str
                     } else {
                         // return Err(Error::new(ErrorKind::EmptySegment(pos)));
                         Err(SomeverError::Invalid)
-                    }
+                    };
                 }
 
                 accumulated_len += segment_len;
@@ -310,7 +348,7 @@ fn identifier(input: &str) -> SomeverResult<(&str, &str)> {
                     } else {
                         // return Err(Error::new(ErrorKind::EmptySegment(pos)));
                         Err(SomeverError::Invalid)
-                    }
+                    };
                 }
 
                 accumulated_len += segment_len;
@@ -326,11 +364,9 @@ fn identifier(input: &str) -> SomeverResult<(&str, &str)> {
 }
 
 impl Semver {
-
     pub fn parse(text: String) -> SomeverResult<Self> {
         Semver::from_str(text.as_str())
     }
-
 
     pub fn new(major: u64, minor: u64, patch: u64) -> Self {
         Self {
@@ -341,7 +377,7 @@ impl Semver {
             prerelease: None,
             lenient_prerelease: false,
             build: None,
-            build_prerelease_release_identifier: false
+            build_prerelease_release_identifier: false,
         }
     }
 
@@ -386,10 +422,10 @@ fn prerelease_separator(lenient: bool) -> &'static str {
 
 #[cfg(test)]
 mod tests {
-    use crate::semantic::Semver;
-    use crate::SomeverResult;
-    use crate::SomeverError;
     use test_case::test_case;
+
+    use crate::semantic::Semver;
+    use crate::{SomeverError, SomeverResult};
 
     fn full_semver(
         prefix: Option<&str>,
@@ -399,7 +435,7 @@ mod tests {
         prerelease: Option<&str>,
         lenient_prerelease: bool,
         build: Option<&str>,
-        build_prerelease_release_identifier: bool
+        build_prerelease_release_identifier: bool,
     ) -> Semver {
         Semver {
             prefix: prefix.map(ToString::to_string),
@@ -409,7 +445,7 @@ mod tests {
             prerelease: prerelease.map(ToString::to_string),
             lenient_prerelease,
             build: build.map(ToString::to_string),
-            build_prerelease_release_identifier
+            build_prerelease_release_identifier,
         }
     }
 
@@ -443,7 +479,6 @@ mod tests {
     fn should_parse_pre_release(input: &str) -> SomeverResult<Semver> {
         Semver::parse(input.into())
     }
-
 
     #[test_case("1.2.3+build1" => Ok(full_semver(None, 1, 2, 3, None, false, Some("build1"), false)))]
     #[test_case("  1.2.3+build2  " => Ok(full_semver(None, 1, 2, 3, None, false, Some("build2"), false)))]
@@ -578,5 +613,4 @@ mod tests {
     fn should_error_when_invalid(input: &str) -> SomeverResult<Semver> {
         Semver::parse(input.into())
     }
-
 }

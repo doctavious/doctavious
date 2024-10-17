@@ -10,6 +10,7 @@ pub use calendar::Calver;
 use serde::ser::SerializeStruct;
 use serde::{Deserialize, Serialize, Serializer};
 use thiserror::Error;
+
 use crate::semantic::Semver;
 
 #[remain::sorted]
@@ -29,10 +30,8 @@ pub enum SomeverError {
     // ParseInt(#[from] ParseIntError),
     #[error("Could not parse {0} into digit")]
     ParseInt(String),
-
     // #[error(transparent)]
     // SemverError(#[from] semver::Error),
-
 }
 
 pub type SomeverResult<T> = Result<T, SomeverError>;
@@ -102,7 +101,8 @@ impl PartialOrd for Somever {
 impl Somever {
     pub fn new(scheme: VersioningScheme, value: &str) -> SomeverResult<Self> {
         Ok(match scheme {
-            VersioningScheme::Calver => Somever::Calver(Calver::parse(value)?),
+            // TODO: need to pass in format
+            VersioningScheme::Calver => Somever::Calver(Calver::parse(value, "")?),
             // VersioningScheme::Semver => Somever::Semver(semver::Version::parse(value)?),
             VersioningScheme::Semver => Somever::Semver(Semver::parse(value.to_string())?),
         })
@@ -124,7 +124,7 @@ impl Somever {
 
     pub fn patch(&self) -> Option<u64> {
         match self {
-            Somever::Calver(c) => c.micro.map(|m| m as u64),
+            Somever::Calver(c) => c.patch.map(|m| m as u64),
             Somever::Semver(s) => Some(s.patch),
         }
     }
@@ -167,8 +167,8 @@ impl Display for Somever {
 
 #[cfg(test)]
 mod tests {
-    use crate::{Calver, Somever, VersioningScheme};
     use crate::semantic::Semver;
+    use crate::{Calver, Somever, VersioningScheme};
 
     #[test]
     fn should_parse_and_sort() {
@@ -186,7 +186,7 @@ mod tests {
             "2024.1.suffix",
             "2024-06-28",
         ] {
-            versions.push(Calver::parse(f).unwrap());
+            versions.push(Calver::parse(f, "").unwrap());
         }
 
         versions.sort();
@@ -217,7 +217,8 @@ mod tests {
     fn serde() {
         assert_eq!(
             "{\"type\":\"calver\",\"value\":\"2024.9.2\"}".to_string(),
-            serde_json::to_string(&Somever::Calver(Calver::parse("2024.9.2").unwrap())).unwrap()
+            serde_json::to_string(&Somever::Calver(Calver::parse("2024.9.2", "").unwrap()))
+                .unwrap()
         );
         assert_eq!(
             "{\"type\":\"calver\",\"value\":\"2024.9.2\"}".to_string(),
@@ -233,8 +234,10 @@ mod tests {
 
         assert_eq!(
             "{\"type\":\"semver\",\"value\":\"1.5.2\"}".to_string(),
-            serde_json::to_string(&Somever::Semver(Semver::parse("1.5.2".to_string()).unwrap()))
-                .unwrap()
+            serde_json::to_string(&Somever::Semver(
+                Semver::parse("1.5.2".to_string()).unwrap()
+            ))
+            .unwrap()
         );
         assert_eq!(
             "{\"type\":\"semver\",\"value\":\"1.5.2\"}".to_string(),
