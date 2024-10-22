@@ -64,7 +64,6 @@ const PADDED_DAY: &str = "0D";
 //      conversion where if user provides "2024-06-08" we would output "2024-6-8"
 #[derive(Debug, Deserialize, Eq, Ord, PartialEq, PartialOrd, Serialize)]
 pub struct Calver {
-    // pub format: String,
     pub prefix: Option<String>,
     pub major: u16,
     pub minor: u8,
@@ -76,6 +75,7 @@ pub struct Calver {
     pub separator: char,
     // pub modifier_separator: Option<String>
     pub modifier: Option<String>,
+    pub format: String,
 }
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
@@ -138,6 +138,7 @@ impl Calver {
             micro: micro.and_then(|v| Some(v.parse::<u16>().unwrap())),
             separator: '.',
             modifier,
+            format
         })
     }
 
@@ -213,6 +214,7 @@ impl Calver {
             micro,
             separator,
             modifier,
+            format: format.to_string(),
         })
     }
 
@@ -723,64 +725,64 @@ fn format_identifier(input: &str) -> SomeverResult<(&str, &str)> {
     // }
 }
 
-impl FromStr for Calver {
-    type Err = SomeverError;
-
-    fn from_str(text: &str) -> Result<Self, Self::Err> {
-        if text.is_empty() {
-            return Err(SomeverError::Empty);
-        }
-
-        // not the most performant way of doing this but good enough for now
-        let caps = RE
-            .captures(text)
-            .ok_or(SomeverError::InvalidFormat(text.to_string()))?;
-
-        let major_match = caps
-            .name("major")
-            .ok_or(SomeverError::InvalidFormat(text.to_string()))?;
-
-        let major = major_match
-            .as_str()
-            .parse::<u16>()
-            .map_err(|e| SomeverError::ParseInt(text.to_string()))?;
-
-        let separator = text
-            .chars()
-            .nth(major_match.len())
-            .ok_or(SomeverError::InvalidFormat(text.to_string()))?;
-
-        let minor = caps
-            .name("minor")
-            .ok_or(SomeverError::InvalidFormat(text.to_string()))?
-            .as_str()
-            .parse::<u8>()
-            .map_err(|e| SomeverError::ParseInt(text.to_string()))?;
-
-        let micro = if let Some(micro) = caps.name("micro") {
-            Some(
-                micro
-                    .as_str()
-                    .parse::<u16>()
-                    .map_err(|e| SomeverError::ParseInt(text.to_string()))?,
-            )
-        } else {
-            None
-        };
-
-        let modifier = caps.name("modifier").map(|m| m.as_str().to_string());
-
-        Ok(Self {
-            prefix: None,
-            major,
-            minor,
-            patch: micro,
-            micro: None,
-            modifier,
-            separator,
-        })
-    }
-}
+// impl FromStr for Calver {
+//     type Err = SomeverError;
+//
+//     fn from_str(text: &str) -> Result<Self, Self::Err> {
+//         if text.is_empty() {
+//             return Err(SomeverError::Empty);
+//         }
+//
+//         // not the most performant way of doing this but good enough for now
+//         let caps = RE
+//             .captures(text)
+//             .ok_or(SomeverError::InvalidFormat(text.to_string()))?;
+//
+//         let major_match = caps
+//             .name("major")
+//             .ok_or(SomeverError::InvalidFormat(text.to_string()))?;
+//
+//         let major = major_match
+//             .as_str()
+//             .parse::<u16>()
+//             .map_err(|e| SomeverError::ParseInt(text.to_string()))?;
+//
+//         let separator = text
+//             .chars()
+//             .nth(major_match.len())
+//             .ok_or(SomeverError::InvalidFormat(text.to_string()))?;
+//
+//         let minor = caps
+//             .name("minor")
+//             .ok_or(SomeverError::InvalidFormat(text.to_string()))?
+//             .as_str()
+//             .parse::<u8>()
+//             .map_err(|e| SomeverError::ParseInt(text.to_string()))?;
+//
+//         let micro = if let Some(micro) = caps.name("micro") {
+//             Some(
+//                 micro
+//                     .as_str()
+//                     .parse::<u16>()
+//                     .map_err(|e| SomeverError::ParseInt(text.to_string()))?,
+//             )
+//         } else {
+//             None
+//         };
+//
+//         let modifier = caps.name("modifier").map(|m| m.as_str().to_string());
+//
+//         Ok(Self {
+//             prefix: None,
+//             major,
+//             minor,
+//             patch: micro,
+//             micro: None,
+//             modifier,
+//             separator,
+//         })
+//     }
+// }
 
 impl Display for Calver {
     // TODO: might be better to just store raw
