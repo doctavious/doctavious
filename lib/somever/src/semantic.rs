@@ -425,7 +425,7 @@ mod tests {
     use test_case::test_case;
 
     use crate::semantic::Semver;
-    use crate::{SomeverError, SomeverResult};
+    use crate::SomeverResult;
 
     fn full_semver(
         prefix: Option<&str>,
@@ -447,12 +447,6 @@ mod tests {
             build: build.map(ToString::to_string),
             build_prerelease_release_identifier,
         }
-    }
-
-    #[test]
-    fn t() {
-        let r = Semver::parse("1 abc".to_string());
-        println!("{:?}", r);
     }
 
     #[test_case("1" => Ok(Semver::new(1, 0, 0)); "major only")]

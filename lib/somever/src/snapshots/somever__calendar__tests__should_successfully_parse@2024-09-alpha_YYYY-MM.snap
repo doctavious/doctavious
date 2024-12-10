@@ -1,0 +1,5 @@
+---
+source: lib/somever/src/calendar.rs
+expression: "serde_json::to_string(&Calver::parse(text, format).unwrap()).unwrap()"
+---
+{"prefixed":false,"major":2024,"minor":9,"patch":null,"micro":null,"modifier":"alpha","format":{"raw":"YYYY-MM","prefix":null,"tokens":[{"position":"Major","convention":"FullYear"},{"position":"Minor","convention":"ShortMonth"}],"separators":["-","-"]}}

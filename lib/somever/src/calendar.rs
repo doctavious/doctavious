@@ -1,14 +1,3 @@
-// Want to support the following
-// YYYY - Full year - 2006, 2016, 2106
-// YY - Short year - 6, 16, 106
-// 0Y - Zero-padded year - 06, 16, 106
-// MM - Short month - 1, 2 ... 11, 12
-// 0M - Zero-padded month - 01, 02 ... 11, 12
-// WW - Short week (since start of year) - 1, 2, 33, 52
-// 0W - Zero-padded week - 01, 02, 33, 52
-// DD - Short day - 1, 2 ... 30, 31
-// 0D - Zero-padded day - 01, 02 ... 30, 31
-
 // Examples
 // https://stripe.com/blog/api-versioning - YYYY-MM-DD
 // https://unity3d.com/unity/whats-new/ - YYYY.MINOR.MICRO
@@ -19,44 +8,22 @@
 
 // (<MAJOR>\d).(<MINOR>\d)(?<MICRO>.\d)(?<MODIFIER>.+)
 
-// TODO: Good validations - https://github.com/k1LoW/calver/blob/main/token.go#L182
-
-use std::cmp::min;
-use std::collections::HashMap;
 use std::fmt::{Display, Formatter};
 use std::str::FromStr;
 
-use chrono::{DateTime, Datelike, TimeZone, Utc};
-use lazy_static::lazy_static;
-use regex::Regex;
+use chrono::{Datelike, NaiveDate, TimeZone, Utc};
 use serde::{Deserialize, Serialize};
 
 use crate::{SomeverError, SomeverResult};
 
-lazy_static! {
-    // (?<major>\d+)[._-](?<minor>\d+)([._-](?<micro>\d+))?((?<modifier_sep>[._-])(?<modifier>.+))?
-    static ref RE: Regex =
-        Regex::new(r"(?<major>\d+)[.-_](?<minor>\d+)([.-_](?<micro>\d+))?(?<modifier>.+)?").unwrap();
-}
+const DOT: &'static str = ".";
+const HYPHEN: &'static str = "-";
 
-/// FullYear notation for CalVer - 2006, 2016, 2106
-const FULL_YEAR: &str = "YYYY";
-/// ShortYear notation for CalVer - 6, 16, 106
-const SHORT_YEAR: &str = "YY";
-/// PaddedYear notation for CalVer - 06, 16, 106
-const PADDED_YEAR: &str = "0Y";
-/// ShortMonth notation for CalVer - 1, 2 ... 11, 12
-const SHORT_MONTH: &str = "MM";
-/// PaddedMonth notation for CalVer - 01, 02 ... 11, 12
-const PADDED_MONTH: &str = "0M";
-/// ShortWeek notation for CalVer - 1, 2, 33, 52
-const SHORT_WEEK: &str = "WW";
-/// PaddedWeek notation for CalVer - 01, 02, 33, 52
-const PADDED_WEEK: &str = "0W";
-/// ShortDay notation for CalVer - 1, 2 ... 30, 31
-const SHORT_DAY: &str = "DD";
-/// PaddedDay notation for CalVer - 01, 02 ... 30, 31
-const PADDED_DAY: &str = "0D";
+// if we have 04-02-final vs 04-02.final vs 04.02.final
+// the format would be 0M-0D for both unless the modifier includes the separator
+// stripe - v13.1.0-beta.3 ruby sdk pins to 2024-10-28.acacia
+
+// TODO: Good validations - https://github.com/k1LoW/calver/blob/main/token.go#L182
 
 // support for YYYY.MM.DD_MICRO which could work if _MICRO is a modifier or DD_MICRO is the micro
 // TODO: Confirm sorting/ordering especially with modifier
@@ -64,21 +31,44 @@ const PADDED_DAY: &str = "0D";
 //      conversion where if user provides "2024-06-08" we would output "2024-6-8"
 #[derive(Debug, Deserialize, Eq, Ord, PartialEq, PartialOrd, Serialize)]
 pub struct Calver {
-    pub prefix: Option<String>,
+    pub prefixed: bool,
     pub major: u16,
     pub minor: u8,
     pub patch: Option<u16>,
     // generally discouraged by Calver however potentially useful in rare scenarios such as
     // fusefs-ntfs which uses a format of YYYY.MM.DD_MICRO
-    // not in love with build as the name. Could do patch and micro rather than micro and build
     pub micro: Option<u16>,
-    pub separator: char,
-    // pub modifier_separator: Option<String>
     pub modifier: Option<String>,
-    pub format: String,
+    pub format: TokenizedFormat,
 }
 
-#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+#[derive(Debug, Clone, Deserialize, Eq, Ord, PartialEq, PartialOrd, Serialize)]
+pub enum VersionToken {
+    Prefix,
+    Major(u16, Conventions),
+    Minor(u8, Conventions),
+    Patch(u16, Conventions),
+    Micro(u16, Conventions),
+    Modifier(String),
+    Separator(String),
+}
+
+impl Display for VersionToken {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            VersionToken::Prefix => write!(f, "v"),
+            VersionToken::Major(v, c) => write!(f, "{}", c.format(*v)),
+            VersionToken::Minor(v, c) => write!(f, "{}", c.format(*v as u16)),
+            VersionToken::Patch(v, c) => write!(f, "{}", c.format(*v)),
+            VersionToken::Micro(v, c) => write!(f, "{}", c.format(*v)),
+            VersionToken::Modifier(v) => write!(f, "{}", v),
+            VersionToken::Separator(v) => write!(f, "{}", v),
+        }
+    }
+}
+
+// #[derive(Copy, Clone, Debug, Eq, PartialEq)]
+#[derive(Debug, Copy, Clone, Deserialize, Eq, Ord, PartialEq, PartialOrd, Serialize)]
 pub(crate) enum Position {
     Major,
     Minor,
@@ -88,14 +78,13 @@ pub(crate) enum Position {
 }
 
 impl Position {
-
     fn next_token_position(&self) -> Option<Self> {
         match self {
             Position::Major => Some(Position::Minor),
             Position::Minor => Some(Position::Patch),
             Position::Patch => Some(Position::Micro),
             Position::Micro => None,
-            _ => None
+            _ => None,
         }
     }
 
@@ -114,42 +103,57 @@ impl Position {
 
 impl Calver {
     pub fn new(format: String, modifier: Option<String>) -> SomeverResult<Self> {
-        // TODO: improve this
-        let d = chrono::Utc::now();
+        Self::internal_new(Utc::now().date_naive(), false, format, modifier)
+    }
 
-        // let (format_segments, separators) = Calver::parse_format_pattern(&format)?;
-        // let major = format_segments.get(0).unwrap().conv(d);
-        // let minor = format_segments.get(1).unwrap().conv(d);
-        // let patch = format_segments.get(2).and_then(|s| Some(s.conv(d)));
-        // let micro = format_segments.get(3).and_then(|s| Some(s.conv(d)));
+    pub fn new_prefixed(format: String, modifier: Option<String>) -> SomeverResult<Self> {
+        Self::internal_new(Utc::now().date_naive(), true, format, modifier)
+    }
 
-        let tokenized = TokenizedFormat::tokenize(&format)?;
-        let major = tokenized.get_token(Position::Major).unwrap().convention.conv(d);
-        let minor = tokenized.get_token(Position::Minor).unwrap().convention.conv(d);
-        let patch = tokenized.get_token(Position::Patch).and_then(|s| Some(s.convention.conv(d)));
-        let micro = tokenized.get_token(Position::Micro).and_then(|s| Some(s.convention.conv(d)));
+    pub(crate) fn internal_new(
+        date: NaiveDate,
+        prefixed: bool,
+        format: String,
+        modifier: Option<String>,
+    ) -> SomeverResult<Self> {
+        let mut tokenized = TokenizedFormat::tokenize(&format)?;
 
-        // TODO: use ?
+        let major = tokenized
+            .get_token(Position::Major)
+            .ok_or(SomeverError::Invalid)?
+            .convention
+            .conv(date);
+        let minor = tokenized
+            .get_token(Position::Minor)
+            .ok_or(SomeverError::Invalid)?
+            .convention
+            .conv(date);
+        let patch = tokenized
+            .get_token(Position::Patch)
+            .and_then(|s| Some(s.convention.conv(date)));
+        let micro = tokenized
+            .get_token(Position::Micro)
+            .and_then(|s| Some(s.convention.conv(date)));
+
+        if modifier.is_some() {
+            // TODO: maybe modifier should be a struct/enum to pass in separator
+            tokenized.separators.push("-".to_string())
+        }
+
         Ok(Self {
-            prefix: tokenized.prefix,
-            major: major.parse::<u16>().unwrap(),
-            minor: minor.parse::<u8>().unwrap(),
+            prefixed,
+            major: major.parse::<u16>()?,
+            minor: minor.parse::<u8>()?,
             patch: patch.and_then(|v| Some(v.parse::<u16>().unwrap())),
             micro: micro.and_then(|v| Some(v.parse::<u16>().unwrap())),
-            separator: '.',
             modifier,
-            format
+            format: tokenized,
         })
     }
 
-    // support YYYY.MM.DD_MICRO?
     pub fn parse(text: &str, format: &str) -> SomeverResult<Self> {
-        // Calver::from_str(text)
-
-        // let format_segments = Calver::parse_format(&format)?;
-        // let (format_segments, format_separators) = Calver::parse_format_pattern(&format)?;
-        let tokenized = TokenizedFormat::tokenize(&format)?;
-        let (text_segments, text_separators) = Calver::parse_text(&text)?;
+        let mut tokenized = TokenizedFormat::tokenize(&format)?;
+        let (prefixed, text_segments, text_separators) = Calver::parse_text(&text)?;
 
         // TODO: handle validation when modifier segment is provided
         // if format_segments.len() != text_segments.len() {
@@ -158,25 +162,30 @@ impl Calver {
         // }
 
         // TODO: validate format/separator
-        // if !tokenized.separators.eq(&text_separators) {
-        //     return Err(SomeverError::Invalid);
-        // }
+        // Text separators may have more separators than tokenized as there may be one for the modifier
+        if !tokenized
+            .separators
+            .eq(&text_separators[..tokenized.separators.len()])
+        {
+            return Err(SomeverError::Invalid);
+        }
 
         let mut major = 0;
         let mut minor = 0;
         let mut patch = None;
         let mut micro = None;
-        let mut separator = '.';
         let mut modifier = None;
 
         for (pos, segment) in tokenized.tokens.iter().enumerate() {
-            // let convention = Conventions::new(pat)?;
-            // TODO: there has to be a better way to convert/validate.
-            //       The the parse dont validate would just have a parse method on something that
-            //       would take care of the conversion
-            let v = text_segments.get(pos).unwrap().parse::<u16>().unwrap();
+            // TODO: better error
+            let v = text_segments
+                .get(pos)
+                .ok_or(SomeverError::Invalid)?
+                .parse::<u16>()?;
+
             if !segment.convention.validate(v) {
-                // TODO: return error
+                // TODO: better error
+                return Err(SomeverError::Invalid);
             }
 
             match segment.position {
@@ -184,8 +193,7 @@ impl Calver {
                     major = v;
                 }
                 Position::Minor => {
-                    // TODO: dont use unwrap
-                    minor = u8::try_from(v).unwrap();
+                    minor = u8::try_from(v)?;
                 }
                 Position::Patch => {
                     patch = Some(v);
@@ -198,36 +206,35 @@ impl Calver {
         }
 
         let segment_difference = text_segments.len() - tokenized.tokens.len();
+        // The provided text has a modifier defined that isn't specified in the format
         if segment_difference == 1 {
             if let Some(modifier_text) = text_segments.get(tokenized.tokens.len()) {
                 modifier = Some(modifier_text.to_string());
+                println!("{:?}", &text_segments);
+                println!("{:?}", &text_separators);
+                let modifier_separator = text_separators
+                    //.get(text_segments.len() - 1)
+                    .last()
+                    .unwrap_or(&"-".to_string())
+                    .to_string();
+                println!("{modifier_separator}");
+                tokenized.separators.push(modifier_separator.clone());
             }
         } else if segment_difference > 1 {
-            // TODO: return error
+            // TODO: better error
+            return Err(SomeverError::Invalid);
         }
 
         Ok(Self {
-            prefix: tokenized.prefix,
+            // prefix: tokenized.prefix,
+            prefixed,
             major,
             minor,
             patch,
             micro,
-            separator,
             modifier,
-            format: format.to_string(),
+            format: tokenized,
         })
-    }
-
-    fn parse_format(format: &str) -> SomeverResult<Vec<String>> {
-        let caps = RE
-            .captures(format)
-            .ok_or(SomeverError::InvalidFormat(format.to_string()))?;
-
-        Ok(caps
-            .iter()
-            .flatten()
-            .map(|c| c.as_str().to_string())
-            .collect())
     }
 
     pub(crate) fn parse_format_pattern(
@@ -241,15 +248,11 @@ impl Calver {
 
         let mut segments = Vec::new();
         let mut separators = Vec::new();
-        while segments.len() < 4 {
-            // let (identifier, text) = format_identifier(t.as_str())?;
-            let (ident, has_nondigit, separator, text) = identifier(t.as_str())?;
+        while !t.is_empty() && segments.len() < 4 {
+            let (ident, separator, text) = format_token(t.as_str())?;
             segments.push(Conventions::new(ident)?);
             separators.push(separator.to_string());
             t = text.to_string();
-            if t.is_empty() {
-                break;
-            }
         }
 
         if !t.is_empty() {
@@ -264,106 +267,76 @@ impl Calver {
         Ok((segments, separators))
     }
 
-    pub(crate) fn parse_text(text: &str) -> SomeverResult<(Vec<String>, Vec<String>)> {
-        if text.is_empty() {
+    pub(crate) fn parse_text(input: &str) -> SomeverResult<(bool, Vec<String>, Vec<String>)> {
+        if input.is_empty() {
             return Err(SomeverError::Empty);
         }
 
-        let mut t = text.to_string();
+        let mut text = input.clone();
+        let mut prefixed = false;
         let mut segments = Vec::new();
         let mut separators = Vec::new();
-        while segments.len() < 4 {
-            // let (identifier, text) = format_identifier(t.as_str())?;
-            let (ident, has_nondigit, separator, text) = identifier(t.as_str())?;
+
+        if let Some(c) = text.get(0..1) {
+            if c.to_lowercase() == "v" {
+                // prefix = Some(c.to_string());
+                prefixed = true;
+                text = text.strip_prefix(c).unwrap();
+            }
+        }
+
+        while !text.is_empty() {
+            let (ident, separator, rest) = identifier(text)?;
             segments.push(ident.to_string());
 
             if !separator.is_empty() {
                 separators.push(separator.to_string());
             }
 
-            // TODO: is this necessary?
-            // assume identifier with nondigit is modifier and we can stop parsing
-            // if has_nondigit {
-            //     break;
-            // }
-
-            t = text.to_string();
-            if t.is_empty() {
-                break;
-            }
+            text = rest;
         }
 
-        if segments.len() < 2 {
+        if segments.len() < 2 || segments.len() > 5 {
             return Err(SomeverError::Invalid);
         }
 
-        Ok((segments, separators))
+        Ok((prefixed, segments, separators))
     }
 
-    // pub fn parse_without_regex(text: &str) -> SomeverResult<Self> {
-    //     if text.is_empty() {
-    //         return Err(SomeverError::Empty);
-    //     }
-    //
-    //     let mut format = String::new();
-    //
-    //     let (major, text) = numeric_identifier(text)?;
-    //     let (found, text, boundary) = separator(text, true)?;
-    //     let (minor, text) = numeric_identifier(text)?;
-    //     let text = if let Ok((true, text, boundary)) = separator(text, false) {
-    //         if let Ok(patch) = numeric_identifier(text) {
-    //             ""
-    //         } else if let Ok((modifier, text)) = identifier(text) {
-    //             ""
-    //         } else {
-    //             ""
-    //         }
-    //     } else {
-    //         ""
-    //     };
-    //
-    //     let text = if let Ok((true, text, boundary)) = separator(text, false) {
-    //         // if let Ok((modifier, text)) = identifier(text) {
-    //         //
-    //         // }
-    //         ""
-    //     } else {
-    //         ""
-    //     };
-    //
-    //     if let Some(unexpected) = text.chars().next() {
-    //         return Err(SomeverError::Invalid);
-    //         // return Err(Error::new(ErrorKind::UnexpectedCharAfter(pos, unexpected)));
-    //     }
-    //
-    //     // let p = CONVENTIONS.get()
-    //
-    //     // for year_convention in [FULL_YEAR, SHORT_YEAR, PADDED_YEAR] {
-    //     //     if major
-    //     // }
-    //
-    //     // dot or hyphen
-    //     // let text = dot(text)?;
-    //     // let (minor, text) = numeric_identifier(text)?;
-    //
-    //     // optional dot or hyphen
-    //     // optional micro if numeric
-    //
-    //     // optional dot or hyphen
-    //     // modifier
-    //
-    //     todo!()
-    // }
+    // TODO: bump vs release vs ...?
+    fn bump(self) -> SomeverResult<()> {
+        let d = chrono::Utc::now();
+        // let tokenized = TokenizedFormat::tokenize(&self.format)?;
+        // let n = Self::new(self.format.clone(), self.modifier.clone());
+        // TODO: I think we need the tokenized version so we can compare what conventions were used
+        //       Example, if they use minor/micro and its the same day we should bump them?
+
+        Ok(())
+    }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Deserialize, Eq, Ord, PartialEq, PartialOrd, Serialize)]
 struct TokenizedFormat {
+    raw: String,
     prefix: Option<String>,
     tokens: Vec<FormatSegment>,
     separators: Vec<String>,
 }
 
 impl TokenizedFormat {
+    fn new(
+        raw: String,
+        prefix: Option<String>,
+        tokens: Vec<FormatSegment>,
+        separators: Vec<String>,
+    ) -> Self {
+        Self {
+            raw,
+            prefix,
+            tokens,
+            separators,
+        }
+    }
 
     fn tokenize(text: &str) -> SomeverResult<Self> {
         if text.is_empty() {
@@ -375,13 +348,6 @@ impl TokenizedFormat {
         let mut prefix = None;
         let mut tokens = Vec::new();
         let mut separators = Vec::new();
-
-        if let Some(c) = t.get(0..1) {
-            if c.to_lowercase() == "v" {
-               prefix = Some(c.to_string());
-                t = text.strip_prefix(c).unwrap().to_string();
-            }
-        }
 
         while !t.is_empty() && pos.is_some() {
             let current_pos = pos.unwrap();
@@ -405,11 +371,32 @@ impl TokenizedFormat {
 
         // TODO: more validations
 
+        // TODO: validate - "0Y.WW.DD" should result in error as it doesnt make sense
+
+        TokenizedFormat::validate_order(&tokens)?;
+
         Ok(Self {
+            raw: text.to_string(),
             prefix,
             tokens,
-            separators
+            separators,
         })
+    }
+
+    fn validate_order(tokens: &Vec<FormatSegment>) -> SomeverResult<()> {
+        let mut previous_ordinal = 0;
+        for token in tokens {
+            if token.convention.ordinal() < previous_ordinal {
+                // TODO: better error message
+                return Err(SomeverError::InvalidFormat(format!(
+                    "{} in the wrong position",
+                    token.convention.representation()
+                )));
+            }
+            previous_ordinal = token.convention.ordinal();
+        }
+
+        Ok(())
     }
 
     fn get_token(&self, position: Position) -> Option<&FormatSegment> {
@@ -421,209 +408,98 @@ impl TokenizedFormat {
 
         None
     }
-
 }
 
-#[derive(Debug)]
-struct Segments {
-    values: Vec<FormatSegment>,
-    separators: Vec<String>,
-}
+// #[derive(Debug)]
+// struct Segments {
+//     values: Vec<FormatSegment>,
+//     separators: Vec<String>,
+// }
+//
+// impl Segments {
+//     fn parse(text: &str) -> SomeverResult<Self> {
+//         if text.is_empty() {
+//             return Err(SomeverError::Empty);
+//         }
+//
+//         let mut t = text.to_string();
+//         let mut pos = Some(Position::Major);
+//         let mut segments = Vec::new();
+//         let mut separators = Vec::new();
+//
+//         while !t.is_empty() && pos.is_some() {
+//             let current_pos = pos.unwrap();
+//             let (ident, has_nondigit, separator, text) = identifier(t.as_str())?;
+//             segments.push(FormatSegment {
+//                 position: current_pos,
+//                 convention: Conventions::new(ident)?,
+//             });
+//             separators.push(separator.to_string());
+//             pos = current_pos.next(true);
+//             t = text.to_string();
+//         }
+//
+//         if segments.len() < 2 {
+//             return Err(SomeverError::Invalid);
+//         }
+//
+//         Ok(Self {
+//             values: segments,
+//             separators
+//         })
+//     }
+//
+//     fn numeric_segments(&self) -> usize {
+//         if self.values.is_empty() {
+//             return 0;
+//         }
+//
+//         let total_segments = self.values.len();
+//         if self.has_modifier() {
+//             total_segments - 1
+//         } else {
+//             total_segments
+//         }
+//     }
+//
+//     fn has_modifier(&self) -> bool {
+//         self.values
+//             .iter()
+//             .any(|v| matches!(v.position, Position::Modifier))
+//     }
+//
+// }
+//
+// impl Default for Segments {
+//     fn default() -> Self {
+//         Self {
+//             values: Vec::new(),
+//             separators: Vec::new(),
+//         }
+//     }
+// }
 
-impl Segments {
-    fn parse(text: &str) -> SomeverResult<Self> {
-        if text.is_empty() {
-            return Err(SomeverError::Empty);
-        }
-
-        let mut t = text.to_string();
-        let mut pos = Some(Position::Major);
-        let mut segments = Vec::new();
-        let mut separators = Vec::new();
-
-        while !t.is_empty() && pos.is_some() {
-            let current_pos = pos.unwrap();
-            let (ident, has_nondigit, separator, text) = identifier(t.as_str())?;
-            segments.push(FormatSegment {
-                position: current_pos,
-                convention: Conventions::new(ident)?,
-            });
-            separators.push(separator.to_string());
-            pos = current_pos.next(true);
-            t = text.to_string();
-        }
-
-        // while segments.len() < 4 {
-        //     // let (identifier, text) = format_identifier(t.as_str())?;
-        //     let (ident, separator, text) = identifier(t.as_str())?;
-        //     segments.push(ident.to_string());
-        //     separators.push(ident.to_string());
-        //     t = text.to_string();
-        //     if t.is_empty() {
-        //         break;
-        //     }
-        // }
-
-        if segments.len() < 2 {
-            return Err(SomeverError::Invalid);
-        }
-
-        Ok(Self {
-            values: segments,
-            separators
-        })
-    }
-
-    fn numeric_segments(&self) -> usize {
-        if self.values.is_empty() {
-            return 0;
-        }
-
-        let total_segments = self.values.len();
-        if self.has_modifier() {
-            total_segments - 1
-        } else {
-            total_segments
-        }
-    }
-
-    fn has_modifier(&self) -> bool {
-        self.values
-            .iter()
-            .any(|v| matches!(v.position, Position::Modifier))
-    }
-
-    // fn has_modifier(&self) -> bool {
-    //     self.values.iter().any(|v| matches!(v, Segment::MODIFIER(_)))
-    // }
-}
-
-impl Default for Segments {
-    fn default() -> Self {
-        Self {
-            values: Vec::new(),
-            separators: Vec::new(),
-        }
-    }
-}
-
-#[derive(Debug)]
+// TODO: FormatTokens better name?
+#[derive(Debug, Deserialize, Eq, Ord, PartialEq, PartialOrd, Serialize)]
 struct FormatSegment {
     position: Position,
+    // TODO: Should this be Optional to support Modifier?
     convention: Conventions,
+}
+
+impl FormatSegment {
+    fn new(position: Position, convention: Conventions) -> Self {
+        Self {
+            position,
+            convention,
+        }
+    }
 }
 
 struct TextSegment {
     position: Position,
     value: String,
 }
-
-// enum Segment {
-//     MAJOR(u16, Conventions),
-//     MINOR(u8, Conventions),
-//     PATCH(u16, Conventions),
-//     MICRO(u16, Conventions),
-//     MODIFIER(String),
-// }
-
-// impl Segment {
-//
-//     fn from_str(val: &str, convention: Conventions) -> Self {
-//
-//     }
-//
-// }
-
-fn numeric_identifier(input: &str) -> SomeverResult<(u64, &str)> {
-    let mut len = 0;
-    let mut value = 0u64;
-
-    while let Some(&digit) = input.as_bytes().get(len) {
-        if digit < b'0' || digit > b'9' {
-            break;
-        }
-
-        match value
-            .checked_mul(10)
-            .and_then(|value| value.checked_add((digit - b'0') as u64))
-        {
-            Some(sum) => value = sum,
-            // None => return Err(Error::new(ErrorKind::Overflow(pos))),
-            None => return Err(SomeverError::Invalid),
-        }
-        len += 1;
-    }
-
-    if len > 0 {
-        Ok((value, &input[len..]))
-    } else if let Some(unexpected) = input[len..].chars().next() {
-        // Err(Error::new(ErrorKind::UnexpectedChar(pos, unexpected)))
-        Err(SomeverError::Invalid)
-    } else {
-        // Err(Error::new(ErrorKind::UnexpectedEnd(pos)))
-        Err(SomeverError::Invalid)
-    }
-}
-
-fn separator(input: &str, required: bool) -> SomeverResult<(bool, &str, &str)> {
-    if let Some(rest) = input.strip_prefix('.') {
-        return Ok((true, rest, "."));
-    } else if let Some(rest) = input.strip_prefix('-') {
-        return Ok((true, input, "-"));
-    } else if let Some(rest) = input.strip_prefix('_') {
-        return Ok((true, input, "_"));
-    }
-
-    if required {
-        Err(SomeverError::Invalid)
-    } else {
-        Ok((false, input, ""))
-    }
-}
-
-fn get_separator(input: &str) -> SomeverResult<(&str, &str)> {
-    if let Some(rest) = input.strip_prefix('.') {
-        Ok((".", rest))
-    } else if let Some(rest) = input.strip_prefix('-') {
-        Ok(("-", rest))
-    } else {
-        Err(SomeverError::Invalid)
-    }
-}
-
-// fn identifier(input: &str) -> SomeverResult<(&str, &str)> {
-//     let mut accumulated_len = 0;
-//     let mut segment_len = 0;
-//
-//     loop {
-//         match input.as_bytes().get(accumulated_len + segment_len) {
-//             Some(b'A'..=b'Z') | Some(b'a'..=b'z') => {
-//                 segment_len += 1;
-//             }
-//             Some(b'0'..=b'9') => {
-//                 segment_len += 1;
-//             }
-//             boundary => {
-//                 if segment_len == 0 {
-//                     return if accumulated_len == 0 && boundary != Some(&b'.') {
-//                         Ok(("", input))
-//                     } else {
-//                         // return Err(Error::new(ErrorKind::EmptySegment(pos)));
-//                         Err(SomeverError::Invalid)
-//                     };
-//                 }
-//
-//                 accumulated_len += segment_len;
-//                 if boundary == Some(&b'.') || boundary == Some(&b'-') {
-//                     accumulated_len += 1;
-//                     segment_len = 0;
-//                 } else {
-//                     return Ok(input.split_at(accumulated_len));
-//                 }
-//             }
-//         }
-//     }
-// }
 
 fn token(input: &str) -> SomeverResult<(&str, &str, &str)> {
     let mut segment_len = 0;
@@ -653,17 +529,12 @@ fn token(input: &str) -> SomeverResult<(&str, &str, &str)> {
     }
 }
 
-fn identifier(input: &str) -> SomeverResult<(&str, bool, &str, &str)> {
+fn format_token(input: &str) -> SomeverResult<(&str, &str, &str)> {
     let mut segment_len = 0;
-    let mut has_nondigit = false;
     loop {
         match input.as_bytes().get(segment_len) {
-            Some(b'0'..=b'9') => {
+            Some(b'0'..=b'9') | Some(b'A'..=b'Z') | Some(b'a'..=b'z') => {
                 segment_len += 1;
-            }
-            Some(b'A'..=b'Z') | Some(b'a'..=b'z') => {
-                segment_len += 1;
-                has_nondigit = true;
             }
             // TODO: should probably be explicit about boundary and everything else is invalid
             // Ex: I don't think we should support /, %, $, #, etc. For values we probably should
@@ -676,491 +547,286 @@ fn identifier(input: &str) -> SomeverResult<(&str, bool, &str, &str)> {
 
                 let (ident, rest) = input.split_at(segment_len);
                 if rest.is_empty() {
-                    return Ok((ident, has_nondigit, "", rest));
+                    return Ok((ident, "", rest));
                 } else {
                     let (sep, rest) = rest.split_at(1);
-                    return Ok((ident, has_nondigit, sep, rest));
+                    return Ok((ident, sep, rest));
                 }
-
             }
         }
     }
 }
 
+fn identifier(input: &str) -> SomeverResult<(&str, &str, &str)> {
+    let mut segment_len = 0;
+    loop {
+        match input.as_bytes().get(segment_len) {
+            Some(b'0'..=b'9') => {
+                segment_len += 1;
+            }
+            Some(b'A'..=b'Z') | Some(b'a'..=b'z') => {
+                segment_len += 1;
+                // assume this is the modifier portion
+                return Ok((input, "", ""));
+            }
+            // TODO: should probably be explicit about boundary and everything else is invalid
+            // Ex: I don't think we should support /, %, $, #, etc. For values we probably should
+            // even limit to essentially digits for most things outside of maybe build?
+            boundary => {
+                if segment_len == 0 {
+                    // return Err(Error::new(ErrorKind::EmptySegment(pos)));
+                    return Err(SomeverError::Invalid);
+                }
 
-fn format_identifier(input: &str) -> SomeverResult<(&str, &str)> {
-    if let Some((text, rest)) = input.split_once(['.', '-', '_']) {
-        if text.is_empty() {
-            // return Err(Error::new(ErrorKind::EmptySegment(pos)));
-            return Err(SomeverError::Invalid);
+                let (ident, rest) = input.split_at(segment_len);
+                if rest.is_empty() {
+                    return Ok((ident, "", rest));
+                } else {
+                    let (sep, rest) = rest.split_at(1);
+                    return Ok((ident, sep, rest));
+                }
+            }
         }
-
-        Ok((text, rest))
-    } else {
-        // return Err(Error::new(ErrorKind::EmptySegment(pos)));
-        // Err(SomeverError::Invalid)
-        Ok((input, ""))
     }
-
-    // let mut segment_len = 0;
-    //
-    // loop {
-    //     match input.as_bytes().get(accumulated_len + segment_len) {
-    //         Some(b'A'..=b'Z') | Some(b'a'..=b'z') | Some(b'0'..=b'9') => {
-    //             segment_len += 1;
-    //         }
-    //
-    //         // TODO: should probably be explicit about boundary and everything else is invalid
-    //         // Ex: I don't think we should support /, %, $, #, etc. For values we probably should
-    //         // even limit to essentially digits for most things outside of maybe build?
-    //         boundary => {
-    //             if segment_len == 0 {
-    //                 // return Err(Error::new(ErrorKind::EmptySegment(pos)));
-    //                 Err(SomeverError::Invalid)
-    //             }
-    //
-    //             return Ok((input.split_at(accumulated_len), boundary));
-    //         }
-    //     }
-    // }
 }
 
-// impl FromStr for Calver {
-//     type Err = SomeverError;
-//
-//     fn from_str(text: &str) -> Result<Self, Self::Err> {
-//         if text.is_empty() {
-//             return Err(SomeverError::Empty);
-//         }
-//
-//         // not the most performant way of doing this but good enough for now
-//         let caps = RE
-//             .captures(text)
-//             .ok_or(SomeverError::InvalidFormat(text.to_string()))?;
-//
-//         let major_match = caps
-//             .name("major")
-//             .ok_or(SomeverError::InvalidFormat(text.to_string()))?;
-//
-//         let major = major_match
-//             .as_str()
-//             .parse::<u16>()
-//             .map_err(|e| SomeverError::ParseInt(text.to_string()))?;
-//
-//         let separator = text
-//             .chars()
-//             .nth(major_match.len())
-//             .ok_or(SomeverError::InvalidFormat(text.to_string()))?;
-//
-//         let minor = caps
-//             .name("minor")
-//             .ok_or(SomeverError::InvalidFormat(text.to_string()))?
-//             .as_str()
-//             .parse::<u8>()
-//             .map_err(|e| SomeverError::ParseInt(text.to_string()))?;
-//
-//         let micro = if let Some(micro) = caps.name("micro") {
-//             Some(
-//                 micro
-//                     .as_str()
-//                     .parse::<u16>()
-//                     .map_err(|e| SomeverError::ParseInt(text.to_string()))?,
-//             )
-//         } else {
-//             None
-//         };
-//
-//         let modifier = caps.name("modifier").map(|m| m.as_str().to_string());
-//
-//         Ok(Self {
-//             prefix: None,
-//             major,
-//             minor,
-//             patch: micro,
-//             micro: None,
-//             modifier,
-//             separator,
-//         })
-//     }
-// }
-
 impl Display for Calver {
-    // TODO: might be better to just store raw
+    // TODO: Fix this. replace values in FORMAT
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}{}{}", self.major, self.separator, self.minor)?;
+        // write!(f, "{}{}{}", self.major, self.separator, self.minor)?;
+        //
+        // if let Some(micro) = &self.patch {
+        //     write!(f, "{}{}", self.separator, micro)?;
+        // }
+        //
+        // if let Some(modifier) = &self.modifier {
+        //     write!(f, "{}", modifier)?;
+        // }
 
-        if let Some(micro) = &self.patch {
-            write!(f, "{}{}", self.separator, micro)?;
+        // let raw_format = self.format.raw.clone();
+        // let mut calver = self.format.raw.clone();
+        // for t in &self.format.tokens {
+        //     let v = match t.position {
+        //         Position::Major => self.major as u64,
+        //         Position::Minor => self.minor as u64,
+        //         Position::Patch => self.patch.unwrap_or_default() as u64,
+        //         Position::Micro => self.micro.unwrap_or_default() as u64,
+        //         Position::Modifier => 0
+        //     };
+        //     calver.replace(t.convention.representation(), t.convention.
+        // }
+
+        // let dot = ".".to_string();
+        // let sep = self.format.separators.get(0).unwrap_or(&dot);
+        // write!(f, "{}{}{}", self.major, sep, self.minor)?;
+        //
+        // if let Some(path) = &self.patch {
+        //     let sep = self.format.separators.get(1).unwrap_or(&dot);
+        //     write!(f, "{}{}", sep, path)?;
+        // }
+        //
+        // if let Some(modifier) = &self.modifier {
+        //     let sep = self.format.separators.get(2).unwrap_or(&dot);
+        //     write!(f, "{}{}", sep, modifier)?;
+        // }
+
+        if self.prefixed {
+            write!(f, "v")?;
+        }
+
+        for (index, token) in self.format.tokens.iter().enumerate() {
+            match token.position {
+                Position::Major => write!(f, "{}", token.convention.format(self.major))?,
+                Position::Minor => write!(f, "{}", token.convention.format(self.minor as u16))?,
+                Position::Patch => {
+                    if let Some(patch) = self.patch {
+                        write!(f, "{}", token.convention.format(patch))?;
+                    }
+                }
+                Position::Micro => {
+                    if let Some(micro) = self.micro {
+                        write!(f, "{}", token.convention.format(micro))?;
+                    }
+                }
+                Position::Modifier => {
+                    if let Some(modifier) = &self.modifier {
+                        write!(f, "{}", modifier)?
+                    }
+                }
+            }
+
+            if let Some(sep) = &self.format.separators.get(index) {
+                println!("{sep}");
+                write!(f, "{}", sep)?;
+            }
         }
 
         if let Some(modifier) = &self.modifier {
-            write!(f, "{}", modifier)?;
+            write!(f, "{}", modifier)?
         }
 
         Ok(())
     }
 }
 
-#[derive(PartialEq)]
-pub(crate) struct FormatConvention {
-    pub(crate) representation: &'static str,
-    pub(crate) format: Format,
-    // pub(crate) format: &'static str,
-    // extract - function return u64
-    // validate - function return Result<()>
-}
-
-#[derive(Debug)]
+// #[derive(Debug)]
+#[derive(Debug, Deserialize, Eq, Ord, PartialEq, PartialOrd, Serialize, Clone)]
 pub(crate) enum Conventions {
-    FULL_YEAR,
-    SHORT_YEAR,
-    PADDED_YEAR,
-    SHORT_MONTH,
-    PADDED_MONTH,
-    SHORT_WEEK,
-    PADDED_WEEK,
-    SHORT_DAY,
-    PADDED_DAY,
+    /// Full year notation for CalVer - 2006, 2016, 2106
+    FullYear,
+    /// Short year notation for CalVer - 6, 16, 106
+    ShortYear,
+    /// Padded year notation for CalVer - 06, 16, 106
+    PaddedYear,
+    /// Short month notation for CalVer - 1, 2 ... 11, 12
+    ShortMonth,
+    /// Padded month notation for CalVer - 01, 02 ... 11, 12
+    PaddedMonth,
+    /// Short week notation for CalVer - 1, 2, 33, 52
+    ShortWeek,
+    /// Padded week notation for CalVer - 01, 02, 33, 52
+    PaddedWeek,
+    /// Short day notation for CalVer - 1, 2 ... 30, 31
+    ShortDay,
+    /// Padded day notation for CalVer - 01, 02 ... 30, 31
+    PaddedDay,
     // support minor and micro (ex: pip and pycharm) where these are just integers
-    MINOR,
-    MICRO,
+    /// Minor notation 0 - 65,536 which is incrementing
+    Minor,
+    /// Micro notation 0 - 65,536 which is incrementing
+    Micro,
 }
 
 // https://docs.rs/chrono/latest/chrono/format/strftime/index.html
 impl Conventions {
-    // /// FullYear notation for CalVer - 2006, 2016, 2106
-    // const FULL_YEAR: &str = "YYYY";
-    // /// ShortYear notation for CalVer - 6, 16, 106
-    // const SHORT_YEAR: &str = "YY";
-    // /// PaddedYear notation for CalVer - 06, 16, 106
-    // const PADDED_YEAR: &str = "0Y";
-    // /// ShortMonth notation for CalVer - 1, 2 ... 11, 12
-    // const SHORT_MONTH: &str = "MM";
-    // /// PaddedMonth notation for CalVer - 01, 02 ... 11, 12
-    // const PADDED_MONTH: &str = "0M";
-
     pub(crate) fn new(representation: &str) -> SomeverResult<Self> {
         match representation {
-            "YYYY" => Ok(Conventions::FULL_YEAR),
-            "YY" => Ok(Conventions::SHORT_YEAR),
-            "OY" => Ok(Conventions::PADDED_YEAR),
-            "MM" => Ok(Conventions::SHORT_MONTH),
-            "0M" => Ok(Conventions::PADDED_MONTH),
-            "WW" => Ok(Conventions::SHORT_WEEK),
-            "0W" => Ok(Conventions::PADDED_WEEK),
-            "DD" => Ok(Conventions::SHORT_DAY),
-            "0D" => Ok(Conventions::PADDED_DAY),
-            "MINOR" => Ok(Conventions::MINOR),
-            "MICRO" => Ok(Conventions::MICRO),
+            "YYYY" => Ok(Conventions::FullYear),
+            "YY" => Ok(Conventions::ShortYear),
+            "0Y" => Ok(Conventions::PaddedYear),
+            "MM" => Ok(Conventions::ShortMonth),
+            "0M" => Ok(Conventions::PaddedMonth),
+            "WW" => Ok(Conventions::ShortWeek),
+            "0W" => Ok(Conventions::PaddedWeek),
+            "DD" => Ok(Conventions::ShortDay),
+            "0D" => Ok(Conventions::PaddedDay),
+            "MINOR" => Ok(Conventions::Minor),
+            "MICRO" => Ok(Conventions::Micro),
             _ => Err(SomeverError::Invalid),
         }
     }
 
-    pub(crate) fn format(&self, value: u64) -> String {
+    pub(crate) fn format(&self, value: u16) -> String {
         match self {
-            Conventions::FULL_YEAR => format!("{:04}", value),
-            Conventions::SHORT_YEAR
-            | Conventions::SHORT_MONTH
-            | Conventions::SHORT_WEEK
-            | Conventions::SHORT_DAY
-            | Conventions::MINOR
-            | Conventions::MICRO => format!("{}", value),
-            Conventions::PADDED_YEAR
-            | Conventions::PADDED_MONTH
-            | Conventions::PADDED_WEEK
-            | Conventions::PADDED_DAY => format!("{:02}", value),
+            Conventions::FullYear => format!("{:04}", value),
+            Conventions::ShortYear
+            | Conventions::ShortMonth
+            | Conventions::ShortWeek
+            | Conventions::ShortDay
+            | Conventions::Minor
+            | Conventions::Micro => format!("{}", value),
+            Conventions::PaddedYear
+            | Conventions::PaddedMonth
+            | Conventions::PaddedWeek
+            | Conventions::PaddedDay => format!("{:02}", value),
+        }
+    }
+
+    pub(crate) fn representation(&self) -> &'static str {
+        match &self {
+            Conventions::FullYear => "YYYY",
+            Conventions::ShortYear => "YY",
+            Conventions::PaddedYear => "0Y",
+            Conventions::ShortMonth => "MM",
+            Conventions::PaddedMonth => "0M",
+            Conventions::ShortWeek => "WW",
+            Conventions::PaddedWeek => "0W",
+            Conventions::ShortDay => "DD",
+            Conventions::PaddedDay => "0D",
+            Conventions::Minor => "MINOR",
+            Conventions::Micro => "MICRO",
         }
     }
 
     pub(crate) fn validate(&self, value: u16) -> bool {
         match &self {
-            Conventions::FULL_YEAR => validate_in_range(value, 1900, 2500),
-            Conventions::SHORT_YEAR => validate_in_range(value, 0, 99),
-            Conventions::PADDED_YEAR => validate_in_range(value, 0, 99),
-            Conventions::SHORT_MONTH => validate_in_range(value, 1, 12),
-            Conventions::PADDED_MONTH => validate_in_range(value, 1, 12),
-            Conventions::SHORT_WEEK => validate_in_range(value, 1, 52),
-            Conventions::PADDED_WEEK => validate_in_range(value, 1, 52),
-            Conventions::SHORT_DAY => validate_in_range(value, 1, 31),
-            Conventions::PADDED_DAY => validate_in_range(value, 1, 31),
-            Conventions::MINOR | Conventions::MICRO => true,
+            Conventions::FullYear => validate_in_range(value, 1900, 2500),
+            Conventions::ShortYear => validate_in_range(value, 0, 99),
+            Conventions::PaddedYear => validate_in_range(value, 0, 99),
+            Conventions::ShortMonth => validate_in_range(value, 1, 12),
+            Conventions::PaddedMonth => validate_in_range(value, 1, 12),
+            Conventions::ShortWeek => validate_in_range(value, 1, 52),
+            Conventions::PaddedWeek => validate_in_range(value, 1, 52),
+            Conventions::ShortDay => validate_in_range(value, 1, 31),
+            Conventions::PaddedDay => validate_in_range(value, 1, 31),
+            Conventions::Minor | Conventions::Micro => true,
         }
     }
 
-    pub(crate) fn conv(&self, value: DateTime<Utc>) -> String {
+    pub(crate) fn conv(&self, value: NaiveDate) -> String {
+        // TODO: do we want to be ISO compliant or based values off of Jan 1st being week 1?
         // ISO week compliant
-        // Conventions::FULL_YEAR => format!("{}", value.format("%G")),
-        // Conventions::SHORT_YEAR => format!("{}", value.iso_week().year() % 1000)
-        // Conventions::PADDED_YEAR => format!("{:02}", value.iso_week().year() % 1000),
-        // Conventions::SHORT_WEEK => format!("{}", value.iso_week().week()),
-        // Conventions::PADDED_WEEK => format!("{}", value.format("%V")),
+        // Conventions::FullYear => format!("{}", value.format("%G")),
+        // Conventions::ShortYear => format!("{}", value.iso_week().year() % 1000)
+        // Conventions::PaddedYear => format!("{:02}", value.iso_week().year() % 1000),
+        // Conventions::ShortWeek => format!("{}", value.iso_week().week()),
+        // Conventions::PaddedWeek => format!("{}", value.format("%V")),
 
         // Jan 1 week compliant
-        // Conventions::FULL_YEAR => format!("{}", value.format("%Y")),
-        // Conventions::SHORT_YEAR => format!("{}", value.year() % 1000),
-        // Conventions::PADDED_YEAR => format!("{:02}", value.year() % 1000),
-        // Conventions::SHORT_WEEK => format!("{}", week_starting_jan_1(value)),
-        // Conventions::PADDED_WEEK => format!("{:02}", week_starting_jan_1(value)),
+        // Conventions::FullYear => format!("{}", value.format("%Y")),
+        // Conventions::ShortYear => format!("{}", value.year() % 1000),
+        // Conventions::PaddedYear => format!("{:02}", value.year() % 1000),
+        // Conventions::ShortWeek => format!("{}", week_starting_jan_1(value)),
+        // Conventions::PaddedWeek => format!("{:02}", week_starting_jan_1(value)),
         match &self {
-            Conventions::FULL_YEAR => format!("{}", value.format("%Y")),
-            Conventions::SHORT_YEAR => format!("{}", value.year() % 1000),
-            Conventions::PADDED_YEAR => format!("{:02}", value.year() % 1000),
-            Conventions::SHORT_MONTH => format!("{}", value.month()),
-            Conventions::PADDED_MONTH => format!("{}", value.format("%m")),
-            Conventions::SHORT_WEEK => format!("{}", week_starting_jan_1(value)), // format!("{}", value.iso_week().week()),
-            Conventions::PADDED_WEEK => format!("{:02}", week_starting_jan_1(value)), // format!("{}", value.format("%V")),
-            Conventions::SHORT_DAY => format!("{}", value.day()),
-            Conventions::PADDED_DAY => format!("{}", value.format("%d")),
-            Conventions::MINOR | Conventions::MICRO => String::from("0"),
+            Conventions::FullYear => format!("{}", value.format("%Y")),
+            Conventions::ShortYear => format!("{}", value.year() % 1000),
+            Conventions::PaddedYear => format!("{:02}", value.year() % 1000),
+            Conventions::ShortMonth => format!("{}", value.month()),
+            Conventions::PaddedMonth => format!("{}", value.format("%m")),
+            Conventions::ShortWeek => format!("{}", week_starting_jan_1(value)),
+            Conventions::PaddedWeek => format!("{:02}", week_starting_jan_1(value)),
+            Conventions::ShortDay => format!("{}", value.day()),
+            Conventions::PaddedDay => format!("{}", value.format("%d")),
+            Conventions::Minor | Conventions::Micro => String::from("0"),
+        }
+    }
+
+    /// Returns an ordinal value which is primarily used in verifying correct order of conventions
+    /// within a specific format.
+    fn ordinal(&self) -> u8 {
+        match self {
+            Conventions::FullYear | Conventions::ShortYear | Conventions::PaddedYear => 1,
+            Conventions::ShortMonth | Conventions::PaddedMonth => 2,
+            Conventions::ShortWeek | Conventions::PaddedWeek => 3,
+            Conventions::ShortDay | Conventions::PaddedDay => 4,
+            Conventions::Minor | Conventions::Micro => 5,
         }
     }
 
     // pub(crate) fn extract(&self, value: DateTime<Utc>) -> u64 {
     //     match &self {
-    //         Conventions::FULL_YEAR => {
+    //         Conventions::FullYear => {
     //             let year = value.year();
     //         }
-    //         Conventions::SHORT_YEAR => {
+    //         Conventions::ShortYear => {
     //
     //         }
-    //         Conventions::PADDED_YEAR => {}
-    //         Conventions::SHORT_MONTH => {
+    //         Conventions::PaddedYear => {}
+    //         Conventions::ShortMonth => {
     //             let month = value.month();
     //         }
-    //         Conventions::PADDED_MONTH => {}
+    //         Conventions::PaddedMonth => {}
     //     }
     //
     //     0
     // }
 }
 
-fn week_starting_jan_1(value: DateTime<Utc>) -> u32 {
-    let start_of_year = Utc.with_ymd_and_hms(value.year(), 1, 1, 0, 0, 0).unwrap();
-
+fn week_starting_jan_1(value: NaiveDate) -> u32 {
+    let start_of_year = NaiveDate::from_ymd_opt(value.year(), 1, 1).unwrap();
     let days_difference = (value - start_of_year).num_days() as u32;
     days_difference / 7 + 1
-}
-
-const YYYY: FormatConvention = FormatConvention {
-    representation: "YYYY",
-    format: Format::THREE_LEADING_DIGIT, // "%04d",
-};
-
-const YY: FormatConvention = FormatConvention {
-    representation: "YY",
-    format: Format::DIGIT, // "%d",
-};
-
-const ZERO_Y: FormatConvention = FormatConvention {
-    representation: "0Y",
-    format: Format::LEADING_ZERO_DIGIT, // "%02d",
-};
-
-const MM: FormatConvention = FormatConvention {
-    representation: "MM",
-    format: Format::DIGIT, // "%d",
-};
-
-const M0: FormatConvention = FormatConvention {
-    representation: "M0",
-    format: Format::LEADING_ZERO_DIGIT, // "%02d",
-};
-
-const ZERO_M: FormatConvention = FormatConvention {
-    representation: "0M",
-    format: Format::LEADING_ZERO_DIGIT, // "%02d",
-};
-
-const WW: FormatConvention = FormatConvention {
-    representation: "WW",
-    format: Format::DIGIT, // "%d",
-};
-
-const ZERO_W: FormatConvention = FormatConvention {
-    representation: "0W",
-    format: Format::LEADING_ZERO_DIGIT, // "%02d",
-};
-
-const DD: FormatConvention = FormatConvention {
-    representation: "DD",
-    format: Format::DIGIT, // "%d",
-};
-
-const D0: FormatConvention = FormatConvention {
-    representation: "DD",
-    format: Format::DIGIT, // "%d",
-};
-
-const ZERO_D: FormatConvention = FormatConvention {
-    representation: "0D",
-    format: Format::LEADING_ZERO_DIGIT, // "%02d",
-};
-
-lazy_static! {
-    static ref CONVENTIONS: HashMap<&'static str, FormatConvention> = HashMap::from([
-        (YYYY.representation, YYYY),
-        (YY.representation, YY),
-        (ZERO_Y.representation, ZERO_Y),
-        (MM.representation, MM),
-        (M0.representation, M0),
-        (ZERO_M.representation, ZERO_M),
-        (WW.representation, WW),
-        (ZERO_W.representation, ZERO_W),
-        (DD.representation, DD),
-        (D0.representation, D0),
-        (ZERO_D.representation, ZERO_D)
-    ]);
-    static ref YEAR_CONVENTIONS: [FormatConvention; 3] = [YYYY, YY, ZERO_Y];
-    static ref MONTH_CONVENTIONS: [FormatConvention; 3] = [MM, M0, ZERO_M];
-    static ref WEEK_CONVENTIONS: [FormatConvention; 2] = [WW, ZERO_W];
-    static ref DAY_CONVENTIONS: [FormatConvention; 3] = [DD, D0, ZERO_D];
-}
-
-// format! macro doesnt allow for dynamic formatting so unfortunately need an enum
-#[derive(PartialEq)]
-enum Format {
-    DIGIT,
-    LEADING_ZERO_DIGIT,
-    THREE_LEADING_DIGIT,
-}
-
-// const CONVENTIONS: HashMap<&str, FormatConvention> = HashMap::from([
-//     (YYYY.representation, YYYY),
-//     (YY.representation, YY),
-//     (ZERO_Y.representation, ZERO_Y),
-//     (MM.representation, MM),
-//     (M0.representation, M0),
-//     (ZERO_M.representation, ZERO_M),
-//     (WW.representation, WW),
-//     (ZERO_W.representation, ZERO_W),
-//     (DD.representation, DD),
-//     (D0.representation, D0),
-//     (ZERO_D.representation, ZERO_D)
-// ]);
-
-impl FormatConvention {
-    // fn conventions() {
-    //     let YYYY = FormatConvention {
-    //         representation: "YYYY",
-    //         format: "%04d",
-    //     };
-    //
-    //     let YY = FormatConvention {
-    //         representation: "YY",
-    //         format: "%d",
-    //     };
-    //
-    //     let zeroY = FormatConvention {
-    //         representation: "0Y",
-    //         format: "%02d",
-    //     };
-    //
-    //     let MM = FormatConvention {
-    //         representation: "MM",
-    //         format: "%d",
-    //     };
-    //
-    //     let M0 = FormatConvention {
-    //         representation: "M0",
-    //         format: "%02d",
-    //     };
-    //
-    //     let zeroM = FormatConvention {
-    //         representation: "0M",
-    //         format: "%02d",
-    //     };
-    //
-    //     let DD = FormatConvention {
-    //         representation: "DD",
-    //         format: "%d",
-    //     };
-    //
-    //     let D0 = FormatConvention {
-    //         representation: "DD",
-    //         format: "%d",
-    //     };
-    //
-    //     let zeroD = FormatConvention {
-    //         representation: "0D",
-    //         format: "%02d",
-    //     };
-    // }
-
-    pub(crate) fn format(&self, value: u64) -> String {
-        match &self.format {
-            Format::DIGIT => format!("{}", value),
-            Format::LEADING_ZERO_DIGIT => format!("{:02}", value),
-            Format::THREE_LEADING_DIGIT => format!("{:04}", value),
-        }
-    }
-
-    pub(crate) fn get_year_convention(value: &str) -> SomeverResult<FormatConvention> {
-        if value.is_empty() {
-            return Err(SomeverError::Empty);
-        }
-
-        if value.len() == 4 {
-            return Ok(YYYY);
-        }
-
-        if value.len() > 0 && value.len() < 4 {
-            return if value.starts_with('0') {
-                Ok(ZERO_Y)
-            } else {
-                Ok(YY)
-            };
-        }
-
-        Err(SomeverError::Invalid)
-    }
-
-    pub(crate) fn get_month_convention(value: &str) -> SomeverResult<FormatConvention> {
-        if value.is_empty() {
-            return Err(SomeverError::Empty);
-        }
-
-        if value.len() > 0 && value.len() <= 2 {
-            return if value.starts_with('0') {
-                Ok(ZERO_M)
-            } else {
-                Ok(MM)
-            };
-        }
-
-        Err(SomeverError::Invalid)
-    }
-
-    pub(crate) fn get_week_convention(value: &str) -> SomeverResult<FormatConvention> {
-        if value.is_empty() {
-            return Err(SomeverError::Empty);
-        }
-
-        if value.len() > 0 && value.len() <= 2 {
-            return if value.starts_with('0') {
-                Ok(ZERO_W)
-            } else {
-                Ok(WW)
-            };
-        }
-
-        Err(SomeverError::Invalid)
-    }
-
-    pub(crate) fn get_day_convention(value: &str) -> SomeverResult<FormatConvention> {
-        if value.is_empty() {
-            return Err(SomeverError::Empty);
-        }
-
-        if value.len() > 0 && value.len() <= 2 {
-            return if value.starts_with('0') {
-                Ok(ZERO_D)
-            } else {
-                Ok(DD)
-            };
-        }
-
-        Err(SomeverError::Invalid)
-    }
 }
 
 pub(crate) fn validate_in_range(val: u16, min: u16, max: u16) -> bool {
@@ -1173,159 +839,284 @@ pub(crate) fn validate_positive(val: u16) -> bool {
 
 #[cfg(test)]
 mod tests {
-    use chrono::{TimeZone, Utc};
+    use chrono::prelude::*;
+    use chrono::{DateTime, NaiveDate, NaiveDateTime, TimeZone, Utc};
+    use test_case::test_case;
+    use testing::set_snapshot_suffix;
 
-    use crate::calendar::{Conventions, Segments};
-    use crate::{Calver, Somever, VersioningScheme};
+    use super::{Conventions, FormatSegment, Position, TokenizedFormat};
+    use crate::semantic::Semver;
+    use crate::{Calver, SomeverError, SomeverResult};
 
     #[test]
-    fn zero_padded_year() {
-        let convention = Conventions::FULL_YEAR;
-        println!(
-            "{}",
-            convention.conv(Utc.with_ymd_and_hms(2006, 1, 1, 0, 0, 0).unwrap())
-        );
-        println!(
-            "{}",
-            convention.conv(Utc.with_ymd_and_hms(2014, 1, 1, 0, 0, 0).unwrap())
-        );
-        println!(
-            "{}",
-            convention.conv(Utc.with_ymd_and_hms(2106, 1, 1, 0, 0, 0).unwrap())
-        );
-        //
-        //
-        // let convention = Conventions::PADDED_YEAR;
-        // println!("{}", convention.conv(Utc.with_ymd_and_hms(2006, 1, 1, 0, 0, 0).unwrap()));
-        // println!("{}", convention.conv(Utc.with_ymd_and_hms(2014, 1, 1, 0, 0, 0).unwrap()));
-        // println!("{}", convention.conv(Utc.with_ymd_and_hms(2106, 1, 1, 0, 0, 0).unwrap()));
-        //
-        // let convention = Conventions::SHORT_YEAR;
-        // println!("{}", convention.conv(Utc.with_ymd_and_hms(2006, 1, 1, 0, 0, 0).unwrap()));
-        // println!("{}", convention.conv(Utc.with_ymd_and_hms(2014, 1, 1, 0, 0, 0).unwrap()));
-        // println!("{}", convention.conv(Utc.with_ymd_and_hms(2106, 1, 1, 0, 0, 0).unwrap()));
+    fn t() {
+        let calver = Calver::parse("2024.01", "YYYY.0M").unwrap();
+        println!("{}", calver.to_string());
+    }
 
-        // let convention = Conventions::SHORT_WEEK;
-        // println!("{}", convention.conv(Utc.with_ymd_and_hms(2006, 12, 30, 0, 0, 0).unwrap()));
-        // println!("{}", convention.conv(Utc.with_ymd_and_hms(2014, 12, 30, 0, 0, 0).unwrap()));
-        // println!("{}", convention.conv(Utc.with_ymd_and_hms(2106, 12, 30, 0, 0, 0).unwrap()));
+    #[test_case("2024.10.13", "YYYY.MM.DD")]
+    #[test_case("2024.10.6", "YYYY.MM.DD")]
+    #[test_case("2024.10.6", "YYYY.MM.0D")]
+    #[test_case("2024.2.1-rc1", "YYYY.MINOR.MICRO")]
+    #[test_case("2024-10", "YYYY-MM")]
+    #[test_case("2024-09-alpha", "YYYY-MM")]
+    #[test_case("2024-09", "YYYY-0M")]
+    #[test_case("2024-46", "YYYY-WW")]
+    #[test_case("2024-05", "YYYY-0W")]
+    #[test_case("4-09", "YY-MM")]
+    #[test_case("04.10.13", "0Y.MM.DD")]
+    #[test_case("24.2.1", "YY.MINOR.MICRO")]
+    #[test_case("2024.1.suffix", "YYYY.MM")]
+    #[test_case("2024.10.13_1", "YYYY.MM.DD_MICRO")]
+    #[test_case("v2024.10.13_1", "YYYY.MM.DD_MICRO")]
+    fn should_successfully_parse(text: &str, format: &str) {
+        set_snapshot_suffix!("{}_{}", text, format);
 
-        let convention = Conventions::PADDED_WEEK;
-        println!(
-            "{}",
-            convention.conv(Utc.with_ymd_and_hms(2006, 1, 1, 0, 0, 0).unwrap())
-        );
-        println!(
-            "{}",
-            convention.conv(Utc.with_ymd_and_hms(2014, 1, 1, 0, 0, 0).unwrap())
-        );
-        println!(
-            "{}",
-            convention.conv(Utc.with_ymd_and_hms(2106, 1, 1, 0, 0, 0).unwrap())
+        insta::assert_snapshot!(
+            serde_json::to_string(&Calver::parse(text, format).unwrap()).unwrap()
         );
     }
 
-    // #[test]
-    // fn should_parse_and_sort() {
-    //     let mut versions = vec![];
-    //     for f in [
-    //         "2024.01.28",
-    //         "2024.01.28-final",
-    //         "2024.01.28.final",
-    //         "2024.01",
-    //         "2024.01-suffix",
-    //         "2024.01.suffix",
-    //         "2024.1",
-    //         "2024.1-suffix",
-    //         "2024.1.suffix",
-    //
-    //          YYY-MM-DD
-    //         "2024-06-28",
-    //         "2024-06-28-final",
-    //         "2024-06-28.final",
-    //         "2024-06",
-    //         "2024-06-suffix",
-    //         "2024-06.suffix",
-    //         "2024-6",
-    //         "2024-6-suffix",
-    //         "2024-6.suffix",
-    //
-    //         "24.01.28",
-    //         "24.01.28-final",
-    //         "06.01.28", // what format is this?
-    //
-    //         "06.52.01", // what format is this?
-    //     ] {
-    //         versions.push(Calver::parse(f).unwrap());
-    //     }
-    //
-    //     versions.sort();
-    //
-    //     assert_eq!(
-    //         vec![
-    //             "6.1.28",
-    //             "6.52.1",
-    //             "24.1",
-    //             "24.1.28",
-    //             "24.1.28-final",
-    //             "2024.1-suffix",
-    //             "2024.1.suffix",
-    //             "2024.1.28",
-    //             "2024.1.28-final",
-    //             "2024.1.28-suffix",
-    //             "2024-6-28",
-    //         ],
-    //         versions
-    //             .iter()
-    //             .map(|v| v.to_string())
-    //             .collect::<Vec<String>>()
-    //     );
-    // }
+    #[test_case("2024-11-16", "YYYY.MM.DD", false, None)]
+    #[test_case("2024-11-6", "YYYY.MM.DD", false, None)]
+    #[test_case("2024-11-6", "YYYY.MM.0D", false, None)]
+    #[test_case("2024-09-16", "YYYY-MM-MINOR", false, None)]
+    #[test_case("2024-09-16", "YYYY.0M", false, None)]
+    #[test_case("2024-11-16", "YYYY.WW", false, None)]
+    #[test_case("2024-02-01", "YYYY.0W", false, None)]
+    #[test_case("2024-09-16", "YY-MM", false, None)]
+    #[test_case("2004-09-16", "YY-MM", false, None)]
+    #[test_case("2004-11-16", "0Y.MM.DD", false, None)]
+    #[test_case("2024-11-16", "YYYY.MINOR.MICRO", false, None)]
+    #[test_case("2024-11-16", "YYYY.MM.DD_MICRO", false, None)]
+    #[test_case("2024-11-16", "YYYY.MM", true, None)]
+    #[test_case("2024-11-16", "YYYY.MM", false, Some("suffix"))]
+    #[test_case("2024-11-16", "YYYY.MM", true, Some("suffix"))]
+    fn should_successfully_create(
+        date_str: &str,
+        format: &str,
+        prefixed: bool,
+        modifier: Option<&str>,
+    ) {
+        set_snapshot_suffix!("{}_{}_{}_{:?}", date_str, format, prefixed, modifier);
 
-    #[test]
-    fn test_parse_format() {
-        println!("{:?}", Calver::parse_format_pattern("YYYY.MM.DD"));
-        println!("{:?}", Calver::parse_format_pattern("YYYY-MM"));
-        println!("{:?}", Calver::parse_format_pattern("YY.MINOR.MICRO"));
-        println!("{:?}", Calver::parse_format_pattern("YYYY.0M"));
-        println!("{:?}", Calver::parse_format_pattern("YYYY.MM.DD_MICRO"));
-        println!("{:?}", Calver::parse_format_pattern("BLAH"));
-        println!("{:?}", Calver::parse_format_pattern("YY.FOO"));
-        println!("{:?}", Calver::parse_format_pattern("YY.2W"));
-        println!("{:?}", Calver::parse_format_pattern("YY.MM.DD.MICRO-MINOR"));
+        let date = NaiveDate::parse_from_str(date_str, "%Y-%m-%d").unwrap();
+        insta::assert_snapshot!(serde_json::to_string(
+            &Calver::internal_new(
+                date,
+                prefixed,
+                format.to_string(),
+                modifier.map(str::to_string)
+            )
+            .unwrap()
+        )
+        .unwrap());
     }
 
-    #[test]
-    fn test_parse() {
-        println!("{:?}", Calver::parse("2024.2.1-rc1", "YY.MINOR.MICRO"));
-        println!("{:?}", Calver::parse("2024.10.13", "YYYY.MM.DD"));
-        println!("{:?}", Calver::parse("2024-10", "YYYY-MM"));
-        println!("{:?}", Calver::parse("2024-10-alpha", "YYYY-MM"));
-        println!("{:?}", Calver::parse("2024.2.1", "YY.MINOR.MICRO"));
+    #[test_case("2024-11-16", "YYYY.MM.DD", false, None, "2024.11.16")]
+    #[test_case("2024-11-6", "YYYY.MM.DD", false, None, "2024.11.6")]
+    #[test_case("2024-11-6", "YYYY.MM.0D", false, None, "2024.11.06")]
+    #[test_case("2024-09-16", "YYYY-MM-MINOR", false, None, "2024-9-0")]
+    #[test_case("2024-09-16", "YY-MM", false, None, "24-9")]
+    #[test_case("2004-09-16", "YY-MM", false, None, "4-9")]
+    #[test_case("2004-11-16", "0Y.MM.DD", false, None, "04.11.16")]
+    #[test_case("2024-09-16", "YYYY.0M", false, None, "2024.09")]
+    #[test_case("2024-11-16", "YYYY.MM.DD_MICRO", false, None, "2024.11.16_0")]
+    #[test_case("2024-11-16", "YYYY.WW", false, None, "2024.46")]
+    #[test_case("2024-02-01", "YYYY.0W", false, None, "2024.05")]
+    #[test_case("2024-11-16", "YYYY.MM", true, None, "v2024.11")]
+    #[test_case("2024-11-16", "YYYY.MM", false, Some("suffix"), "2024.11-suffix")]
+    #[test_case("2024-11-16", "YYYY.MM", true, Some("suffix"), "v2024.11-suffix")]
+    fn should_correctly_format(
+        date_str: &str,
+        format: &str,
+        prefixed: bool,
+        modifier: Option<&str>,
+        expected: &str,
+    ) {
+        let date = NaiveDate::parse_from_str(date_str, "%Y-%m-%d").unwrap();
+        let calver = Calver::internal_new(
+            date,
+            prefixed,
+            format.to_string(),
+            modifier.map(str::to_string),
+        )
+        .unwrap();
 
-        println!("{:?}", Calver::parse("2024.02", "YYYY.0M"));
-        println!("{:?}", Calver::parse("2024.10.13_1", "YYYY.MM.DD_MICRO"));
-        println!("{:?}", Calver::parse("2024.10.13", "BLAH"));
-        println!("{:?}", Calver::parse("24.10", "YY.FOO"));
-        println!("{:?}", Calver::parse("24.21", "YY.2W"));
-        println!(
-            "{:?}",
-            Calver::parse("2024-10-13-1-2", "YY.MM.DD.MICRO-MINOR")
+        assert_eq!(calver.to_string(), expected);
+    }
+
+
+    // TODO: add "2024.1", "YYYY.MM.DD"
+    #[test_case("2024-02-01", "Y.MM")]
+    #[test_case("2024-02-01", "Y.M")]
+    #[test_case("2024-02-01", "YYYY-MM-D")]
+    #[test_case("2024-02-01", "YYYY-MM-FOO")]
+    #[test_case("2024-02-01", "FOO-MM")]
+    fn should_fail_parse_with_invalid_formats(text: &str, format: &str) {
+        let result = Calver::parse(text, format);
+        assert_eq!(SomeverResult::Err(SomeverError::Invalid), result);
+    }
+
+    #[test_case("2024-02-01", "Y.MM")]
+    #[test_case("2024-02-01", "Y.M")]
+    #[test_case("2024-02-01", "YYYY-MM-D")]
+    #[test_case("2024-02-01", "YYYY-MM-FOO")]
+    #[test_case("2024-02-01", "FOO-MM")]
+    fn should_fail_create_with_invalid_format(date_str: &str, format: &str) {
+        let date = NaiveDate::parse_from_str(date_str, "%Y-%m-%d").unwrap();
+        let result = Calver::internal_new(date, false, format.to_string(), None);
+
+        assert_eq!(SomeverResult::Err(SomeverError::Invalid), result);
+    }
+
+    #[test_case("2024.10.13", "YYYY.DD.MM", "MM")]
+    #[test_case("2024.10.13", "YYYY.MICRO.MM", "MM")]
+    #[test_case("2024.10.13", "YYYY.MINOR.0M", "0M")]
+    #[test_case("2024.10.13", "YYYY.MICRO.DD", "DD")]
+    #[test_case("2024.10.13", "YYYY.MINOR.0D", "0D")]
+    #[test_case("2024.10.13", "MM.YYYY", "YYYY")]
+    #[test_case("2024.10.13", "MM.YY", "YY")]
+    #[test_case("2024.10.13", "MM.0Y", "0Y")]
+    #[test_case("2024.10.13", "DD.YYYY", "YYYY")]
+    #[test_case("2024.10.13", "0D.YY", "YY")]
+    #[test_case("2024.10.13", "DD.0Y", "0Y")]
+    #[test_case("2024.10.13", "0D.MM", "MM")]
+    #[test_case("2024.10.13", "DD.0M", "0M")]
+    #[test_case("2024.10.13", "MINOR.YYYY", "YYYY")]
+    #[test_case("2024.10.13", "MICRO.YYYY", "YYYY")]
+    #[test_case("2024.10.13", "MINOR.MM", "MM")]
+    #[test_case("2024.10.13", "MICRO.0M", "0M")]
+    #[test_case("2024.10.13", "MINOR.DD", "DD")]
+    #[test_case("2024.10.13", "MICRO.0D", "0D")]
+    fn should_fail_parse_with_invalid_format_order(text: &str, format: &str, wrong_position: &str) {
+        let result = Calver::parse(text, format);
+        assert_eq!(
+            SomeverResult::Err(SomeverError::InvalidFormat(format!(
+                "{wrong_position} in the wrong position"
+            ))),
+            result
         );
     }
 
-    #[test]
-    fn test_new() {
-        println!("{:?}", Calver::new("YYYY.MM.DD".to_string(), None));
-        println!("{:?}", Calver::new("YYYY-MM".to_string(), None));
-        println!("{:?}", Calver::new("YY.MINOR.MICRO".to_string(), None));
-        println!("{:?}", Calver::new("YYYY.0M".to_string(), None));
-        println!("{:?}", Calver::new("YYYY.MM.DD_MICRO".to_string(), None));
+    #[test_case("2024-10-13", "YYYY.DD.MM", "MM")]
+    #[test_case("2024-10-13", "YYYY.MICRO.MM", "MM")]
+    #[test_case("2024-10-13", "YYYY.MINOR.0M", "0M")]
+    #[test_case("2024-10-13", "YYYY.MICRO.DD", "DD")]
+    #[test_case("2024-10-13", "YYYY.MINOR.0D", "0D")]
+    #[test_case("2024-10-13", "MM.YYYY", "YYYY")]
+    #[test_case("2024-10-13", "MM.YY", "YY")]
+    #[test_case("2024-10-13", "MM.0Y", "0Y")]
+    #[test_case("2024-10-13", "DD.YYYY", "YYYY")]
+    #[test_case("2024-10-13", "0D.YY", "YY")]
+    #[test_case("2024-10-13", "DD.0Y", "0Y")]
+    #[test_case("2024-10-13", "0D.MM", "MM")]
+    #[test_case("2024-10-13", "DD.0M", "0M")]
+    #[test_case("2024-10-13", "MINOR.YYYY", "YYYY")]
+    #[test_case("2024-10-13", "MICRO.YYYY", "YYYY")]
+    #[test_case("2024-10-13", "MINOR.MM", "MM")]
+    #[test_case("2024-10-13", "MICRO.0M", "0M")]
+    #[test_case("2024-10-13", "MINOR.DD", "DD")]
+    #[test_case("2024-10-13", "MICRO.0D", "0D")]
+    fn should_fail_create_with_invalid_format_order(
+        date_str: &str,
+        format: &str,
+        wrong_position: &str,
+    ) {
+        let date = NaiveDate::parse_from_str(date_str, "%Y-%m-%d").unwrap();
+        let result = Calver::internal_new(date, false, format.to_string(), None);
+        assert_eq!(
+            SomeverResult::Err(SomeverError::InvalidFormat(format!(
+                "{wrong_position} in the wrong position"
+            ))),
+            result
+        );
     }
 
+    #[test_case("2024.05", "YYYY-MM")]
+    #[test_case("2024.05.1", "YYYY-MM_MINOR")]
+    #[test_case("2024-11", "YYYY.MM")]
+    #[test_case("2024.11-1", "YYYY.MM_MICRO")]
+    fn should_fail_parse_with_mismatched_separators(text: &str, format: &str) {
+        let result = Calver::parse(text, format);
+        assert_eq!(SomeverResult::Err(SomeverError::Invalid), result);
+    }
+
+
+
     #[test]
-    fn test_segments_parse() {
-        println!("{:?}", Segments::parse("YYYY.MM.DD").unwrap());
-        println!("{:?}", Segments::parse("YYYY.MM.DD").unwrap());
+    fn should_correctly_sort() {
+        let mut versions = vec![];
+        for (text, format) in [
+            ("2024.01.28", "YYYY.0M.DD"),
+            ("2024.01.28-final", "YYYY.0M.DD"),
+            ("2024.01.28.final", "YYYY.0M.DD"),
+            ("2024.01", "YYYY.0M"),
+            ("2024.01-suffix", "YYYY.0M"),
+            ("2024.01.suffix", "YYYY.0M"),
+            ("2024.1", "YYYY.MM"),
+            ("2024.1-suffix", "YYYY.MM"),
+            ("2024.1.suffix", "YYYY.MM"),
+            ("2024.1.28-suffix", "YYYY.MM.DD"),
+            ("2024.1.28-final", "YYYY.MM.DD"),
+            ("2024.1.28", "YYYY.MM.DD"),
+
+            ("2024-06-28", "YYYY-0M-DD"),
+            ("2024-06-28-final", "YYYY-0M-DD"),
+            ("2024-06-28.final", "YYYY-0M-DD"),
+            ("2024-06", "YYYY-0M"),
+            ("2024-06-suffix", "YYYY-0M"),
+            ("2024-06.suffix", "YYYY-0M"),
+            ("2024-6", "YYYY-MM"),
+            ("2024-6-suffix", "YYYY-MM"),
+            ("2024-6.suffix", "YYYY-MM"),
+            ("2024-06-28", "YYYY-MM-DD"),
+
+            ("24.01.28", "YY.MM.DD"),
+            ("24.01", "YY.0M"),
+            ("24.01.28-final", "YY.MM.DD"),
+            ("06.01.28", "0Y.0M.DD"),
+            ("06.52.01", "0Y.WW.DD"),
+        ] {
+            versions.push(Calver::parse(text, format).unwrap());
+        }
+
+        versions.sort();
+
+        assert_eq!(
+            vec![
+                "06.01.28",
+                "06.52.1",
+                "24.01",
+                "24.1.28",
+                "24.1.28-final",
+                "2024.01",
+                "2024.1",
+                "2024.01-suffix",
+                "2024.01.suffix",
+                "2024.1-suffix",
+                "2024.1.suffix",
+                "2024.01.28",
+                "2024.1.28",
+                "2024.01.28-final",
+                "2024.01.28.final",
+                "2024.1.28-final",
+                "2024.1.28-suffix",
+                "2024-06",
+                "2024-6",
+                "2024-06-suffix",
+                "2024-06.suffix",
+                "2024-6-suffix",
+                "2024-6.suffix",
+                "2024-06-28",
+                "2024-6-28",
+                "2024-06-28-final",
+                "2024-06-28.final",
+            ],
+            versions
+                .iter()
+                .map(|v| v.to_string())
+                .collect::<Vec<String>>()
+        );
     }
 }

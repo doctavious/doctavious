@@ -14,5 +14,7 @@ serde = { workspace = true }
 thiserror = { workspace = true }
 
 [dev-dependencies]
+insta = { workspace = true }
 serde_json = { workspace = true }
 test-case = { workspace = true }
+testing = { path = "../../lib/testing" }
