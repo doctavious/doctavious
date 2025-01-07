@@ -13,22 +13,41 @@ use std::str::FromStr;
 
 use chrono::{Datelike, NaiveDate, TimeZone, Utc};
 use serde::{Deserialize, Serialize};
-
+use thiserror::Error;
 use crate::{SomeverError, SomeverResult};
 
 const DOT: &'static str = ".";
 const HYPHEN: &'static str = "-";
 
-// if we have 04-02-final vs 04-02.final vs 04.02.final
-// the format would be 0M-0D for both unless the modifier includes the separator
-// stripe - v13.1.0-beta.3 ruby sdk pins to 2024-10-28.acacia
-
 // TODO: Good validations - https://github.com/k1LoW/calver/blob/main/token.go#L182
 
-// support for YYYY.MM.DD_MICRO which could work if _MICRO is a modifier or DD_MICRO is the micro
-// TODO: Confirm sorting/ordering especially with modifier
-// TODO: Handling specific formats? Ex: 0M - Zero-padded month. As of right now we provide a lossy
-//      conversion where if user provides "2024-06-08" we would output "2024-6-8"
+#[remain::sorted]
+#[derive(Debug, Error, PartialEq)]
+pub enum CalverError {
+
+    #[error("Mismatch separator. {0} provided but format defined {1}")]
+    MismatchSeparator(String, String)
+
+}
+
+pub struct CalverModifier {
+    pub value: String,
+    pub separator: String,
+}
+
+impl CalverModifier {
+    pub fn new(value: String) -> Self {
+        Self::new_with_separator(value, HYPHEN.to_string())
+    }
+
+    pub fn new_with_separator(value: String, separator: String) -> Self {
+        Self {
+            value,
+            separator
+        }
+    }
+}
+
 #[derive(Debug, Deserialize, Eq, Ord, PartialEq, PartialOrd, Serialize)]
 pub struct Calver {
     pub prefixed: bool,
@@ -67,7 +86,6 @@ impl Display for VersionToken {
     }
 }
 
-// #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 #[derive(Debug, Copy, Clone, Deserialize, Eq, Ord, PartialEq, PartialOrd, Serialize)]
 pub(crate) enum Position {
     Major,
@@ -102,11 +120,11 @@ impl Position {
 }
 
 impl Calver {
-    pub fn new(format: String, modifier: Option<String>) -> SomeverResult<Self> {
+    pub fn new(format: String, modifier: Option<CalverModifier>) -> SomeverResult<Self> {
         Self::internal_new(Utc::now().date_naive(), false, format, modifier)
     }
 
-    pub fn new_prefixed(format: String, modifier: Option<String>) -> SomeverResult<Self> {
+    pub fn new_prefixed(format: String, modifier: Option<CalverModifier>) -> SomeverResult<Self> {
         Self::internal_new(Utc::now().date_naive(), true, format, modifier)
     }
 
@@ -114,7 +132,7 @@ impl Calver {
         date: NaiveDate,
         prefixed: bool,
         format: String,
-        modifier: Option<String>,
+        modifier: Option<CalverModifier>,
     ) -> SomeverResult<Self> {
         let mut tokenized = TokenizedFormat::tokenize(&format)?;
 
@@ -135,18 +153,19 @@ impl Calver {
             .get_token(Position::Micro)
             .and_then(|s| Some(s.convention.conv(date)));
 
-        if modifier.is_some() {
-            // TODO: maybe modifier should be a struct/enum to pass in separator
-            tokenized.separators.push("-".to_string())
+        let mut modifier_str = None;
+        if let Some(modifier) = modifier {
+            tokenized.separators.push(modifier.separator);
+            modifier_str = Some(modifier.value);
         }
 
         Ok(Self {
             prefixed,
             major: major.parse::<u16>()?,
             minor: minor.parse::<u8>()?,
-            patch: patch.and_then(|v| Some(v.parse::<u16>().unwrap())),
-            micro: micro.and_then(|v| Some(v.parse::<u16>().unwrap())),
-            modifier,
+            patch: patch.map(|s| s.parse::<u16>()).transpose()?,
+            micro: micro.map(|s| s.parse::<u16>()).transpose()?,
+            modifier: modifier_str,
             format: tokenized,
         })
     }
@@ -210,14 +229,11 @@ impl Calver {
         if segment_difference == 1 {
             if let Some(modifier_text) = text_segments.get(tokenized.tokens.len()) {
                 modifier = Some(modifier_text.to_string());
-                println!("{:?}", &text_segments);
-                println!("{:?}", &text_separators);
                 let modifier_separator = text_separators
                     //.get(text_segments.len() - 1)
                     .last()
                     .unwrap_or(&"-".to_string())
                     .to_string();
-                println!("{modifier_separator}");
                 tokenized.separators.push(modifier_separator.clone());
             }
         } else if segment_difference > 1 {
@@ -226,7 +242,6 @@ impl Calver {
         }
 
         Ok(Self {
-            // prefix: tokenized.prefix,
             prefixed,
             major,
             minor,
@@ -279,7 +294,6 @@ impl Calver {
 
         if let Some(c) = text.get(0..1) {
             if c.to_lowercase() == "v" {
-                // prefix = Some(c.to_string());
                 prefixed = true;
                 text = text.strip_prefix(c).unwrap();
             }
@@ -301,17 +315,6 @@ impl Calver {
         }
 
         Ok((prefixed, segments, separators))
-    }
-
-    // TODO: bump vs release vs ...?
-    fn bump(self) -> SomeverResult<()> {
-        let d = chrono::Utc::now();
-        // let tokenized = TokenizedFormat::tokenize(&self.format)?;
-        // let n = Self::new(self.format.clone(), self.modifier.clone());
-        // TODO: I think we need the tokenized version so we can compare what conventions were used
-        //       Example, if they use minor/micro and its the same day we should bump them?
-
-        Ok(())
     }
 }
 
@@ -370,7 +373,6 @@ impl TokenizedFormat {
         }
 
         // TODO: more validations
-
         // TODO: validate - "0Y.WW.DD" should result in error as it doesnt make sense
 
         TokenizedFormat::validate_order(&tokens)?;
@@ -655,8 +657,7 @@ impl Display for Calver {
                 }
             }
 
-            if let Some(sep) = &self.format.separators.get(index) {
-                println!("{sep}");
+            if let Some(sep) = self.format.separators.get(index) {
                 write!(f, "{}", sep)?;
             }
         }
@@ -669,7 +670,6 @@ impl Display for Calver {
     }
 }
 
-// #[derive(Debug)]
 #[derive(Debug, Deserialize, Eq, Ord, PartialEq, PartialOrd, Serialize, Clone)]
 pub(crate) enum Conventions {
     /// Full year notation for CalVer - 2006, 2016, 2106
@@ -804,23 +804,6 @@ impl Conventions {
         }
     }
 
-    // pub(crate) fn extract(&self, value: DateTime<Utc>) -> u64 {
-    //     match &self {
-    //         Conventions::FullYear => {
-    //             let year = value.year();
-    //         }
-    //         Conventions::ShortYear => {
-    //
-    //         }
-    //         Conventions::PaddedYear => {}
-    //         Conventions::ShortMonth => {
-    //             let month = value.month();
-    //         }
-    //         Conventions::PaddedMonth => {}
-    //     }
-    //
-    //     0
-    // }
 }
 
 fn week_starting_jan_1(value: NaiveDate) -> u32 {
@@ -844,15 +827,9 @@ mod tests {
     use test_case::test_case;
     use testing::set_snapshot_suffix;
 
-    use super::{Conventions, FormatSegment, Position, TokenizedFormat};
+    use super::{CalverModifier, Conventions, FormatSegment, Position, TokenizedFormat};
     use crate::semantic::Semver;
     use crate::{Calver, SomeverError, SomeverResult};
-
-    #[test]
-    fn t() {
-        let calver = Calver::parse("2024.01", "YYYY.0M").unwrap();
-        println!("{}", calver.to_string());
-    }
 
     #[test_case("2024.10.13", "YYYY.MM.DD")]
     #[test_case("2024.10.6", "YYYY.MM.DD")]
@@ -896,17 +873,23 @@ mod tests {
         date_str: &str,
         format: &str,
         prefixed: bool,
-        modifier: Option<&str>,
+        modifier_str: Option<&str>,
     ) {
-        set_snapshot_suffix!("{}_{}_{}_{:?}", date_str, format, prefixed, modifier);
+        set_snapshot_suffix!("{}_{}_{}_{:?}", date_str, format, prefixed, modifier_str);
 
         let date = NaiveDate::parse_from_str(date_str, "%Y-%m-%d").unwrap();
+        let modifier = if let Some(modifier) = modifier_str {
+            Some(CalverModifier::new(modifier.to_string()))
+        } else {
+            None
+        };
+
         insta::assert_snapshot!(serde_json::to_string(
             &Calver::internal_new(
                 date,
                 prefixed,
                 format.to_string(),
-                modifier.map(str::to_string)
+                modifier,
             )
             .unwrap()
         )
@@ -931,15 +914,21 @@ mod tests {
         date_str: &str,
         format: &str,
         prefixed: bool,
-        modifier: Option<&str>,
+        modifier_str: Option<&str>,
         expected: &str,
     ) {
         let date = NaiveDate::parse_from_str(date_str, "%Y-%m-%d").unwrap();
+        let modifier = if let Some(modifier) = modifier_str {
+            Some(CalverModifier::new(modifier.to_string()))
+        } else {
+            None
+        };
+
         let calver = Calver::internal_new(
             date,
             prefixed,
             format.to_string(),
-            modifier.map(str::to_string),
+            modifier,
         )
         .unwrap();
 
@@ -1042,8 +1031,6 @@ mod tests {
         assert_eq!(SomeverResult::Err(SomeverError::Invalid), result);
     }
 
-
-
     #[test]
     fn should_correctly_sort() {
         let mut versions = vec![];
@@ -1057,6 +1044,7 @@ mod tests {
             ("2024.1", "YYYY.MM"),
             ("2024.1-suffix", "YYYY.MM"),
             ("2024.1.suffix", "YYYY.MM"),
+            ("2024.1.28.final", "YYYY.MM.DD"),
             ("2024.1.28-suffix", "YYYY.MM.DD"),
             ("2024.1.28-final", "YYYY.MM.DD"),
             ("2024.1.28", "YYYY.MM.DD"),
@@ -1101,6 +1089,7 @@ mod tests {
                 "2024.01.28-final",
                 "2024.01.28.final",
                 "2024.1.28-final",
+                "2024.1.28.final",
                 "2024.1.28-suffix",
                 "2024-06",
                 "2024-6",
