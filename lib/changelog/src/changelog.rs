@@ -21,7 +21,7 @@ use crate::commits::ScmTaggedCommits;
 use crate::conventional::ConventionalCommit;
 use crate::entries::{ChangelogCommit, ChangelogEntry, Link};
 use crate::errors::{ChangelogErrors, ChangelogResult};
-use crate::release::Release;
+use crate::release::{Release, Releases};
 use crate::release_notes::{ReleaseNote, ReleaseNotes};
 use crate::settings::{
     ChangelogCommitSettings, ChangelogSettings, CommitProcessor, CommitStyleSettings, GroupParser,
@@ -49,7 +49,9 @@ pub struct Changelog {
     header_template: Option<String>,
     body_template: String,
     footer_template: Option<String>,
+    trim: bool,
     post_processors: Option<Vec<CommitProcessor>>,
+    // additional_context: HashMap<String, serde_json::Value>,
 }
 
 impl Changelog {
@@ -91,6 +93,7 @@ impl Changelog {
             header_template: settings.template.header,
             body_template: settings.template.body,
             footer_template: settings.template.footer,
+            trim: settings.template.trim,
             post_processors: settings.template.post_processors,
         })
     }
@@ -322,17 +325,15 @@ impl Changelog {
                 .open(changelog_path)?;
 
             if let Some(header_template) = &self.header_template {
-                let header =
-                    Self::render(header_template, &context, self.post_processors.as_ref())?;
+                let header = self.render(header_template, &context)?;
                 writeln!(&mut f, "{}", header)?;
             }
 
-            let body = Self::render(&self.body_template, &context, self.post_processors.as_ref())?;
+            let body = self.render(&self.body_template, &context)?;
             writeln!(&mut f, "{}", body)?;
 
             if let Some(footer_template) = &self.footer_template {
-                let footer =
-                    Self::render(footer_template, &context, self.post_processors.as_ref())?;
+                let footer = self.render(footer_template, &context)?;
                 writeln!(&mut f, "{}", footer)?;
             }
         }
@@ -341,34 +342,38 @@ impl Changelog {
     }
 
     pub fn generate<W: Write>(&self, out: &mut W) -> ChangelogResult<()> {
-        let r = HashMap::from([("releases", &self.releases)]);
+        // TODO: add additional context
+        let context = TemplateContext::from_serialize(
+            // &HashMap::from([("releases", &self.releases)])
+            &Releases {
+                releases: &self.releases,
+            },
+        )?;
 
         if let Some(header_template) = &self.header_template {
-            let context = TemplateContext::from_serialize(&self.releases)?;
-            let header = Self::render(header_template, &context, self.post_processors.as_ref())?;
+            let header = self.render(header_template, &context)?;
             writeln!(out, "{}", header)?;
         }
 
-        let context = TemplateContext::from_serialize(&r)?;
-        let body = Self::render(&self.body_template, &context, self.post_processors.as_ref())?;
+        let body = self.render(&self.body_template, &context)?;
         write!(out, "{}", body)?;
 
         if let Some(footer_template) = &self.footer_template {
-            let context = TemplateContext::from_serialize(&self.releases)?;
-            let footer = Self::render(footer_template, &context, self.post_processors.as_ref())?;
+            let footer = self.render(footer_template, &context)?;
             writeln!(out, "{}", footer)?;
         }
 
         Ok(())
     }
 
-    fn render(
-        template: &str,
-        context: &TemplateContext,
-        post_processors: Option<&Vec<CommitProcessor>>,
-    ) -> ChangelogResult<String> {
+    fn render(&self, template: &str, context: &TemplateContext) -> ChangelogResult<String> {
         let mut rendered = Templates::one_off(template, &context, false)?;
-        if let Some(post_processors) = post_processors {
+
+        if self.trim {
+            rendered = rendered.trim().to_string();
+        }
+
+        if let Some(post_processors) = &self.post_processors {
             for postprocessor in post_processors {
                 postprocessor.replace(&mut rendered, vec![])?;
             }

@@ -23,7 +23,7 @@ pub struct Release {
 
 /// Representation of a list of releases.
 #[derive(Serialize)]
-pub struct Releases {
+pub struct Releases<'a> {
     /// Releases.
-    pub releases: Vec<Release>,
+    pub releases: &'a Vec<Release>,
 }

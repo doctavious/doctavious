@@ -132,7 +132,9 @@ pub struct TemplateSettings {
     /// A template to be rendered as the changelog's footer.
     pub footer: Option<String>,
 
-    /// Whether to remove leading and trailing whitespaces from all lines of the changelog's body.
+    // TODO: git-cliff defaults this to true when not provided
+    //       should we instead flip to "preserve_whitespace"?
+    /// Whether to remove leading and trailing whitespaces from all lines of the changelog's templates.
     pub trim: bool,
 
     /// A list of postprocessors using regex to modify the changelog.
@@ -408,6 +410,8 @@ pub struct LinkParser {
     pub text: Option<String>,
 }
 
+
+#[remain::sorted]
 #[derive(
     Clone,
     Copy,
@@ -423,11 +427,11 @@ pub struct LinkParser {
 )]
 pub enum ChangelogCommitSort {
     /// Whether to sort starting with the newest element.
-    Newest_First,
+    NewestFirst,
 
     /// Whether to sort starting with the oldest element.
     #[default]
-    Oldest_First,
+    OldestFirst,
 }
 
 impl ChangelogCommitSort {
