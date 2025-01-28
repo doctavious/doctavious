@@ -14,6 +14,7 @@ use std::str::FromStr;
 use chrono::{Datelike, NaiveDate, TimeZone, Utc};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
+
 use crate::{SomeverError, SomeverResult};
 
 const DOT: &'static str = ".";
@@ -24,10 +25,8 @@ const HYPHEN: &'static str = "-";
 #[remain::sorted]
 #[derive(Debug, Error, PartialEq)]
 pub enum CalverError {
-
     #[error("Mismatch separator. {0} provided but format defined {1}")]
-    MismatchSeparator(String, String)
-
+    MismatchSeparator(String, String),
 }
 
 pub struct CalverModifier {
@@ -41,10 +40,7 @@ impl CalverModifier {
     }
 
     pub fn new_with_separator(value: String, separator: String) -> Self {
-        Self {
-            value,
-            separator
-        }
+        Self { value, separator }
     }
 }
 
@@ -412,12 +408,22 @@ impl TokenizedFormat {
     }
 }
 
-// #[derive(Debug)]
-// struct Segments {
-//     values: Vec<FormatSegment>,
-//     separators: Vec<String>,
+// FormatToken vs FormatTokens vs FormatSegment vs FormatSegments
+// need both format tokens vs version tokens
+// #[remain::sorted]
+// #[derive(Debug, Deserialize, Eq, Ord, PartialEq, PartialOrd, Serialize)]
+// pub enum FormatToken {
+//     Segment(FormatSegment),
+//     Separator(String),
 // }
 //
+// #[derive(Debug)]
+// struct Segments {
+//     tokens: Vec<Token>,
+//     // values: Vec<FormatSegment>,
+//     // separators: Vec<String>,
+// }
+
 // impl Segments {
 //     fn parse(text: &str) -> SomeverResult<Self> {
 //         if text.is_empty() {
@@ -593,45 +599,8 @@ fn identifier(input: &str) -> SomeverResult<(&str, &str, &str)> {
 }
 
 impl Display for Calver {
-    // TODO: Fix this. replace values in FORMAT
+
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        // write!(f, "{}{}{}", self.major, self.separator, self.minor)?;
-        //
-        // if let Some(micro) = &self.patch {
-        //     write!(f, "{}{}", self.separator, micro)?;
-        // }
-        //
-        // if let Some(modifier) = &self.modifier {
-        //     write!(f, "{}", modifier)?;
-        // }
-
-        // let raw_format = self.format.raw.clone();
-        // let mut calver = self.format.raw.clone();
-        // for t in &self.format.tokens {
-        //     let v = match t.position {
-        //         Position::Major => self.major as u64,
-        //         Position::Minor => self.minor as u64,
-        //         Position::Patch => self.patch.unwrap_or_default() as u64,
-        //         Position::Micro => self.micro.unwrap_or_default() as u64,
-        //         Position::Modifier => 0
-        //     };
-        //     calver.replace(t.convention.representation(), t.convention.
-        // }
-
-        // let dot = ".".to_string();
-        // let sep = self.format.separators.get(0).unwrap_or(&dot);
-        // write!(f, "{}{}{}", self.major, sep, self.minor)?;
-        //
-        // if let Some(path) = &self.patch {
-        //     let sep = self.format.separators.get(1).unwrap_or(&dot);
-        //     write!(f, "{}{}", sep, path)?;
-        // }
-        //
-        // if let Some(modifier) = &self.modifier {
-        //     let sep = self.format.separators.get(2).unwrap_or(&dot);
-        //     write!(f, "{}{}", sep, modifier)?;
-        // }
-
         if self.prefixed {
             write!(f, "v")?;
         }
@@ -803,7 +772,6 @@ impl Conventions {
             Conventions::Minor | Conventions::Micro => 5,
         }
     }
-
 }
 
 fn week_starting_jan_1(value: NaiveDate) -> u32 {
@@ -885,13 +853,7 @@ mod tests {
         };
 
         insta::assert_snapshot!(serde_json::to_string(
-            &Calver::internal_new(
-                date,
-                prefixed,
-                format.to_string(),
-                modifier,
-            )
-            .unwrap()
+            &Calver::internal_new(date, prefixed, format.to_string(), modifier,).unwrap()
         )
         .unwrap());
     }
@@ -924,19 +886,11 @@ mod tests {
             None
         };
 
-        let calver = Calver::internal_new(
-            date,
-            prefixed,
-            format.to_string(),
-            modifier,
-        )
-        .unwrap();
+        let calver = Calver::internal_new(date, prefixed, format.to_string(), modifier).unwrap();
 
         assert_eq!(calver.to_string(), expected);
     }
 
-
-    // TODO: add "2024.1", "YYYY.MM.DD"
     #[test_case("2024-02-01", "Y.MM")]
     #[test_case("2024-02-01", "Y.M")]
     #[test_case("2024-02-01", "YYYY-MM-D")]
@@ -1048,7 +1002,6 @@ mod tests {
             ("2024.1.28-suffix", "YYYY.MM.DD"),
             ("2024.1.28-final", "YYYY.MM.DD"),
             ("2024.1.28", "YYYY.MM.DD"),
-
             ("2024-06-28", "YYYY-0M-DD"),
             ("2024-06-28-final", "YYYY-0M-DD"),
             ("2024-06-28.final", "YYYY-0M-DD"),
@@ -1059,7 +1012,6 @@ mod tests {
             ("2024-6-suffix", "YYYY-MM"),
             ("2024-6.suffix", "YYYY-MM"),
             ("2024-06-28", "YYYY-MM-DD"),
-
             ("24.01.28", "YY.MM.DD"),
             ("24.01", "YY.0M"),
             ("24.01.28-final", "YY.MM.DD"),

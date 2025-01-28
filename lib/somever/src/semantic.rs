@@ -425,7 +425,7 @@ mod tests {
     use test_case::test_case;
 
     use crate::semantic::Semver;
-    use crate::SomeverResult;
+    use crate::{SomeverError, SomeverResult};
 
     fn full_semver(
         prefix: Option<&str>,
