@@ -312,6 +312,58 @@ impl Calver {
 
         Ok((prefixed, segments, separators))
     }
+
+
+    // fn get_date_format_segments(self) -> Vec<String> {
+    //     let mut date_segments = Vec::new();
+    //     for s in self.format.tokens {
+    //         if s.convention.is_date_related() {
+    //             date_segments.push(self.)
+    //         }
+    //     }
+    //
+    //     date_segments
+    // }
+
+
+    // TODO: do we want a prerelease / release?
+    //  - both of these could have an optional modifier
+
+
+    pub fn bump_minor(self) -> SomeverResult<Self> {
+        // TODO: fail if MINOR format not provided
+        todo!()
+    }
+
+    pub fn bump_micro(self) -> SomeverResult<Self> {
+        // TODO: fail if MINOR format not provided
+        todo!()
+    }
+
+    pub fn bump_prerelease(self, modifier: CalverModifier) -> SomeverResult<Self> {
+        todo!()
+    }
+
+    pub fn bump(self) -> SomeverResult<Self> {
+        // TODO: if current date matches Calver date we want to bump minor/micro if present
+        //  - what to do if both minor and micro are both present? Would need a way to specify which
+        //  - how do we want to do comparison? We dont want to include minor/micro in comparison
+
+        let d = Utc::now().date_naive();
+
+        // TODO: make modifier easier to grab
+        let modifier = if let Some(modifier) = self.modifier {
+            Some(CalverModifier::new_with_separator(modifier, self.format.separators.last().unwrap_or(&HYPHEN.into()).to_string()))
+        } else {
+            None
+        };
+
+        if self.prefixed {
+            Self::new_prefixed(self.format.raw, modifier)
+        } else {
+            Self::new(self.format.raw, modifier)
+        }
+    }
 }
 
 #[derive(Debug, Deserialize, Eq, Ord, PartialEq, PartialOrd, Serialize)]
@@ -770,6 +822,22 @@ impl Conventions {
             Conventions::ShortWeek | Conventions::PaddedWeek => 3,
             Conventions::ShortDay | Conventions::PaddedDay => 4,
             Conventions::Minor | Conventions::Micro => 5,
+        }
+    }
+
+    fn is_date_related(&self) -> bool {
+        match self {
+            Conventions::FullYear
+            | Conventions::ShortYear
+            | Conventions::ShortMonth
+            | Conventions::ShortWeek
+            | Conventions::ShortDay
+            | Conventions::PaddedYear
+            | Conventions::PaddedMonth
+            | Conventions::PaddedWeek
+            | Conventions::PaddedDay => true,
+            Conventions::Minor
+            | Conventions::Micro => false
         }
     }
 }
