@@ -13,6 +13,7 @@ members = [
     "lib/cas",
     "lib/changelog",
     "lib/cifrs",
+    "lib/code-notify",
     "lib/doctavious-cli",
     "lib/doctavious-server",
     "lib/doctavious-std",
@@ -26,7 +27,7 @@ members = [
 [workspace.dependencies]
 anyhow = "1.0.70"
 axum = { version = "0.8.1", features = ["http2", "macros", "multipart", "ws"] }
-bincode = "1.3.3"
+bincode = "2.0.1"
 blake3 = "1.3.3"
 chrono = { version = "0.4" }
 chrono-tz = { version = "0.10.0" }
@@ -35,10 +36,10 @@ console-subscriber = "0.4.0"
 crc32c = "0.6.5"
 dotavious = "0.2.1"
 dotenvy = "0.15"
-directories = "5.0.1"
+directories = "6.0.0"
 figment = "0.10.11"
 futures = "0.3.28"
-git2 = "0.19.0"
+git2 = "0.20.1"
 git-conventional = { version = "0.12.4" }
 glob = "0.3.0"
 glob-match = "0.2.1"
@@ -52,11 +53,11 @@ md5 = "0.7.0"
 mime = "0.3.17"
 minijinja = "2.0.1"
 once_cell = "1.17.1"
-opendal = "0.51.0"
+opendal = "0.52.0"
 opentelemetry = { version = "0.26.0", features = ["rt-tokio", "trace"] }
 opentelemetry-otlp = "0.26.0"
 opentelemetry-semantic-conventions = "0.26.0"
-progenitor = { version = "0.8" }
+progenitor = { version = "0.9.1" }
 rayon = "1.9.0"
 regex = "1.8.4"
 remain = "0.2.11"
@@ -71,12 +72,12 @@ serde-xml-rs = "0.6.0"
 # TODO: no longer maintained. probably should follow insta and vendor it. yaml-rust2 currently doesnt support serde
 serde_yaml = "0.9"
 shellexpand = "3.1.0"
-strum = { version = "0.26.1", features = ["derive"] }
+strum = { version = "0.27.1", features = ["derive"] }
 swc_ecma_parser = "0.149.0"
 swc = "0.284.0"
 swc_common = { version = "0.37.3", features = ["tty-emitter"] }
 swc_ecma_ast = { version = "0.118.1", features=["serde-impl"] }
-tabled = "0.17.0"
+tabled = "0.18.0"
 temp-env = "0.3.1"
 tempfile = "3.3.0"
 test-case = "3.3.1"
@@ -88,7 +89,7 @@ toml = "0.8.2"
 tower = { version = "0.5.0" }
 tower-http = { version = "0.6.1", features = ["timeout", "trace"] }
 tracing = { version = "0.1" }
-tracing-opentelemetry = "0.28.0"
+tracing-opentelemetry = "0.30.0"
 tracing-subscriber = { version = "0.3.17", features = ["env-filter", "std"] }
 tracing-test = "0.2"
 typify = "0.2"
