@@ -1,5 +1,6 @@
 use std::fs;
 use std::path::{Path, PathBuf};
+use std::process::Command;
 
 use glob::Pattern;
 use indexmap::IndexMap;
@@ -36,7 +37,7 @@ pub trait ScmRepository {
 
     // TODO: this probably doesn't belong on this trait.
     // Maybe should be be able to use get_commit with some option
-    fn last_commit(&self) -> ScmResult<ScmCommit>;
+    fn last_commit(&self) -> ScmResult<Option<ScmCommit>>;
 
     // options
     fn commits(
@@ -92,15 +93,24 @@ pub trait ScmRepository {
     fn files_by_command(&self, cmd: &String) -> ScmResult<Vec<PathBuf>>;
 
     fn scm(&self) -> &'static str;
+
+    fn diff(&self, name_only: bool, range: Option<&ScmCommitRange>) -> ScmResult<Vec<PathBuf>>;
+
+    fn commit(&self, message: &str) -> ScmResult<()>;
 }
 
 impl Scm {
+    // TODO: separate get and search? I saw an example of a VCS/SCM project that did that but dont recall which
     pub fn get(cwd: &Path) -> ScmResult<Self> {
         // TODO: it might be better to try and discover directory such as
         // `git rev-parse --show-toplevel` and `git rev-parse --git-dir`
-        if fs::metadata(cwd.join(".git")).is_ok() {
-            return Ok(Scm::Git(GitScmRepository::new(cwd)?));
+
+        if let Ok(repo) = GitScmRepository::discover(cwd) {
+            return Ok(Scm::Git(repo));
         }
+        // if fs::metadata(cwd.join(".git")).is_ok() {
+        //     return Ok(Scm::Git(GitScmRepository::new(cwd)?));
+        // }
 
         if fs::metadata(cwd.join(".svn")).is_ok() {
             // TODO: implement
@@ -142,6 +152,7 @@ impl ScmRepository for Scm {
         }
     }
 
+    // TODO: Rethink this. I dont like the name...do we even need it?
     fn write(&self, path: &Path, message: &str) -> ScmResult<()> {
         match self {
             Scm::Git(r) => r.write(path, message),
@@ -150,7 +161,15 @@ impl ScmRepository for Scm {
         }
     }
 
-    fn last_commit(&self) -> ScmResult<ScmCommit> {
+    fn commit(&self, message: &str) -> ScmResult<()> {
+        match self {
+            Scm::Git(r) => r.commit(message),
+            Scm::Hg(r) => r.commit(message),
+            Scm::Svn(r) => r.commit(message),
+        }
+    }
+
+    fn last_commit(&self) -> ScmResult<Option<ScmCommit>> {
         match self {
             Scm::Git(r) => r.last_commit(),
             Scm::Hg(r) => r.last_commit(),
@@ -298,6 +317,14 @@ impl ScmRepository for Scm {
             Scm::Git(r) => r.scm(),
             Scm::Hg(r) => r.scm(),
             Scm::Svn(r) => r.scm(),
+        }
+    }
+
+    fn diff(&self, name_only: bool, range: Option<&ScmCommitRange>) -> ScmResult<Vec<PathBuf>> {
+        match self {
+            Scm::Git(r) => r.diff(name_only, range),
+            Scm::Hg(_) => unimplemented!(),
+            Scm::Svn(_) => unimplemented!(),
         }
     }
 }

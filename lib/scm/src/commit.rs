@@ -65,4 +65,5 @@ impl Hash for ScmTag {
     }
 }
 
+// TODO: inclusive/exclusive
 pub struct ScmCommitRange(pub String, pub Option<String>);

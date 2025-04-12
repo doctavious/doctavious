@@ -40,7 +40,11 @@ impl ScmRepository for HgScmRepository {
         todo!()
     }
 
-    fn last_commit(&self) -> ScmResult<ScmCommit> {
+    fn commit(&self, message: &str) -> ScmResult<()> {
+        todo!()
+    }
+
+    fn last_commit(&self) -> ScmResult<Option<ScmCommit>> {
         todo!()
     }
 
@@ -117,6 +121,10 @@ impl ScmRepository for HgScmRepository {
     }
 
     fn scm(&self) -> &'static str {
+        todo!()
+    }
+
+    fn diff(&self, name_only: bool, range: Option<&ScmCommitRange>) -> ScmResult<Vec<PathBuf>> {
         todo!()
     }
 }

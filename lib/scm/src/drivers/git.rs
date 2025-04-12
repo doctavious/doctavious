@@ -1,4 +1,5 @@
 use std::ffi::OsStr;
+use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
@@ -286,41 +287,73 @@ impl GitScmRepository {
         GitScmRepository::new(path)
     }
 
+    pub fn discover<P: AsRef<Path>>(path: P) -> ScmResult<Self> {
+        Ok(Self {
+            inner: Git2Repository::discover(path)?,
+        })
+    }
+
     pub fn new<P: AsRef<Path>>(path: P) -> ScmResult<Self> {
         Ok(Self {
             inner: Git2Repository::open(&path)?,
         })
     }
 
-    fn find_last_commit(&self) -> ScmResult<Git2Commit> {
+    fn find_last_commit(&self) -> ScmResult<Option<Git2Commit>> {
+        let head = self.inner.head();
+        let parent_commit = match head {
+            Ok(head_ref) => {
+                let resolved = head_ref.resolve();
+                if let Ok(commit) = resolved.and_then(|r| r.peel_to_commit()) {
+                    Some(commit)
+                } else {
+                    None
+                }
+            }
+            Err(_) => None, // Handle cases where HEAD does not exist (first commit)
+        };
+
+        Ok(parent_commit)
         // TODO: does this need to call `resolve` or can we just call `peel_to_commit`?
-        Ok(self.inner.head()?.resolve()?.peel_to_commit()?)
+        // Ok(self.inner.head()?.resolve()?.peel_to_commit()?)
     }
 
     fn commit(&self, message: &str) -> ScmResult<crate::drivers::git::Oid> {
-        let parent_commit = self.find_last_commit()?;
-        let tree = self.inner.find_tree(parent_commit.tree_id())?;
+        let oid = self.inner.index()?.write_tree()?;
+        let tree = self.inner.find_tree(oid)?;
         let signature = self.inner.signature()?;
-        let commit = self.inner.commit(
-            Some("HEAD"),
-            &signature,
-            &signature,
-            message,
-            &tree,
-            &[&parent_commit],
-        )?;
+        let parent_commit = self.find_last_commit()?;
+
+        let commit_oid = if let Some(parent_commit) = parent_commit {
+            self.inner.commit(
+                Some("HEAD"),
+                &signature,
+                &signature,
+                message,
+                &tree,
+                &[&parent_commit],
+            )?
+        } else {
+            self.inner.commit(
+                Some("HEAD"),
+                &signature,
+                &signature,
+                message,
+                &tree,
+                &[],
+            )?
+        };
 
         Ok(Oid {
-            bytes: commit.as_bytes().to_vec(),
+            bytes: commit_oid.as_bytes().to_vec(),
         })
     }
 
-    pub fn add_all(&self) {
-        let mut index = self.inner.index().unwrap();
-        index
-            .add_all(["*"].iter(), IndexAddOption::DEFAULT, None)
-            .unwrap();
-        index.write().unwrap();
+    pub fn add_all(&self) -> ScmResult<()> {
+        let mut index = self.inner.index()?;
+        index.add_all(["."].iter(), IndexAddOption::DEFAULT, None)?;
+        index.write()?;
+        Ok(())
     }
 
     fn push(&self) -> ScmResult<()> {
@@ -371,6 +404,26 @@ impl GitScmRepository {
             Ok(Some(commit))
         }
     }
+
+    pub fn get_commit_hash(&self, revision: &str) -> ScmResult<String> {
+        let mut command = Command::new("git");
+        if let Some(git_workdir) = self.inner.workdir() {
+            command.current_dir(git_workdir);
+        }
+
+        let output = command.args(["rev-parse", "--short", revision]).output()?.stdout;
+        let commit_hash = String::from_utf8(output)?
+            .trim()
+            .to_string();
+        Ok(commit_hash)
+    }
+
+    /// Add and commit files
+    pub fn am(&self, message: &str) -> ScmResult<()> {
+        self.add_all()?;
+        self.commit(message)?;
+        Ok(())
+    }
 }
 
 impl ScmRepository for GitScmRepository {
@@ -419,9 +472,14 @@ impl ScmRepository for GitScmRepository {
         self.push()
     }
 
-    fn last_commit(&self) -> ScmResult<ScmCommit> {
+    fn commit(&self, message: &str) -> ScmResult<()> {
+        self.commit(message)?;
+        Ok(())
+    }
+
+    fn last_commit(&self) -> ScmResult<Option<ScmCommit>> {
         // TODO: does this need to call `resolve` or can we just call `peel_to_commit`?
-        Ok(self.find_last_commit()?.into())
+        Ok(self.find_last_commit()?.and_then(|c| Some(c.into())))
     }
 
     /// Parses and returns the commits.
@@ -739,6 +797,30 @@ impl ScmRepository for GitScmRepository {
 
     fn scm(&self) -> &'static str {
         GIT
+    }
+
+    // TODO: given return of Vec<PathBuf> we should change the name to something like `diff_paths`
+    // and make names only required. Given we aren't actually parsing diff no reason to make it
+    // generic
+
+    fn diff(&self, names_only: bool, range: Option<&ScmCommitRange>) -> ScmResult<Vec<PathBuf>> {
+        let mut args = vec!["diff".to_string()];
+        if names_only {
+            args.push("--name-only".to_string())
+        }
+
+        if let Some(range) = range {
+            // TODO: move logic to a common area
+            let start = &range.0;
+            let end = match &range.1 {
+                None => "HEAD",
+                Some(e) => e,
+            };
+
+            args.push(format!("{start}..{end}"));
+        }
+
+        self.get_files(args)
     }
 }
 
