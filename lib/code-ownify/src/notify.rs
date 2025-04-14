@@ -13,6 +13,8 @@ use thiserror::Error;
 use tracing::{debug, info};
 use walkdir::{DirEntry, WalkDir};
 
+use crate::parse::pattern_to_regex;
+
 #[remain::sorted]
 #[derive(Debug, Error)]
 pub enum CodeNotifyError {
@@ -45,7 +47,6 @@ pub type CodeNotifyResult<T> = Result<T, CodeNotifyError>;
 // }
 
 pub struct CodeNotify {
-
     // TODO: should this be an enum?
     /// The format of the output (text or markdown)
     pub format: String,
@@ -73,7 +74,7 @@ impl CodeNotify {
 
     fn notify_with_writer<W: Write>(&self, writer: &mut W) -> CodeNotifyResult<()> {
         let scm = Scm::get(&env::current_dir()?)?;
-        let paths = scm.diff(true, Some(&self.commit_range))?;
+        let paths = scm.diff_paths(Some(&self.commit_range))?;
         self.inner_notify(writer, paths)?;
 
         Ok(())
@@ -212,7 +213,7 @@ impl CodeNotify {
                         let relative = path.strip_prefix(&current_path)?;
                         let (rule_pattern, rest) =
                             fields.split_first().expect("Rule should have a pattern");
-                        let re = self.pattern_to_regex(rule_pattern)?;
+                        let re = pattern_to_regex(rule_pattern)?;
                         if re.is_match(&relative.to_string_lossy()) {
                             subscribers.extend(rest.to_vec());
                         }
@@ -224,28 +225,6 @@ impl CodeNotify {
         Ok(subscribers)
     }
 
-    fn pattern_to_regex(&self, pattern: &str) -> CodeNotifyResult<Regex> {
-        let mut pattern = pattern.to_string();
-
-        // If the pattern ends with '/', append '**'
-        if pattern.ends_with('/') {
-            pattern.push_str("**");
-        }
-
-        let pattern = regex::escape(&pattern);
-        let pattern = pattern
-            .replace(r"/\*\*/", r"/([^/]*/)*")
-            .replace(r"\*\*/", r"([^/]+/)*")
-            .replace(r"/\*\*", r".*")
-            .replace(r"\*\*", r".*")
-            .replace(r"\*", r"[^/]*");
-
-        // Add regex anchors
-        let pattern = format!("^{}$", pattern);
-
-        Ok(Regex::new(&pattern)?)
-    }
-
     fn markdown_comment_title(&self, file_name: &str) -> String {
         format!("<!-- codenotify:{} report -->\n", file_name)
     }
@@ -253,15 +232,16 @@ impl CodeNotify {
 
 #[cfg(test)]
 mod tests {
-    use std::{env, fs};
     use std::collections::HashMap;
-    use tempfile::TempDir;
+    use std::fs;
+
     use scm::commit::ScmCommitRange;
     use scm::drivers::git::GitScmRepository;
     use scm::drivers::ScmRepository;
+    use tempfile::TempDir;
     use testing::guard::CwdGuard;
 
-    use crate::{CodeNotify, CodeNotifyResult};
+    use super::CodeNotify;
 
     #[test]
     fn basic() {
@@ -283,29 +263,28 @@ mod tests {
             format: "text".to_string(),
             file_name: "CODENOTIFY".to_string(),
             subscriber_threshold: 0,
-            commit_range: ScmCommitRange(
-                br,
-                Some(hr),
-            ),
+            // TODO: avoid these clones
+            commit_range: ScmCommitRange(br.clone(), Some(hr.clone())),
             author: "".to_string(),
         };
 
         let mut writer = Vec::<u8>::new();
         codenotify.notify_with_writer(&mut writer).unwrap();
 
-        insta::assert_snapshot!(String::from_utf8(writer).unwrap());
+        assert_eq!(
+            str::from_utf8(&writer).unwrap(),
+            format!("{}...{}\n@markdown -> file.md\n", &br, &hr)
+        );
     }
 
     #[test]
     fn test_write_notifications() {
-
         struct TestScenario {
             pub name: &'static str,
             pub opts: CodeNotify,
             pub notifs: HashMap<String, Vec<String>>,
             pub err: String,
-            pub output: Vec<&'static str>
-            // pub output: &'static str,
+            pub output: Vec<&'static str>, // pub output: &'static str,
         }
 
         let test_scenarios = vec![
