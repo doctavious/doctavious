@@ -94,7 +94,7 @@ pub trait ScmRepository {
 
     fn scm(&self) -> &'static str;
 
-    fn diff(&self, name_only: bool, range: Option<&ScmCommitRange>) -> ScmResult<Vec<PathBuf>>;
+    fn diff_paths(&self, range: Option<&ScmCommitRange>) -> ScmResult<Vec<PathBuf>>;
 
     fn commit(&self, message: &str) -> ScmResult<()>;
 }
@@ -320,9 +320,9 @@ impl ScmRepository for Scm {
         }
     }
 
-    fn diff(&self, name_only: bool, range: Option<&ScmCommitRange>) -> ScmResult<Vec<PathBuf>> {
+    fn diff_paths(&self, range: Option<&ScmCommitRange>) -> ScmResult<Vec<PathBuf>> {
         match self {
-            Scm::Git(r) => r.diff(name_only, range),
+            Scm::Git(r) => r.diff_paths(range),
             Scm::Hg(_) => unimplemented!(),
             Scm::Svn(_) => unimplemented!(),
         }

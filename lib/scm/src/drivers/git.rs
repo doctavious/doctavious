@@ -803,11 +803,8 @@ impl ScmRepository for GitScmRepository {
     // and make names only required. Given we aren't actually parsing diff no reason to make it
     // generic
 
-    fn diff(&self, names_only: bool, range: Option<&ScmCommitRange>) -> ScmResult<Vec<PathBuf>> {
-        let mut args = vec!["diff".to_string()];
-        if names_only {
-            args.push("--name-only".to_string())
-        }
+    fn diff_paths(&self, range: Option<&ScmCommitRange>) -> ScmResult<Vec<PathBuf>> {
+        let mut args = vec!["diff".to_string(), "--name-only".to_string()];
 
         if let Some(range) = range {
             // TODO: move logic to a common area

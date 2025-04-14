@@ -120,7 +120,7 @@ impl ScmRepository for SvnScmRepository {
         todo!()
     }
 
-    fn diff(&self, name_only: bool, range: Option<&ScmCommitRange>) -> ScmResult<Vec<PathBuf>> {
+    fn diff_paths(&self, range: Option<&ScmCommitRange>) -> ScmResult<Vec<PathBuf>> {
         todo!()
     }
 }
