@@ -1,12 +1,14 @@
 use std::hash::{Hash, Hasher};
+use std::path::PathBuf;
 
 use chrono::{DateTime, Utc};
 use serde_derive::{Deserialize, Serialize};
+use strum::{EnumIter, IntoEnumIterator};
 
 use crate::commit::ScmSignature;
 
 // TODO: rename to ScmHostedProviders?
-#[derive(Clone, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
+#[derive(Clone, Debug, Deserialize, EnumIter, Eq, Hash, PartialEq, Serialize)]
 #[serde(rename_all = "lowercase")]
 #[remain::sorted]
 pub enum ScmProviders {
@@ -14,7 +16,19 @@ pub enum ScmProviders {
     Gitea,
     GitHub,
     GitLab,
-    Gog,
+    Gogs,
+}
+
+impl ScmProviders {
+    pub fn dot_directories() -> Vec<PathBuf> {
+        // TODO: these values maybe belong to the individual provider mods but fine for now
+        vec![
+            PathBuf::from(".bitbucket"),
+            PathBuf::from(".gitea"),
+            PathBuf::from(".github"),
+            PathBuf::from(".gitlab"),
+        ]
+    }
 }
 
 // impl Hash for ScmProviders {
@@ -55,4 +69,7 @@ pub trait ScmProvider {
     fn get_commits(&self) -> Vec<ScmProviderCommitsResponse>;
 
     fn get_releases(&self) -> Vec<ScmProviderRelease>;
+
+    // TODO: get comment
+    // TODO: comment on MR/PR
 }
