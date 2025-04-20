@@ -1,10 +1,11 @@
 use std::panic::{RefUnwindSafe, UnwindSafe};
-use std::path::Path;
-use std::sync::Mutex;
-use std::{env, io, panic};
+use std::path::{Path, PathBuf};
+use std::{env, fs, io};
+
+use tempfile::TempDir;
 
 pub struct CwdGuard {
-    original_dir: std::path::PathBuf,
+    original_dir: PathBuf,
 }
 
 impl CwdGuard {
@@ -29,6 +30,32 @@ where
 {
     let _guard = CwdGuard::new(path)?;
     closure()
+}
+
+pub struct TempDirGuard {
+    pub path: PathBuf,
+}
+
+impl TempDirGuard {
+    pub fn new() -> io::Result<(PathBuf, Self)> {
+        let temp_dir = TempDir::new()?;
+        Self::from_tempdir(temp_dir)
+    }
+
+    pub fn from_tempdir(temp_dir: TempDir) -> io::Result<(PathBuf, Self)> {
+        let path = temp_dir.into_path();
+        Ok((path.clone(), Self { path }))
+    }
+
+    pub fn path(&self) -> &Path {
+        &self.path
+    }
+}
+
+impl Drop for TempDirGuard {
+    fn drop(&mut self) {
+        let _ = fs::remove_dir_all(&self.path);
+    }
 }
 
 // with_directory(path, || { closure })
