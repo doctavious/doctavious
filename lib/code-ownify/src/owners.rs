@@ -6,7 +6,7 @@ use scm::providers::ScmProviders;
 use thiserror::Error;
 use tracing::info;
 
-use crate::parse::pattern_to_regex;
+use crate::parser::pattern_to_regex;
 
 const CODEOWNERS: &'static str = "codeowners";
 
@@ -31,7 +31,7 @@ impl CodeOwners {
     pub fn new(location: PathBuf) -> CodeOwnersResult<Option<CodeOwners>> {
         if location.exists() {
             let owners = Self::parse(&location)?;
-            return Ok(Some(Self { location, owners }))
+            return Ok(Some(Self { location, owners }));
         }
 
         Ok(None)
@@ -43,7 +43,7 @@ impl CodeOwners {
             let owners = Self::parse(&root_codeowners)?;
             return Ok(Some(Self {
                 location: root_codeowners,
-                owners
+                owners,
             }));
         }
 
@@ -52,7 +52,7 @@ impl CodeOwners {
             let owners = Self::parse(&docs_codeowners)?;
             return Ok(Some(Self {
                 location: docs_codeowners,
-                owners
+                owners,
             }));
         }
 
@@ -61,7 +61,7 @@ impl CodeOwners {
                 let owners = Self::parse(&dot_directory)?;
                 return Ok(Some(Self {
                     location: dot_directory,
-                    owners
+                    owners,
                 }));
             }
         }
