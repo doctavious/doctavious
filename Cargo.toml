@@ -10,10 +10,11 @@ resolver = "2"
 members = [
     "bin/cli",
     "bin/server",
+    "lib/bom",
     "lib/cas",
     "lib/changelog",
     "lib/cifrs",
-    "lib/code-notify",
+    "lib/code-ownify",
     "lib/doctavious-cli",
     "lib/doctavious-server",
     "lib/doctavious-std",
