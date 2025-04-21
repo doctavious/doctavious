@@ -6,7 +6,7 @@ use scm::providers::ScmProviders;
 use thiserror::Error;
 use tracing::info;
 
-use crate::parser::pattern_to_regex;
+use crate::parser;
 
 const CODEOWNERS: &'static str = "codeowners";
 
@@ -23,8 +23,8 @@ pub enum CodeOwnersError {
 pub type CodeOwnersResult<T> = Result<T, CodeOwnersError>;
 
 pub struct CodeOwners {
-    location: PathBuf,
-    owners: HashMap<String, Vec<String>>,
+    pub location: PathBuf,
+    pub owners: HashMap<String, Vec<String>>,
 }
 
 impl CodeOwners {
@@ -69,26 +69,21 @@ impl CodeOwners {
         Ok(None)
     }
 
-    // TODO: probably belongs in parse...
     fn parse(location: &Path) -> CodeOwnersResult<HashMap<String, Vec<String>>> {
         let mut owners = HashMap::new();
         for line in fs::read_to_string(&location)?.lines() {
-            let trimmed_line = line.trim();
-            if trimmed_line.is_empty() || trimmed_line.starts_with("#") {
-                continue;
-            }
-            let fields: Vec<String> = line.split_whitespace().map(str::to_string).collect();
-            if fields.len() == 1 {
-                info!(
-                    "expected at least two fields for rule in {}: {}",
-                    &location.to_string_lossy(),
-                    line
-                );
-                continue;
-            }
+            if let Some((rule_pattern, pattern_owners)) = parser::parse_line(line) {
+                if pattern_owners.is_empty() {
+                    info!(
+                        "expected subscribers for rule in {}: {}",
+                        &location.to_string_lossy(),
+                        line
+                    );
+                    continue;
+                }
 
-            let (rule_pattern, rest) = fields.split_first().expect("Rule should have a pattern");
-            owners.insert(rule_pattern.to_string(), rest.to_vec());
+                owners.insert(rule_pattern.to_string(), pattern_owners.to_vec());
+            }
         }
 
         Ok(owners)

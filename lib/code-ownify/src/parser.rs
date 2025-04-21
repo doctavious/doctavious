@@ -1,26 +1,27 @@
 use regex::Regex;
-use tracing::info;
 
-// pub(crate) fn parse_line(line: &str) -> Result<Option<(Regex, Vec<String>)>, regex::Error> {
-//     let trimmed_line = line.trim();
-//     if trimmed_line.is_empty() || trimmed_line.starts_with("#") {
-//         return Ok(None);
-//     }
-//
-//     let fields: Vec<String> = line.split_whitespace().map(str::to_string).collect();
-//     if fields.len() == 1 {
-//         info!(
-//             "expected at least two fields for rule in {}: {}",
-//             &rule_path.to_string_lossy(),
-//             line
-//         );
-//         continue;
-//     }
-//
-//     let (rule_pattern, rest) =
-//         fields.split_first().expect("Rule should have a pattern");
-//     let re = pattern_to_regex(rule_pattern)?;
-// }
+pub(crate) fn parse_line(line: &str) -> Option<(String, Vec<String>)> {
+    let trimmed_line = line.trim();
+    if trimmed_line.is_empty() || trimmed_line.starts_with("#") {
+        return None;
+    }
+
+    let fields: Vec<String> = line.split_whitespace().map(str::to_string).collect();
+    // if fields.len() == 1 {
+    //     info!(
+    //         "expected at least two fields for rule in {}: {}",
+    //         file.to_string_lossy(),
+    //         line
+    //     );
+    //     continue;
+    // }
+
+    if let Some((rule_pattern, rest)) = fields.split_first() {
+        Some((rule_pattern.to_owned(), rest.to_vec()))
+    } else {
+        None
+    }
+}
 
 /// Transform CODEOWNER and CODENOTIFY patterns to regex
 /// CODENOTIFY files mimic the structure of CODEOWNER files so this is a shared function.

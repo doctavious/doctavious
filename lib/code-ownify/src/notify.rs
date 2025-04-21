@@ -1,18 +1,15 @@
 use std::collections::HashMap;
-use std::fs::File;
 use std::io::Write;
 use std::path::{Path, PathBuf};
-use std::{env, fs, io, path};
+use std::{fs, io, path};
 
-use regex::Regex;
 use scm::commit::ScmCommitRange;
-use scm::drivers::git::GitScmRepository;
 use scm::drivers::{Scm, ScmRepository};
 use scm::errors::ScmError;
 use thiserror::Error;
 use tracing::{debug, info};
-use walkdir::{DirEntry, WalkDir};
 
+use crate::parser;
 use crate::parser::pattern_to_regex;
 
 #[remain::sorted]
@@ -35,19 +32,6 @@ pub enum CodeNotifyError {
 }
 
 pub type CodeNotifyResult<T> = Result<T, CodeNotifyError>;
-
-// fn get_code_notify_files(cwd: &Path) -> impl Iterator<Item = DirEntry> {
-//     WalkDir::new(cwd)
-//         .into_iter()
-//         .filter_entry(|e| {
-//             if e.path().is_file() {
-//                 return e.file_name().to_string_lossy() == "CODENOTIFY";
-//             }
-//
-//             false
-//         })
-//         .filter_map(Result::ok)
-// }
 
 pub struct CodeNotify {
     pub cwd: PathBuf,
@@ -201,28 +185,23 @@ impl CodeNotify {
             if current_path.is_dir() {
                 let rule_path = current_path.join(&self.file_name);
                 if rule_path.is_file() {
+                    let relative = path.strip_prefix(&current_path)?;
                     for line in fs::read_to_string(&rule_path)?.lines() {
-                        let trimmed_line = line.trim();
-                        if trimmed_line.is_empty() || trimmed_line.starts_with("#") {
-                            continue;
-                        }
-                        let fields: Vec<String> =
-                            line.split_whitespace().map(str::to_string).collect();
-                        if fields.len() == 1 {
-                            info!(
-                                "expected at least two fields for rule in {}: {}",
-                                &rule_path.to_string_lossy(),
-                                line
-                            );
-                            continue;
-                        }
+                        if let Some((rule_pattern, pattern_subscribers)) = parser::parse_line(line)
+                        {
+                            if pattern_subscribers.is_empty() {
+                                info!(
+                                    "expected subscribers for rule in {}: {}",
+                                    &rule_path.to_string_lossy(),
+                                    line
+                                );
+                                continue;
+                            }
 
-                        let relative = path.strip_prefix(&current_path)?;
-                        let (rule_pattern, rest) =
-                            fields.split_first().expect("Rule should have a pattern");
-                        let re = pattern_to_regex(rule_pattern)?;
-                        if re.is_match(&relative.to_string_lossy()) {
-                            subscribers.extend(rest.to_vec());
+                            let re = pattern_to_regex(&rule_pattern)?;
+                            if re.is_match(&relative.to_string_lossy()) {
+                                subscribers.extend(pattern_subscribers);
+                            }
                         }
                     }
                 }
@@ -239,13 +218,12 @@ impl CodeNotify {
 
 #[cfg(test)]
 mod tests {
-    use std::collections::{HashMap, HashSet};
+    use std::collections::HashMap;
     use std::fs;
     use std::path::PathBuf;
 
     use scm::commit::ScmCommitRange;
     use scm::drivers::git::GitScmRepository;
-    use scm::drivers::ScmRepository;
     use testing::guard::TempDirGuard;
 
     use super::CodeNotify;
@@ -1017,7 +995,6 @@ mod tests {
             let code_notify = t.opts.to_codenotify(temp_dir);
             let mut notifs = code_notify.notifications(&paths).unwrap();
 
-            // let subs = HashSet::new();
             for (subscriber, actual_files) in notifs.iter_mut() {
                 let expected_files = t.notifications.get_mut(subscriber).unwrap();
                 actual_files.sort();
@@ -1035,8 +1012,6 @@ mod tests {
                 expected_files.sort();
                 assert_eq!(expected_files, actual_files);
             }
-
-            // assert_eq!(t.notifications, notifs)
         }
     }
 }
