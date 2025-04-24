@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::{fs, io};
-
+use std::string::FromUtf8Error;
 use scm::providers::ScmProviders;
 use thiserror::Error;
 use tracing::info;
@@ -14,6 +14,9 @@ const CODEOWNERS: &'static str = "CODEOWNERS";
 #[remain::sorted]
 #[derive(Debug, Error)]
 pub enum CodeOwnersError {
+    #[error(transparent)]
+    FromUtf8Error(#[from] FromUtf8Error),
+
     #[error(transparent)]
     IoError(#[from] io::Error),
 
@@ -35,35 +38,6 @@ impl CodeOwners {
             location,
         })
     }
-
-    // pub fn from(path: &Path) -> CodeOwnersResult<Option<HashMap<String, Vec<String>>>> {
-    //     if path.exists() {
-    //         return Ok(Some(Self::parse(&path)?));
-    //     }
-    //
-    //     Ok(None)
-    // }
-    //
-    // pub fn d(root: &Path) -> CodeOwnersResult<Option<HashMap<String, Vec<String>>>> {
-    //     let root_codeowners = root.join(CODEOWNERS);
-    //     if root_codeowners.exists() {
-    //         return Ok(Some(Self::parse(&root_codeowners)?));
-    //     }
-    //
-    //     let docs_codeowners = root.join("docs").join(CODEOWNERS);
-    //     if docs_codeowners.exists() {
-    //         return Ok(Some(Self::parse(&docs_codeowners)?));
-    //     }
-    //
-    //     for dot_directory in ScmProviders::dot_directories() {
-    //         if dot_directory.exists() {
-    //             return Ok(Some(Self::parse(&dot_directory)?));
-    //         }
-    //     }
-    //
-    //
-    //     Ok(None)
-    // }
 
     pub fn discover(root: PathBuf) -> CodeOwnersResult<Option<CodeOwners>> {
         let root_codeowners = root.join(CODEOWNERS);
@@ -102,26 +76,6 @@ impl CodeOwners {
         &self.owners
     }
 
-    // pub fn owners(&self) -> CodeOwnersResult<HashMap<String, Vec<String>>> {
-    //     let mut owners = HashMap::new();
-    //     for line in fs::read_to_string(&self.location)?.lines() {
-    //         if let Some((rule_pattern, pattern_owners)) = parser::parse_line(line) {
-    //             if pattern_owners.is_empty() {
-    //                 info!(
-    //                     "expected subscribers for rule in {}: {}",
-    //                     &self.location.to_string_lossy(),
-    //                     line
-    //                 );
-    //                 continue;
-    //             }
-    //
-    //             owners.insert(rule_pattern.to_string(), pattern_owners.to_vec());
-    //         }
-    //     }
-    //
-    //     Ok(owners)
-    // }
-
     fn parse(path: &Path) -> CodeOwnersResult<HashMap<String, Vec<String>>> {
         let mut owners = HashMap::new();
         for line in fs::read_to_string(path)?.lines() {
@@ -142,7 +96,8 @@ impl CodeOwners {
         Ok(owners)
     }
 
-    pub fn render<W: Write>(&self, writer: &mut W, format: &'static str) -> CodeOwnersResult<()> {
+    pub fn render(&self, format: &'static str) -> CodeOwnersResult<String> {
+        let mut writer = Vec::<u8>::new();
         let owners = self.owners();
         match format {
             "markdown" => {
@@ -155,7 +110,7 @@ impl CodeOwners {
             _ => {}
         }
 
-        Ok(())
+        Ok(String::from_utf8(writer)?)
     }
 }
 
@@ -255,12 +210,11 @@ mod tests {
             .expect("Should have found CODEOWNER file")
             .unwrap();
 
-        let mut writer = Vec::<u8>::new();
-        let rendered = code_owners.render(&mut writer, "markdown").unwrap();
+        let rendered = code_owners.render("markdown").unwrap();
 
         assert_eq!(
             "| File(s) | Owners |\n|-|-|\n| **/*.md | @markdown |\n",
-            str::from_utf8(&writer).unwrap()
+            rendered.as_str()
         )
     }
 }
