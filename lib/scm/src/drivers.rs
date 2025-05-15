@@ -105,22 +105,28 @@ impl Scm {
         // TODO: it might be better to try and discover directory such as
         // `git rev-parse --show-toplevel` and `git rev-parse --git-dir`
 
-        if let Ok(repo) = GitScmRepository::discover(cwd) {
-            return Ok(Scm::Git(repo));
+        if fs::metadata(cwd.join(".git")).is_ok() {
+            return Ok(Scm::Git(GitScmRepository::new(cwd)?));
         }
-        // if fs::metadata(cwd.join(".git")).is_ok() {
-        //     return Ok(Scm::Git(GitScmRepository::new(cwd)?));
-        // }
 
         if fs::metadata(cwd.join(".svn")).is_ok() {
-            // TODO: implement
             unimplemented!()
         }
 
         if fs::metadata(cwd.join(".hg")).is_ok() {
-            // TODO: implement
             unimplemented!()
         }
+
+        Err(ScmError::Unsupported)
+    }
+
+    pub fn discover(cwd: &Path) -> ScmResult<Self> {
+        if let Ok(repo) = GitScmRepository::discover(cwd) {
+            return Ok(Scm::Git(repo));
+        }
+
+        // TODO: SVN
+        // TODO: Mecurial
 
         Err(ScmError::Unsupported)
     }

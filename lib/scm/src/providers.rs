@@ -1,9 +1,12 @@
-use std::hash::{Hash, Hasher};
+pub mod github;
+pub mod gitlab;
+
+use std::hash::Hash;
 use std::path::PathBuf;
 
 use chrono::{DateTime, Utc};
 use serde_derive::{Deserialize, Serialize};
-use strum::{EnumIter, IntoEnumIterator};
+use strum::EnumIter;
 
 use crate::commit::ScmSignature;
 
@@ -65,11 +68,33 @@ pub struct ScmProviderRelease {
     pub published: DateTime<Utc>,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MergeRequestNote {}
+
+#[async_trait::async_trait]
 pub trait ScmProvider {
-    fn get_commits(&self) -> Vec<ScmProviderCommitsResponse>;
+    type RepositoryIdentifier;
 
-    fn get_releases(&self) -> Vec<ScmProviderRelease>;
+    // fn get_commits(&self) -> Vec<ScmProviderCommitsResponse>;
+    //
+    // fn get_releases(&self) -> Vec<ScmProviderRelease>;
 
-    // TODO: get comment
-    // TODO: comment on MR/PR
+    // TODO: per_page / page, sort, direction
+    // -> Vec<PullRequestNote>
+    async fn list_all_merge_requests_notes(&self, repo_id: Self::RepositoryIdentifier, mr: u64);
+
+    async fn create_merge_request_note(
+        &self,
+        repo_id: Self::RepositoryIdentifier,
+        mr: u64,
+        body: String,
+    );
+
+    async fn update_merge_request_note(
+        &self,
+        repo_id: Self::RepositoryIdentifier,
+        mr: u64,
+        note_id: u64,
+        body: String,
+    );
 }

@@ -334,14 +334,8 @@ impl GitScmRepository {
                 &[&parent_commit],
             )?
         } else {
-            self.inner.commit(
-                Some("HEAD"),
-                &signature,
-                &signature,
-                message,
-                &tree,
-                &[],
-            )?
+            self.inner
+                .commit(Some("HEAD"), &signature, &signature, message, &tree, &[])?
         };
 
         Ok(Oid {
@@ -411,10 +405,11 @@ impl GitScmRepository {
             command.current_dir(git_workdir);
         }
 
-        let output = command.args(["rev-parse", "--short", revision]).output()?.stdout;
-        let commit_hash = String::from_utf8(output)?
-            .trim()
-            .to_string();
+        let output = command
+            .args(["rev-parse", "--short", revision])
+            .output()?
+            .stdout;
+        let commit_hash = String::from_utf8(output)?.trim().to_string();
         Ok(commit_hash)
     }
 
