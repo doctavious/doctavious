@@ -62,10 +62,8 @@ impl CodeNotify {
     }
 
     fn notify_with_writer<W: Write>(&self, writer: &mut W) -> CodeNotifyResult<()> {
-        // let scm = Scm::get(&env::current_dir()?)?;
         let scm = Scm::get(&self.cwd)?;
         let paths = scm.diff_paths(Some(&self.commit_range))?;
-        println!("scm paths...{:?}", &paths);
         self.inner_notify(writer, paths)?;
 
         Ok(())
@@ -83,7 +81,6 @@ impl CodeNotify {
         paths: &Vec<PathBuf>,
     ) -> CodeNotifyResult<HashMap<String, Vec<String>>> {
         let mut notifications: HashMap<String, Vec<String>> = HashMap::new();
-        // let root = Path::new(".");
         let root = &self.cwd;
         for p in paths {
             // We need to add root to paths as they dont contain it and we want to make sure we
@@ -108,7 +105,12 @@ impl CodeNotify {
     ) -> CodeNotifyResult<()> {
         if self.subscriber_threshold > 0 && notifications.len() > self.subscriber_threshold as usize
         {
-            writeln!(writer, "Not notifying subscribers as the number of notifying subscribers {} exceeds the threshold {}", notifications.len(), self.subscriber_threshold)?;
+            writeln!(
+                writer,
+                "Not notifying subscribers as the number of notifying subscribers {} exceeds the threshold {}",
+                notifications.len(),
+                self.subscriber_threshold
+            )?;
             return Ok(());
         }
 
@@ -323,10 +325,7 @@ mod tests {
                 },
                 notifs: Default::default(),
                 err: None,
-                output: vec![
-                    "a...b",
-                    "No notifications",
-                ],
+                output: vec!["a...b", "No notifications"],
             },
             TestScenario {
                 name: "markdown",
@@ -338,8 +337,14 @@ mod tests {
                     author: None,
                 },
                 notifs: HashMap::from([
-                    ("@go".to_string(), vec!["file.go".to_string(), "dir/file.go".to_string()]),
-                    ("@js".to_string(), vec!["file.js".to_string(), "dir/file.js".to_string()]),
+                    (
+                        "@go".to_string(),
+                        vec!["file.go".to_string(), "dir/file.go".to_string()],
+                    ),
+                    (
+                        "@js".to_string(),
+                        vec!["file.js".to_string(), "dir/file.js".to_string()],
+                    ),
                 ]),
                 err: None,
                 output: vec![
@@ -350,7 +355,7 @@ mod tests {
                     "|-|-|",
                     "| @go | file.go<br>dir/file.go |",
                     "| @js | file.js<br>dir/file.js |",
-                    ""
+                    "",
                 ],
             },
             TestScenario {
@@ -363,15 +368,21 @@ mod tests {
                     author: None,
                 },
                 notifs: HashMap::from([
-                    ("@go".to_string(), vec!["file.go".to_string(), "dir/file.go".to_string()]),
-                    ("@js".to_string(), vec!["file.js".to_string(), "dir/file.js".to_string()]),
+                    (
+                        "@go".to_string(),
+                        vec!["file.go".to_string(), "dir/file.go".to_string()],
+                    ),
+                    (
+                        "@js".to_string(),
+                        vec!["file.js".to_string(), "dir/file.js".to_string()],
+                    ),
                 ]),
                 err: None,
                 output: vec![
                     "a...b",
                     "@go -> file.go, dir/file.go",
                     "@js -> file.js, dir/file.js",
-                    ""
+                    "",
                 ],
             },
             TestScenario {
@@ -383,9 +394,10 @@ mod tests {
                     subscriber_threshold: 0,
                     author: None,
                 },
-                notifs: HashMap::from([
-                    ("@go".to_string(), vec!["file.go".to_string(), "dir/file.go".to_string()]),
-                ]),
+                notifs: HashMap::from([(
+                    "@go".to_string(),
+                    vec!["file.go".to_string(), "dir/file.go".to_string()],
+                )]),
                 err: Some("unsupported format: pdf".to_string()),
                 output: vec![],
             },
@@ -399,14 +411,20 @@ mod tests {
                     author: None,
                 },
                 notifs: HashMap::from([
-                    ("@go".to_string(), vec!["file.go".to_string(), "dir/file.go".to_string()]),
-                    ("@js".to_string(), vec!["file.js".to_string(), "dir/file.js".to_string()]),
+                    (
+                        "@go".to_string(),
+                        vec!["file.go".to_string(), "dir/file.go".to_string()],
+                    ),
+                    (
+                        "@js".to_string(),
+                        vec!["file.js".to_string(), "dir/file.js".to_string()],
+                    ),
                 ]),
                 err: None,
                 output: vec![
-                    "Not notifying subscribers as the number of notifying subscribers 2 exceeds the threshold 1\n"
+                    "Not notifying subscribers as the number of notifying subscribers 2 exceeds the threshold 1\n",
                 ],
-            }
+            },
         ];
 
         for t in test_scenarios {
@@ -473,9 +491,10 @@ mod tests {
                     ("dir/file.md", ""),
                     ("dir/dir/file.md", ""),
                 ]),
-                notifications: HashMap::from([
-                    ("@notify".to_string(), vec!["file.md".to_string()])
-                ]),
+                notifications: HashMap::from([(
+                    "@notify".to_string(),
+                    vec!["file.md".to_string()],
+                )]),
             },
             TestScenario {
                 name: "no leading slash",
@@ -509,9 +528,10 @@ mod tests {
                     ("dir/file.md", ""),
                     ("dir/dir/file.md", ""),
                 ]),
-                notifications: HashMap::from([
-                    ("@notify".to_string(), vec!["file.md".to_string()])
-                ]),
+                notifications: HashMap::from([(
+                    "@notify".to_string(),
+                    vec!["file.md".to_string()],
+                )]),
             },
             TestScenario {
                 name: "comments",
@@ -528,9 +548,10 @@ mod tests {
                     ("dir/file.md", ""),
                     ("dir/dir/file.md", ""),
                 ]),
-                notifications: HashMap::from([
-                    ("@notify".to_string(), vec!["file.md".to_string()])
-                ]),
+                notifications: HashMap::from([(
+                    "@notify".to_string(),
+                    vec!["file.md".to_string()],
+                )]),
             },
             TestScenario {
                 name: "*",
@@ -547,9 +568,10 @@ mod tests {
                     ("dir/file.md", ""),
                     ("dir/dir/file.md", ""),
                 ]),
-                notifications: HashMap::from([
-                    ("@notify".to_string(), vec!["CODENOTIFY".to_string(), "file.md".to_string()])
-                ]),
+                notifications: HashMap::from([(
+                    "@notify".to_string(),
+                    vec!["CODENOTIFY".to_string(), "file.md".to_string()],
+                )]),
             },
             TestScenario {
                 name: "dir/*",
@@ -566,9 +588,10 @@ mod tests {
                     ("dir/file.md", ""),
                     ("dir/dir/file.md", ""),
                 ]),
-                notifications: HashMap::from([
-                    ("@notify".to_string(), vec!["dir/file.md".to_string()])
-                ]),
+                notifications: HashMap::from([(
+                    "@notify".to_string(),
+                    vec!["dir/file.md".to_string()],
+                )]),
             },
             TestScenario {
                 name: "**",
@@ -585,17 +608,15 @@ mod tests {
                     ("dir/file.md", ""),
                     ("dir/dir/file.md", ""),
                 ]),
-                notifications: HashMap::from([
-                    (
-                        "@notify".to_string(),
-                        vec![
-                            "CODENOTIFY".to_string(),
-                            "file.md".to_string(),
-                            "dir/file.md".to_string(),
-                            "dir/dir/file.md".to_string(),
-                        ]
-                    )
-                ]),
+                notifications: HashMap::from([(
+                    "@notify".to_string(),
+                    vec![
+                        "CODENOTIFY".to_string(),
+                        "file.md".to_string(),
+                        "dir/file.md".to_string(),
+                        "dir/dir/file.md".to_string(),
+                    ],
+                )]),
             },
             // same as **
             TestScenario {
@@ -613,17 +634,15 @@ mod tests {
                     ("dir/file.md", ""),
                     ("dir/dir/file.md", ""),
                 ]),
-                notifications: HashMap::from([
-                    (
-                        "@notify".to_string(),
-                        vec![
-                            "CODENOTIFY".to_string(),
-                            "file.md".to_string(),
-                            "dir/file.md".to_string(),
-                            "dir/dir/file.md".to_string(),
-                        ]
-                    )
-                ]),
+                notifications: HashMap::from([(
+                    "@notify".to_string(),
+                    vec![
+                        "CODENOTIFY".to_string(),
+                        "file.md".to_string(),
+                        "dir/file.md".to_string(),
+                        "dir/dir/file.md".to_string(),
+                    ],
+                )]),
             },
             TestScenario {
                 name: "**/file.md",
@@ -640,16 +659,14 @@ mod tests {
                     ("dir/file.md", ""),
                     ("dir/dir/file.md", ""),
                 ]),
-                notifications: HashMap::from([
-                    (
-                        "@notify".to_string(),
-                        vec![
-                            "file.md".to_string(),
-                            "dir/file.md".to_string(),
-                            "dir/dir/file.md".to_string(),
-                        ]
-                    )
-                ]),
+                notifications: HashMap::from([(
+                    "@notify".to_string(),
+                    vec![
+                        "file.md".to_string(),
+                        "dir/file.md".to_string(),
+                        "dir/dir/file.md".to_string(),
+                    ],
+                )]),
             },
             TestScenario {
                 name: "dir/**",
@@ -666,15 +683,10 @@ mod tests {
                     ("dir/file.md", ""),
                     ("dir/dir/file.md", ""),
                 ]),
-                notifications: HashMap::from([
-                    (
-                        "@notify".to_string(),
-                        vec![
-                            "dir/file.md".to_string(),
-                            "dir/dir/file.md".to_string(),
-                        ]
-                    )
-                ]),
+                notifications: HashMap::from([(
+                    "@notify".to_string(),
+                    vec!["dir/file.md".to_string(), "dir/dir/file.md".to_string()],
+                )]),
             },
             // same as "dir/**"
             TestScenario {
@@ -692,15 +704,10 @@ mod tests {
                     ("dir/file.md", ""),
                     ("dir/dir/file.md", ""),
                 ]),
-                notifications: HashMap::from([
-                    (
-                        "@notify".to_string(),
-                        vec![
-                            "dir/file.md".to_string(),
-                            "dir/dir/file.md".to_string(),
-                        ]
-                    )
-                ]),
+                notifications: HashMap::from([(
+                    "@notify".to_string(),
+                    vec!["dir/file.md".to_string(), "dir/dir/file.md".to_string()],
+                )]),
             },
             TestScenario {
                 name: "dir/**/file.md",
@@ -718,15 +725,10 @@ mod tests {
                     ("dir/file.md", ""),
                     ("dir/dir/file.md", ""),
                 ]),
-                notifications: HashMap::from([
-                    (
-                        "@notify".to_string(),
-                        vec![
-                            "dir/file.md".to_string(),
-                            "dir/dir/file.md".to_string(),
-                        ]
-                    )
-                ]),
+                notifications: HashMap::from([(
+                    "@notify".to_string(),
+                    vec!["dir/file.md".to_string(), "dir/dir/file.md".to_string()],
+                )]),
             },
             TestScenario {
                 name: "multiple subscribers",
@@ -737,22 +739,16 @@ mod tests {
                     subscriber_threshold: 0,
                     author: None,
                 },
-                paths: HashMap::from([
-                    ("CODENOTIFY", "* @alice @bob\n"),
-                    ("file.md", ""),
-                ]),
+                paths: HashMap::from([("CODENOTIFY", "* @alice @bob\n"), ("file.md", "")]),
                 notifications: HashMap::from([
                     (
                         "@alice".to_string(),
-                        vec!["CODENOTIFY".to_string(), "file.md".to_string()]
+                        vec!["CODENOTIFY".to_string(), "file.md".to_string()],
                     ),
                     (
                         "@bob".to_string(),
-                        vec![
-                            "CODENOTIFY".to_string(),
-                            "file.md".to_string()
-                        ]
-                    )
+                        vec!["CODENOTIFY".to_string(), "file.md".to_string()],
+                    ),
                 ]),
             },
             TestScenario {
@@ -764,10 +760,7 @@ mod tests {
                     subscriber_threshold: 0,
                     author: None,
                 },
-                paths: HashMap::from([
-                    ("CODENOTIFY", "../* @alice @bob\n"),
-                    ("file.md", ""),
-                ]),
+                paths: HashMap::from([("CODENOTIFY", "../* @alice @bob\n"), ("file.md", "")]),
                 notifications: HashMap::default(),
             },
             TestScenario {
@@ -780,15 +773,24 @@ mod tests {
                     author: None,
                 },
                 paths: HashMap::from([
-                    ("CODENOTIFY", "* @rootany\n*.go @rootgo\n*.js @rootjs\n**/* @all\n**/*.go @allgo\n**/*.js @alljs\n"),
+                    (
+                        "CODENOTIFY",
+                        "* @rootany\n*.go @rootgo\n*.js @rootjs\n**/* @all\n**/*.go @allgo\n**/*.js @alljs\n",
+                    ),
                     ("file.md", ""),
                     ("file.js", ""),
                     ("file.go", ""),
-                    ("dir/CODENOTIFY", "* @dir/any\n*.go @dir/go\n*.js @dir/js\n**/* @dir/all\n**/*.go @dir/allgo\n**/*.js @dir/alljs\n"),
+                    (
+                        "dir/CODENOTIFY",
+                        "* @dir/any\n*.go @dir/go\n*.js @dir/js\n**/* @dir/all\n**/*.go @dir/allgo\n**/*.js @dir/alljs\n",
+                    ),
                     ("dir/file.md", ""),
                     ("dir/file.js", ""),
                     ("dir/file.go", ""),
-                    ("dir/dir/CODENOTIFY", "* @dir/dir/any\n*.go @dir/dir/go\n*.js @dir/dir/js\n**/* @dir/dir/all\n**/*.go @dir/dir/allgo\n**/*.js @dir/dir/alljs\n"),
+                    (
+                        "dir/dir/CODENOTIFY",
+                        "* @dir/dir/any\n*.go @dir/dir/go\n*.js @dir/dir/js\n**/* @dir/dir/all\n**/*.go @dir/dir/allgo\n**/*.js @dir/dir/alljs\n",
+                    ),
                     ("dir/dir/file.md", ""),
                     ("dir/dir/file.js", ""),
                     ("dir/dir/file.go", ""),
@@ -809,23 +811,23 @@ mod tests {
                             "dir/dir/file.md".to_string(),
                             "dir/dir/file.js".to_string(),
                             "dir/dir/file.go".to_string(),
-                        ]
+                        ],
                     ),
                     (
                         "@allgo".to_string(),
                         vec![
                             "file.go".to_string(),
                             "dir/file.go".to_string(),
-                            "dir/dir/file.go".to_string()
-                        ]
+                            "dir/dir/file.go".to_string(),
+                        ],
                     ),
                     (
                         "@alljs".to_string(),
                         vec![
                             "file.js".to_string(),
                             "dir/file.js".to_string(),
-                            "dir/dir/file.js".to_string()
-                        ]
+                            "dir/dir/file.js".to_string(),
+                        ],
                     ),
                     (
                         "@rootany".to_string(),
@@ -833,21 +835,11 @@ mod tests {
                             "CODENOTIFY".to_string(),
                             "file.md".to_string(),
                             "file.js".to_string(),
-                            "file.go".to_string()
-                        ]
+                            "file.go".to_string(),
+                        ],
                     ),
-                    (
-                        "@rootgo".to_string(),
-                        vec![
-                            "file.go".to_string()
-                        ]
-                    ),
-                    (
-                        "@rootjs".to_string(),
-                        vec![
-                            "file.js".to_string()
-                        ]
-                    ),
+                    ("@rootgo".to_string(), vec!["file.go".to_string()]),
+                    ("@rootjs".to_string(), vec!["file.js".to_string()]),
                     (
                         "@dir/all".to_string(),
                         vec![
@@ -859,21 +851,15 @@ mod tests {
                             "dir/dir/file.md".to_string(),
                             "dir/dir/file.js".to_string(),
                             "dir/dir/file.go".to_string(),
-                        ]
+                        ],
                     ),
                     (
                         "@dir/allgo".to_string(),
-                        vec![
-                            "dir/file.go".to_string(),
-                            "dir/dir/file.go".to_string()
-                        ]
+                        vec!["dir/file.go".to_string(), "dir/dir/file.go".to_string()],
                     ),
                     (
                         "@dir/alljs".to_string(),
-                        vec![
-                            "dir/file.js".to_string(),
-                            "dir/dir/file.js".to_string()
-                        ]
+                        vec!["dir/file.js".to_string(), "dir/dir/file.js".to_string()],
                     ),
                     (
                         "@dir/any".to_string(),
@@ -882,20 +868,10 @@ mod tests {
                             "dir/file.md".to_string(),
                             "dir/file.js".to_string(),
                             "dir/file.go".to_string(),
-                        ]
+                        ],
                     ),
-                    (
-                        "@dir/go".to_string(),
-                        vec![
-                            "dir/file.go".to_string(),
-                        ]
-                    ),
-                    (
-                        "@dir/js".to_string(),
-                        vec![
-                            "dir/file.js".to_string(),
-                        ]
-                    ),
+                    ("@dir/go".to_string(), vec!["dir/file.go".to_string()]),
+                    ("@dir/js".to_string(), vec!["dir/file.js".to_string()]),
                     (
                         "@dir/dir/all".to_string(),
                         vec![
@@ -903,19 +879,15 @@ mod tests {
                             "dir/dir/file.md".to_string(),
                             "dir/dir/file.js".to_string(),
                             "dir/dir/file.go".to_string(),
-                        ]
+                        ],
                     ),
                     (
                         "@dir/dir/allgo".to_string(),
-                        vec![
-                            "dir/dir/file.go".to_string()
-                        ]
+                        vec!["dir/dir/file.go".to_string()],
                     ),
                     (
                         "@dir/dir/alljs".to_string(),
-                        vec![
-                            "dir/dir/file.js".to_string()
-                        ]
+                        vec!["dir/dir/file.js".to_string()],
                     ),
                     (
                         "@dir/dir/any".to_string(),
@@ -924,19 +896,15 @@ mod tests {
                             "dir/dir/file.md".to_string(),
                             "dir/dir/file.js".to_string(),
                             "dir/dir/file.go".to_string(),
-                        ]
+                        ],
                     ),
                     (
                         "@dir/dir/go".to_string(),
-                        vec![
-                            "dir/dir/file.go".to_string(),
-                        ]
+                        vec!["dir/dir/file.go".to_string()],
                     ),
                     (
                         "@dir/dir/js".to_string(),
-                        vec![
-                            "dir/dir/file.js".to_string(),
-                        ]
+                        vec!["dir/dir/file.js".to_string()],
                     ),
                 ]),
             },
@@ -974,8 +942,11 @@ mod tests {
                     ("dir/file.md", ""),
                     ("dir/dir/file.md", ""),
                 ]),
-                notifications: HashMap::from([("@notify".to_string(), vec!["file.md".to_string()])]),
-            }
+                notifications: HashMap::from([(
+                    "@notify".to_string(),
+                    vec!["file.md".to_string()],
+                )]),
+            },
         ];
 
         for mut t in test_scenarios {

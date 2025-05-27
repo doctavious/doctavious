@@ -33,8 +33,8 @@ impl FrameworkConfiguration for AntoraConfig {
 
 #[cfg(test)]
 mod tests {
-    use crate::frameworks::antora::AntoraConfig;
     use crate::frameworks::FrameworkConfiguration;
+    use crate::frameworks::antora::AntoraConfig;
 
     #[test]
     fn test_antora() {

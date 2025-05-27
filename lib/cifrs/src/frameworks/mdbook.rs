@@ -31,8 +31,8 @@ impl FrameworkConfiguration for MDBookConfig {
 
 #[cfg(test)]
 mod tests {
-    use crate::frameworks::mdbook::MDBookConfig;
     use crate::frameworks::FrameworkConfiguration;
+    use crate::frameworks::mdbook::MDBookConfig;
 
     #[test]
     fn test_mdbook() {

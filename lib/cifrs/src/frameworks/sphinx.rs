@@ -8,8 +8,8 @@ use std::env;
 
 use serde_derive::Deserialize;
 
-use crate::frameworks::{FrameworkConfigFileSettings, FrameworkConfiguration};
 use crate::CifrsResult;
+use crate::frameworks::{FrameworkConfigFileSettings, FrameworkConfiguration};
 
 #[derive(Deserialize)]
 pub struct SphinxConfig;
@@ -30,8 +30,8 @@ impl FrameworkConfiguration for SphinxConfig {
 
 #[cfg(test)]
 mod tests {
-    use crate::frameworks::sphinx::SphinxConfig;
     use crate::frameworks::FrameworkConfiguration;
+    use crate::frameworks::sphinx::SphinxConfig;
 
     #[test]
     fn test_sphinx() {

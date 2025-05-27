@@ -26,8 +26,8 @@
 use serde::Deserialize;
 use swc_ecma_ast::Program;
 
-use crate::frameworks::{FrameworkConfigFileSettings, FrameworkConfiguration};
 use crate::CifrsResult;
+use crate::frameworks::{FrameworkConfigFileSettings, FrameworkConfiguration};
 
 #[derive(Deserialize)]
 pub struct DocusaurusConfig;
@@ -51,8 +51,8 @@ impl FrameworkConfiguration for DocusaurusConfig {
 
 #[cfg(test)]
 mod tests {
-    use crate::frameworks::docusaurus_v2::DocusaurusConfig;
     use crate::frameworks::FrameworkConfiguration;
+    use crate::frameworks::docusaurus_v2::DocusaurusConfig;
 
     #[test]
     fn test_docusaurus() {

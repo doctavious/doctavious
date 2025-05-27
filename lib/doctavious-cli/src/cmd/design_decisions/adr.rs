@@ -13,16 +13,15 @@ use serde::Serialize;
 
 use crate::cmd::design_decisions;
 use crate::cmd::design_decisions::{
-    build_path, can_reserve, format_number, reserve_number, DesignDecisionErrors, LinkReference,
+    DesignDecisionErrors, LinkReference, build_path, can_reserve, format_number, reserve_number,
 };
 use crate::edit;
 use crate::errors::{CliResult, DoctaviousCliError};
 use crate::file_structure::FileStructure;
 use crate::files::ensure_path;
 use crate::settings::{
-    init_dir, load_settings, persist_settings, AdrSettings, Settings, DEFAULT_ADR_DIR,
-    DEFAULT_ADR_INIT_TEMPLATE_PATH, DEFAULT_ADR_RECORD_TEMPLATE_PATH,
-    DEFAULT_ADR_TOC_TEMPLATE_PATH,
+    AdrSettings, DEFAULT_ADR_DIR, DEFAULT_ADR_INIT_TEMPLATE_PATH, DEFAULT_ADR_RECORD_TEMPLATE_PATH,
+    DEFAULT_ADR_TOC_TEMPLATE_PATH, Settings, init_dir, load_settings, persist_settings,
 };
 use crate::templates::{get_template, get_title};
 use crate::templating::{AdrTemplateType, TemplateType};
@@ -467,10 +466,10 @@ mod tests {
     use markup::MarkupFormat;
     use tempfile::TempDir;
 
+    use crate::cmd::design_decisions::LinkReference;
     use crate::cmd::design_decisions::adr::{
         add_custom_template, generate_toc, init, link, list, new,
     };
-    use crate::cmd::design_decisions::LinkReference;
     use crate::file_structure::FileStructure;
     use crate::settings::DOCTAVIOUS_ENV_SETTINGS_PATH;
     use crate::templating::AdrTemplateType;

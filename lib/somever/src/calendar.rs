@@ -313,7 +313,6 @@ impl Calver {
         Ok((prefixed, segments, separators))
     }
 
-
     // fn get_date_format_segments(self) -> Vec<String> {
     //     let mut date_segments = Vec::new();
     //     for s in self.format.tokens {
@@ -325,10 +324,8 @@ impl Calver {
     //     date_segments
     // }
 
-
     // TODO: do we want a prerelease / release?
     //  - both of these could have an optional modifier
-
 
     pub fn bump_minor(self) -> SomeverResult<Self> {
         // TODO: fail if MINOR format not provided
@@ -353,7 +350,14 @@ impl Calver {
 
         // TODO: make modifier easier to grab
         let modifier = if let Some(modifier) = self.modifier {
-            Some(CalverModifier::new_with_separator(modifier, self.format.separators.last().unwrap_or(&HYPHEN.into()).to_string()))
+            Some(CalverModifier::new_with_separator(
+                modifier,
+                self.format
+                    .separators
+                    .last()
+                    .unwrap_or(&HYPHEN.into())
+                    .to_string(),
+            ))
         } else {
             None
         };
@@ -651,7 +655,6 @@ fn identifier(input: &str) -> SomeverResult<(&str, &str, &str)> {
 }
 
 impl Display for Calver {
-
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         if self.prefixed {
             write!(f, "v")?;
@@ -784,6 +787,7 @@ impl Conventions {
         }
     }
 
+    // TODO: should this take NaiveDate as a reference?
     pub(crate) fn conv(&self, value: NaiveDate) -> String {
         // TODO: do we want to be ISO compliant or based values off of Jan 1st being week 1?
         // ISO week compliant
@@ -836,8 +840,7 @@ impl Conventions {
             | Conventions::PaddedMonth
             | Conventions::PaddedWeek
             | Conventions::PaddedDay => true,
-            Conventions::Minor
-            | Conventions::Micro => false
+            Conventions::Minor | Conventions::Micro => false,
         }
     }
 }
@@ -920,10 +923,12 @@ mod tests {
             None
         };
 
-        insta::assert_snapshot!(serde_json::to_string(
-            &Calver::internal_new(date, prefixed, format.to_string(), modifier,).unwrap()
-        )
-        .unwrap());
+        insta::assert_snapshot!(
+            serde_json::to_string(
+                &Calver::internal_new(date, prefixed, format.to_string(), modifier,).unwrap()
+            )
+            .unwrap()
+        );
     }
 
     #[test_case("2024-11-16", "YYYY.MM.DD", false, None, "2024.11.16")]

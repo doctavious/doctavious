@@ -293,8 +293,8 @@ mod tests {
     use swc::atoms::once_cell;
     use tempfile::TempDir;
 
-    use crate::projects::project_file::ProjectFile;
     use crate::CifrsResult;
+    use crate::projects::project_file::ProjectFile;
     // use crate::commands::build::project_file::ProjectFile;
 
     static SERIAL_TEST: Lazy<Mutex<()>> = Lazy::new(Default::default);

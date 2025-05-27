@@ -26,8 +26,8 @@ impl FrameworkConfiguration for HexoConfig {
 
 #[cfg(test)]
 mod tests {
-    use crate::frameworks::hexo::HexoConfig;
     use crate::frameworks::FrameworkConfiguration;
+    use crate::frameworks::hexo::HexoConfig;
 
     #[test]
     fn test_hexo() {

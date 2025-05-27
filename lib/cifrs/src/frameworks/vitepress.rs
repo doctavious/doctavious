@@ -41,8 +41,8 @@ impl FrameworkConfiguration for VitePressConfig {
 
 #[cfg(test)]
 mod tests {
-    use crate::frameworks::vitepress::VitePressConfig;
     use crate::frameworks::FrameworkConfiguration;
+    use crate::frameworks::vitepress::VitePressConfig;
 
     #[test]
     fn test_vitepress() {

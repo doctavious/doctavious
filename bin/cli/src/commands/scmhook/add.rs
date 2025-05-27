@@ -43,13 +43,13 @@ mod tests {
 
     use doctavious_cli::cmd::scm_hooks::HOOK_TEMPLATE;
     use doctavious_std::fs::copy_dir;
-    use scm::drivers::git::GitScmRepository;
     use scm::drivers::ScmRepository;
+    use scm::drivers::git::GitScmRepository;
     use scm::hooks::OLD_HOOK_POSTFIX;
     use tempfile::TempDir;
     use testing::cleanup::CleanUp;
 
-    use crate::commands::scmhook::add::{execute, AddScmHook};
+    use crate::commands::scmhook::add::{AddScmHook, execute};
 
     #[test]
     fn should_fail_if_scm_not_initialized() {
@@ -137,9 +137,11 @@ root = "backend"
         assert!(result.is_ok());
         let pre_commit_path = scm.hooks_path().unwrap().join("pre-commit");
         assert!(pre_commit_path.exists());
-        assert!(fs::read_to_string(pre_commit_path)
-            .unwrap()
-            .contains("doctavious"));
+        assert!(
+            fs::read_to_string(pre_commit_path)
+                .unwrap()
+                .contains("doctavious")
+        );
     }
 
     #[test]
@@ -181,9 +183,11 @@ root = "backend"
 
         assert!(result.is_ok());
         assert!(pre_commit_path.exists());
-        assert!(fs::read_to_string(pre_commit_path)
-            .unwrap()
-            .contains("doctavious"));
+        assert!(
+            fs::read_to_string(pre_commit_path)
+                .unwrap()
+                .contains("doctavious")
+        );
         assert!(scm_hooks_path.join("pre-commit.old").exists());
     }
 
@@ -207,9 +211,11 @@ root = "backend"
 
         assert!(result.is_ok());
         assert!(pre_commit_path.exists());
-        assert!(fs::read_to_string(pre_commit_path)
-            .unwrap()
-            .contains("doctavious"));
+        assert!(
+            fs::read_to_string(pre_commit_path)
+                .unwrap()
+                .contains("doctavious")
+        );
         assert!(!scm_hooks_path.join("pre-commit.old").exists());
     }
 
@@ -268,9 +274,11 @@ root = "backend"
 
         assert!(result.is_ok());
         assert!(pre_commit_path.exists());
-        assert!(fs::read_to_string(pre_commit_path)
-            .unwrap()
-            .contains("doctavious"));
+        assert!(
+            fs::read_to_string(pre_commit_path)
+                .unwrap()
+                .contains("doctavious")
+        );
         assert_eq!(
             "some hook content",
             fs::read_to_string(&old_pre_commit_path).unwrap()

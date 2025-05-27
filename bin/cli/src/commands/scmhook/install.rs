@@ -32,13 +32,13 @@ mod tests {
     use doctavious_cli::cmd::scm_hooks::{HOOK_TEMPLATE, HOOK_TEMPLATE_CHECKSUM};
     use doctavious_cli::settings::Config;
     use doctavious_std::fs::copy_dir;
-    use scm::drivers::git::GitScmRepository;
     use scm::drivers::ScmRepository;
+    use scm::drivers::git::GitScmRepository;
     use scm::hooks::OLD_HOOK_POSTFIX;
     use tempfile::TempDir;
     use testing::cleanup::CleanUp;
 
-    use crate::commands::scmhook::install::{execute, InstallScmHook};
+    use crate::commands::scmhook::install::{InstallScmHook, execute};
 
     // TODO: should_install_without_doctavious_config
 
@@ -109,9 +109,11 @@ run = "echo 'Done!'"
         let hooks_path = scm.hooks_path().unwrap();
         assert!(result.is_ok());
         assert!(hooks_path.join("pre-commit").exists());
-        assert!(fs::read_to_string(&pre_commit_path)
-            .unwrap()
-            .contains("doctavious"));
+        assert!(
+            fs::read_to_string(&pre_commit_path)
+                .unwrap()
+                .contains("doctavious")
+        );
 
         let old_hook_path = hooks_path.join("pre-commit.old");
         assert!(old_hook_path.exists());
@@ -120,11 +122,12 @@ run = "echo 'Done!'"
             fs::read_to_string(&old_hook_path).unwrap()
         );
         assert!(hooks_path.join("post-commit").exists());
-        assert!(scm
-            .info_path()
-            .unwrap()
-            .join("doctavious.synchronization")
-            .exists());
+        assert!(
+            scm.info_path()
+                .unwrap()
+                .join("doctavious.synchronization")
+                .exists()
+        );
     }
 
     #[test]
@@ -156,9 +159,11 @@ run = "echo 'Done!'"
         let hooks_path = scm.hooks_path().unwrap();
         assert!(result.is_ok());
         assert!(hooks_path.join("pre-commit").exists());
-        assert!(fs::read_to_string(&pre_commit_path)
-            .unwrap()
-            .contains("doctavious"));
+        assert!(
+            fs::read_to_string(&pre_commit_path)
+                .unwrap()
+                .contains("doctavious")
+        );
 
         assert!(!hooks_path.join("pre-commit.old").exists());
         assert!(hooks_path.join("post-commit").exists());
@@ -200,9 +205,11 @@ run = "echo 'Done!'"
             let hooks_path = scm.hooks_path().unwrap();
             assert!(result.is_ok());
             assert!(hooks_path.join("pre-commit").exists());
-            assert!(fs::read_to_string(&pre_commit_path)
-                .unwrap()
-                .contains("doctavious"));
+            assert!(
+                fs::read_to_string(&pre_commit_path)
+                    .unwrap()
+                    .contains("doctavious")
+            );
 
             assert!(!hooks_path.join("pre-commit.old").exists());
             assert!(hooks_path.join("post-commit").exists());
@@ -256,11 +263,12 @@ run = "echo 'Done!'"
         assert!(hooks_path.join("pre-commit").exists());
         assert!(hooks_path.join("pre-commit.old").exists());
         assert!(!hooks_path.join("post-commit").exists());
-        assert!(!scm
-            .info_path()
-            .unwrap()
-            .join("doctavious.synchronization")
-            .exists());
+        assert!(
+            !scm.info_path()
+                .unwrap()
+                .join("doctavious.synchronization")
+                .exists()
+        );
     }
 
     #[test]
@@ -296,9 +304,11 @@ run = "echo 'Done!'"
 
         let hooks_path = scm.hooks_path().unwrap();
         assert!(hooks_path.join("pre-commit").exists());
-        assert!(fs::read_to_string(pre_commit_path)
-            .unwrap()
-            .contains("doctavious"));
+        assert!(
+            fs::read_to_string(pre_commit_path)
+                .unwrap()
+                .contains("doctavious")
+        );
 
         assert!(hooks_path.join("pre-commit.old").exists());
         assert_eq!(
@@ -308,14 +318,17 @@ run = "echo 'Done!'"
 
         let post_commit_path = hooks_path.join("post-commit");
         assert!(post_commit_path.exists());
-        assert!(fs::read_to_string(post_commit_path)
-            .unwrap()
-            .contains("doctavious"));
-        assert!(scm
-            .info_path()
-            .unwrap()
-            .join("doctavious.synchronization")
-            .exists());
+        assert!(
+            fs::read_to_string(post_commit_path)
+                .unwrap()
+                .contains("doctavious")
+        );
+        assert!(
+            scm.info_path()
+                .unwrap()
+                .join("doctavious.synchronization")
+                .exists()
+        );
     }
 
     fn setup(doctavous_config: Option<&str>) -> (PathBuf, GitScmRepository) {

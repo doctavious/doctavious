@@ -18,7 +18,7 @@ use crate::cmd::design_decisions::is_valid_file;
 use crate::edit;
 use crate::errors::{CliResult, DoctaviousCliError};
 use crate::files::{ensure_path, friendly_filename};
-use crate::settings::{Config, SettingErrors, TilSettings, DEFAULT_TIL_DIR};
+use crate::settings::{Config, DEFAULT_TIL_DIR, SettingErrors, TilSettings};
 use crate::templates::{get_template, get_template_content, get_title};
 use crate::templating::{TemplateType, TilTemplateType};
 
@@ -429,10 +429,12 @@ mod tests {
 
                 let config = Config::get_global().unwrap();
                 assert!(!config.is_default_settings);
-                assert!(config
-                    .path
-                    .to_string_lossy()
-                    .ends_with(global_config.to_string_lossy().as_ref()));
+                assert!(
+                    config
+                        .path
+                        .to_string_lossy()
+                        .ends_with(global_config.to_string_lossy().as_ref())
+                );
 
                 insta::with_settings!({filters => vec![
                     (dir.path().to_str().unwrap(), "[DIR]"),

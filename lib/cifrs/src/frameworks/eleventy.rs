@@ -47,8 +47,8 @@ impl FrameworkConfiguration for EleventyConfig {
 
 #[cfg(test)]
 mod tests {
-    use crate::frameworks::eleventy::EleventyConfig;
     use crate::frameworks::FrameworkConfiguration;
+    use crate::frameworks::eleventy::EleventyConfig;
 
     #[test]
     fn test_eleventy() {

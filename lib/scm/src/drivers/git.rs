@@ -15,10 +15,10 @@ use regex::Regex;
 use serde_derive::{Deserialize, Serialize};
 use strum::{Display, EnumIter, EnumString, VariantNames};
 
+use crate::GIT;
 use crate::commit::{ScmCommit, ScmCommitRange, ScmSignature, ScmTag};
 use crate::drivers::ScmRepository;
 use crate::errors::ScmResult;
-use crate::GIT;
 
 // TODO: Oid strut
 
@@ -822,8 +822,8 @@ mod tests {
 
     use glob::Pattern;
 
-    use crate::drivers::git::{GitScmRepository, TagSort};
     use crate::drivers::ScmRepository;
+    use crate::drivers::git::{GitScmRepository, TagSort};
 
     #[test]
     fn commits() {

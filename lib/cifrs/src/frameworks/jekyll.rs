@@ -26,8 +26,8 @@ impl FrameworkConfiguration for JekyllConfig {
 
 #[cfg(test)]
 mod tests {
-    use crate::frameworks::jekyll::JekyllConfig;
     use crate::frameworks::FrameworkConfiguration;
+    use crate::frameworks::jekyll::JekyllConfig;
 
     #[test]
     fn test_jekyll() {

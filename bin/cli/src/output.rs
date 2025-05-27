@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use anyhow::Result;
-use doctavious_cli::enums::{parse_enum, EnumError};
+use doctavious_cli::enums::{EnumError, parse_enum};
 use lazy_static::lazy_static;
 use serde::Serialize;
 
@@ -23,6 +23,7 @@ lazy_static! {
 // The columns are sorted alphabetically by the corresponding key names of the underlying JSON object.
 // What about table?
 // The table format produces human-readable representations of complex CLI output in a tabular form.
+#[remain::sorted]
 #[derive(Debug, Copy, Clone)]
 pub enum Output {
     /// JSON is the default output format of the Doctavious CLI.

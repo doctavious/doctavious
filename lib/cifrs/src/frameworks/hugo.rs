@@ -30,8 +30,8 @@ impl FrameworkConfiguration for HugoConfig {
 
 #[cfg(test)]
 mod tests {
-    use crate::frameworks::hugo::HugoConfig;
     use crate::frameworks::FrameworkConfiguration;
+    use crate::frameworks::hugo::HugoConfig;
 
     #[test]
     fn test_hugo() {

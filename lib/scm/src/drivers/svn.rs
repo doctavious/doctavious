@@ -5,8 +5,8 @@ use indexmap::IndexMap;
 use regex::Regex;
 
 use crate::commit::{ScmCommit, ScmCommitRange, ScmTag};
-use crate::drivers::git::TagSort;
 use crate::drivers::ScmRepository;
+use crate::drivers::git::TagSort;
 use crate::errors::ScmResult;
 
 const HOOK_NAMES: [&str; 9] = [

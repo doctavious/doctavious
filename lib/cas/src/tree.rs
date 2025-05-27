@@ -154,7 +154,7 @@ impl MerkleTree {
                         }
                     }
                 }
-                MerkleTreeNode::Blob(ref b) => {
+                MerkleTreeNode::Blob(b) => {
                     if !current.has_path(b.path.as_path()) {
                         diff.push(&child);
                     }

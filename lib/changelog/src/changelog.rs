@@ -219,7 +219,10 @@ impl Changelog {
                     for ignore in ignores {
                         if ignore.is_match(&commit)? {
                             if commit.breaking && protect_breaking {
-                                debug!("Cant ignore commit {} as its a breaking change and protect_breaking_commits setting is enabled", &commit.id);
+                                debug!(
+                                    "Cant ignore commit {} as its a breaking change and protect_breaking_commits setting is enabled",
+                                    &commit.id
+                                );
                             } else {
                                 debug!("ignoring commit {}", &commit.id);
                                 continue 'commits;

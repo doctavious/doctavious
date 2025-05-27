@@ -2,8 +2,8 @@ use std::borrow::Borrow;
 use std::fmt;
 use std::fmt::{Display, Formatter};
 
-use git2::Signature as CommitSignature;
 use git_conventional::Footer as ConventionalFooter;
+use git2::Signature as CommitSignature;
 use scm::commit::{ScmCommit, ScmSignature};
 use serde::Serialize;
 

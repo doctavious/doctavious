@@ -98,7 +98,9 @@ impl Workspace {
     }
 
     fn get_nx_workspace_package_paths(&self) -> CifrsResult<Vec<PathBuf>> {
-        unimplemented!("Figure out how NX workspaces work in without workspace.json given it uses project inference")
+        unimplemented!(
+            "Figure out how NX workspaces work in without workspace.json given it uses project inference"
+        )
     }
 
     fn get_pnpm_workspace_package_paths(&self) -> CifrsResult<Vec<PathBuf>> {
@@ -216,7 +218,7 @@ impl Detectable for &Workspace {
 #[cfg(test)]
 mod tests {
     use crate::workspaces;
-    use crate::workspaces::{Workspace, WORKSPACES_STR};
+    use crate::workspaces::{WORKSPACES_STR, Workspace};
 
     #[test]
     fn test_deserialize_workspace_yaml() {

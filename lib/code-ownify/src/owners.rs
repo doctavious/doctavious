@@ -1,8 +1,9 @@
 use std::collections::HashMap;
 use std::io::Write;
 use std::path::{Path, PathBuf};
-use std::{fs, io};
 use std::string::FromUtf8Error;
+use std::{fs, io};
+
 use scm::providers::ScmProviders;
 use thiserror::Error;
 use tracing::info;

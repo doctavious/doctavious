@@ -35,12 +35,12 @@ mod tests {
 
     use doctavious_cli::cmd::scm_hooks::HOOK_TEMPLATE;
     use doctavious_std::fs::copy_dir;
-    use scm::drivers::git::GitScmRepository;
     use scm::drivers::ScmRepository;
+    use scm::drivers::git::GitScmRepository;
     use tempfile::TempDir;
     use testing::cleanup::CleanUp;
 
-    use crate::commands::scmhook::uninstall::{execute, UninstallScmHook};
+    use crate::commands::scmhook::uninstall::{UninstallScmHook, execute};
 
     #[test]
     fn should_only_delete_doctavious_hooks() {

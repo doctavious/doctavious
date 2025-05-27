@@ -49,8 +49,8 @@ impl FrameworkConfiguration for VuePressConfig {
 
 #[cfg(test)]
 mod tests {
-    use crate::frameworks::vuepress::VuePressConfig;
     use crate::frameworks::FrameworkConfiguration;
+    use crate::frameworks::vuepress::VuePressConfig;
 
     #[test]
     fn test_vuepress() {

@@ -301,7 +301,9 @@ impl CommitParser {
                     warn!("skipping commit parser with field {field} as it has no value");
                 }
                 Value::Object(_) => {
-                    warn!("skipping commit parser with field {field} as value is not a scalar or array");
+                    warn!(
+                        "skipping commit parser with field {field} as value is not a scalar or array"
+                    );
                 }
             }
         }
@@ -409,7 +411,6 @@ pub struct LinkParser {
     /// The string used to generate the link text.
     pub text: Option<String>,
 }
-
 
 #[remain::sorted]
 #[derive(

@@ -32,8 +32,8 @@ impl FrameworkConfiguration for Nuxt3JSConfig {
 
 #[cfg(test)]
 mod tests {
-    use crate::frameworks::nuxt_v3::Nuxt3JSConfig;
     use crate::frameworks::FrameworkConfiguration;
+    use crate::frameworks::nuxt_v3::Nuxt3JSConfig;
 
     #[test]
     fn test_nuxtjs() {

@@ -9,7 +9,7 @@ use doctavious_cli::changelog::release::configuration::{
     BumpOption, ChangelogRange, ChangelogReleaseOptions, StrippableChangelogSection,
 };
 use doctavious_cli::errors::CliResult;
-use doctavious_cli::settings::{load_settings, Settings};
+use doctavious_cli::settings::{Settings, load_settings};
 use glob::Pattern;
 use markup::MarkupFormat;
 use regex::Regex;

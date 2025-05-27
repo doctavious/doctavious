@@ -16,7 +16,7 @@ use std::fmt;
 use std::str::FromStr;
 
 use serde::de::Visitor;
-use serde::{de, Deserialize, Serialize};
+use serde::{Deserialize, Serialize, de};
 use thiserror::Error;
 
 pub struct Hasher(blake3::Hasher);

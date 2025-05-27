@@ -40,8 +40,8 @@ impl FrameworkConfiguration for AstroConfig {
 
 #[cfg(test)]
 mod tests {
-    use crate::frameworks::astro::AstroConfig;
     use crate::frameworks::FrameworkConfiguration;
+    use crate::frameworks::astro::AstroConfig;
 
     #[test]
     fn test_astro() {

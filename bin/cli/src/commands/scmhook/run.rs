@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 
 use clap::Parser;
-use doctavious_cli::cmd::scm_hooks::run::{run, ScmHookRunFiles};
+use doctavious_cli::cmd::scm_hooks::run::{ScmHookRunFiles, run};
 use doctavious_cli::errors::CliResult;
 
 /// Execute commands/scripts associated to the specified hook.
@@ -82,7 +82,7 @@ mod tests {
     use testing::cleanup::CleanUp;
 
     use crate::commands::scmhook::install::InstallScmHook;
-    use crate::commands::scmhook::run::{execute, RunScmHookCommand};
+    use crate::commands::scmhook::run::{RunScmHookCommand, execute};
 
     #[test]
     fn execute_hook() {

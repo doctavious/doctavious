@@ -38,8 +38,8 @@ impl FrameworkConfiguration for NextJSConfig {
 
 #[cfg(test)]
 mod tests {
-    use crate::frameworks::nextjs::NextJSConfig;
     use crate::frameworks::FrameworkConfiguration;
+    use crate::frameworks::nextjs::NextJSConfig;
 
     #[test]
     fn test_nextjs() {

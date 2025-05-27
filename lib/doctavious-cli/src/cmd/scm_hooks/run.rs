@@ -10,7 +10,7 @@ use crate::cmd::scm_hooks::runner::{
     ScmHookRunner, ScmHookRunnerOptions, ScmHookRunnerOutcome, ScmHookRunnerResult,
 };
 use crate::errors::{CliResult, DoctaviousCliError};
-use crate::settings::{load_settings, SettingErrors, Settings};
+use crate::settings::{SettingErrors, Settings, load_settings};
 
 #[remain::sorted]
 #[derive(Debug, Error)]
@@ -47,7 +47,9 @@ pub fn run(
     if synchronize_hooks {
         // TODO: do we want to return error?
         if ensure_hooks(&scm_settings, &scm, true, force).is_err() {
-            warn!("There was a problem synchronizing hooks. Try running 'doctavious scmhook install' manually")
+            warn!(
+                "There was a problem synchronizing hooks. Try running 'doctavious scmhook install' manually"
+            )
         }
     }
 

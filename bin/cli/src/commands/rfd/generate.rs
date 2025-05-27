@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 
-use clap::builder::PossibleValuesParser;
 use clap::Parser;
+use clap::builder::PossibleValuesParser;
 use doctavious_cli::errors::CliResult;
 use markup::MarkupFormat;
 

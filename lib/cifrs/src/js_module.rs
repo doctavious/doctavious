@@ -5,9 +5,9 @@ use std::path::Path;
 // Can also look at OXC (https://github.com/web-infra-dev/oxc) as well instead of SWC
 use std::sync::Arc;
 
-use swc::{try_with_handler, HandlerOpts};
+use swc::{HandlerOpts, try_with_handler};
 use swc_common::sync::Lrc;
-use swc_common::{FileName, SourceMap, GLOBALS};
+use swc_common::{FileName, GLOBALS, SourceMap};
 use swc_ecma_ast::Stmt::{Decl as DeclStmt, Expr as ExprStmt};
 use swc_ecma_ast::{
     ArrayLit, AssignExpr, BlockStmt, CallExpr, Decl, EsVersion, Expr, ExprOrSpread, FnExpr,
@@ -518,7 +518,7 @@ pub(crate) fn get_value_from_kv_as_string(kv: &KeyValueProp) -> Option<String> {
                 Some(atom.to_string())
             } else {
                 None
-            }
+            };
         }
         _ => None,
     };

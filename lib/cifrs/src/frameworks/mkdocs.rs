@@ -23,8 +23,8 @@ impl FrameworkConfiguration for MKDocsConfig {
 
 #[cfg(test)]
 mod tests {
-    use crate::frameworks::mkdocs::MKDocsConfig;
     use crate::frameworks::FrameworkConfiguration;
+    use crate::frameworks::mkdocs::MKDocsConfig;
 
     #[test]
     fn test_hugo() {

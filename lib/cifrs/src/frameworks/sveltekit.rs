@@ -49,8 +49,8 @@ impl FrameworkConfiguration for SvelteKitConfig {
 
 #[cfg(test)]
 mod tests {
-    use crate::frameworks::sveltekit::SvelteKitConfig;
     use crate::frameworks::FrameworkConfiguration;
+    use crate::frameworks::sveltekit::SvelteKitConfig;
 
     #[test]
     fn test_sveltekit() {

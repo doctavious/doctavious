@@ -37,7 +37,9 @@ pub enum CifrsError {
     #[error("IO error: {0}")]
     IoError(#[from] std::io::Error),
 
-    #[error("Framework config not found. Config must have an extension of json, yaml, toml, or js|cjs|mjs")]
+    #[error(
+        "Framework config not found. Config must have an extension of json, yaml, toml, or js|cjs|mjs"
+    )]
     MissingFrameworkConfig(),
 
     #[error("json serialize/deserialize error: {0}")]

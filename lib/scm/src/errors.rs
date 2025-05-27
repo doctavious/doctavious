@@ -16,7 +16,9 @@ pub enum ScmError {
     #[error(transparent)]
     IoError(#[from] io::Error),
 
-    #[error("Can't rename {0} to {0}.old as file already exists. If you wish to overwrite use 'force' option")]
+    #[error(
+        "Can't rename {0} to {0}.old as file already exists. If you wish to overwrite use 'force' option"
+    )]
     OldHookExists(String),
 
     #[error("regex error: {0}")]

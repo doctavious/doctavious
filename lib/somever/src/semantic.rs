@@ -413,11 +413,7 @@ impl Display for Semver {
 }
 
 fn prerelease_separator(lenient: bool) -> &'static str {
-    if lenient {
-        "."
-    } else {
-        "-"
-    }
+    if lenient { "." } else { "-" }
 }
 
 #[cfg(test)]

@@ -4,7 +4,7 @@ use std::io::ErrorKind;
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
 
-use markup::{MarkupFormat, MARKUP_FORMAT_EXTENSIONS};
+use markup::{MARKUP_FORMAT_EXTENSIONS, MarkupFormat};
 use scm::drivers::{Scm, ScmRepository};
 use thiserror::Error;
 use unidecode::unidecode;

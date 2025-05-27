@@ -5,7 +5,7 @@ use std::error::Error;
 
 use minijinja::{AutoEscape, Environment};
 use serde::Serialize;
-use serde_json::{to_value, Value};
+use serde_json::{Value, to_value};
 use thiserror::Error;
 
 use crate::filters::{date, groupby};

@@ -10,15 +10,15 @@ use serde::Serialize;
 
 use crate::cmd::design_decisions;
 use crate::cmd::design_decisions::{
-    build_path, can_reserve, format_number, reserve_number, DesignDecisionErrors,
+    DesignDecisionErrors, build_path, can_reserve, format_number, reserve_number,
 };
 use crate::edit;
 use crate::errors::{CliResult, DoctaviousCliError};
 use crate::file_structure::FileStructure;
 use crate::files::ensure_path;
 use crate::settings::{
-    init_dir, load_settings, persist_settings, RFDSettings, DEFAULT_RFD_DIR,
-    DEFAULT_RFD_RECORD_TEMPLATE_PATH, DEFAULT_RFD_TOC_TEMPLATE_PATH,
+    DEFAULT_RFD_DIR, DEFAULT_RFD_RECORD_TEMPLATE_PATH, DEFAULT_RFD_TOC_TEMPLATE_PATH, RFDSettings,
+    init_dir, load_settings, persist_settings,
 };
 use crate::templates::{get_template, get_title};
 use crate::templating::{RfdTemplateType, TemplateType};

@@ -4,7 +4,7 @@ use scm::drivers::Scm;
 
 use crate::cmd::scm_hooks::ensure_hooks;
 use crate::errors::{CliResult, DoctaviousCliError};
-use crate::settings::{load_settings, SettingErrors, Settings};
+use crate::settings::{SettingErrors, Settings, load_settings};
 
 pub fn install(cwd: &Path, force: bool) -> CliResult<()> {
     let settings: Settings = load_settings(cwd)?;

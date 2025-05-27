@@ -31,8 +31,8 @@ impl FrameworkConfiguration for DocFxConfig {
 
 #[cfg(test)]
 mod tests {
-    use crate::frameworks::docfx::DocFxConfig;
     use crate::frameworks::FrameworkConfiguration;
+    use crate::frameworks::docfx::DocFxConfig;
 
     #[test]
     fn test_docfx() {

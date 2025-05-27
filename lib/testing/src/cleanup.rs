@@ -1,5 +1,7 @@
 // https://stackoverflow.com/questions/27831944/how-do-i-store-a-closure-in-a-struct-in-rust
 
+// TODO: should we have a CleanUp struct that takes a path (dir or file) and deletes it on drop without
+// the closure
 pub struct CleanUp<F>
 where
     F: Fn() -> (),

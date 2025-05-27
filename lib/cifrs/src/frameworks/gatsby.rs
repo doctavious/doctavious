@@ -55,8 +55,8 @@ impl FrameworkConfiguration for GatsbyConfig {
 
 #[cfg(test)]
 mod tests {
-    use crate::frameworks::gatsby::GatsbyConfig;
     use crate::frameworks::FrameworkConfiguration;
+    use crate::frameworks::gatsby::GatsbyConfig;
 
     #[test]
     fn test_gatsby() {
