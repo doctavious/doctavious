@@ -1,9 +1,9 @@
 use std::sync::Arc;
 
 use octocrab::models::CommentId;
-use octocrab::{params, Octocrab};
+use octocrab::{Octocrab, params};
 
-use crate::providers::ScmProvider;
+use crate::platforms::ScmPlatform;
 
 struct GithubProvider {
     client: Arc<Octocrab>,
@@ -23,7 +23,7 @@ pub struct GithubRepositoryIdentifier {
 }
 
 #[async_trait::async_trait]
-impl ScmProvider for GithubProvider {
+impl ScmPlatform for GithubProvider {
     type RepositoryIdentifier = GithubRepositoryIdentifier;
 
     async fn list_all_merge_requests_notes(&self, repo_id: Self::RepositoryIdentifier, pr: u64) {

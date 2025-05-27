@@ -8,7 +8,7 @@ use glob::Pattern;
 use markup::MarkupFormat;
 use regex::Regex;
 use scm::drivers::git::TagSort;
-use scm::providers::ScmProviders;
+use scm::platforms::ScmPlatforms;
 use serde_derive::{Deserialize, Serialize};
 use serde_json::Value;
 use somever::VersioningScheme;
@@ -144,7 +144,7 @@ pub struct TemplateSettings {
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct ChangelogRemoteSettings {
     // TODO: flatten? ScmProvider lowercase?
-    providers: HashMap<ScmProviders, ChangelogRemote>,
+    providers: HashMap<ScmPlatforms, ChangelogRemote>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

@@ -14,7 +14,7 @@ use crate::commit::ScmSignature;
 #[derive(Clone, Debug, Deserialize, EnumIter, Eq, Hash, PartialEq, Serialize)]
 #[serde(rename_all = "lowercase")]
 #[remain::sorted]
-pub enum ScmProviders {
+pub enum ScmPlatforms {
     BitBucket,
     Gitea,
     GitHub,
@@ -22,7 +22,7 @@ pub enum ScmProviders {
     Gogs,
 }
 
-impl ScmProviders {
+impl ScmPlatforms {
     pub fn dot_directories() -> Vec<PathBuf> {
         // TODO: these values maybe belong to the individual provider mods but fine for now
         vec![
@@ -46,19 +46,19 @@ impl ScmProviders {
 //     }
 // }
 
-pub struct ScmProviderCommitsResponse {
+pub struct ScmPlatformCommitsResponse {
     pub id: String,
     pub url: String,
-    pub commit: ScmProviderCommit,
+    pub commit: ScmPlatformCommit,
 }
 
-pub struct ScmProviderCommit {
+pub struct ScmPlatformCommit {
     pub url: String,
     pub author: ScmSignature,
     pub message: String,
 }
 
-pub struct ScmProviderRelease {
+pub struct ScmPlatformRelease {
     pub id: String,
     pub name: String,
     pub url: String,
@@ -72,7 +72,7 @@ pub struct ScmProviderRelease {
 pub struct MergeRequestNote {}
 
 #[async_trait::async_trait]
-pub trait ScmProvider {
+pub trait ScmPlatform {
     type RepositoryIdentifier;
 
     // fn get_commits(&self) -> Vec<ScmProviderCommitsResponse>;

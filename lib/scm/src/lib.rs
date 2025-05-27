@@ -5,7 +5,7 @@ pub mod commit;
 pub mod drivers;
 pub mod errors;
 pub mod hooks;
-pub mod providers;
+pub mod platforms;
 
 pub const GIT: &str = "git";
 pub const HG: &str = "hg";
