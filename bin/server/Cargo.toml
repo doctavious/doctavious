@@ -1,7 +1,7 @@
 [package]
 name = "server"
 version = "0.1.0"
-edition = "2021"
+edition = "2024"
 
 [[bin]]
 name = "doctavious-server"
@@ -11,7 +11,8 @@ path = "src/main.rs"
 axum = { workspace = true }
 doctavious-server = { path = "../../lib/doctavious-server" }
 tokio = { workspace = true }
-
+tower-http = { workspace = true, features = ["timeout", "trace"] }
+tracing-subscriber = { workspace = true, features = ["env-filter"] }
 
 [build-dependencies]
 built = "0.7"

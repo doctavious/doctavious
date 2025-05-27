@@ -1,7 +1,7 @@
 #[package]
 #name = "doctavious"
 #version = "0.1.0"
-#edition = "2021"
+#edition = "2024"
 #
 ## See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -18,23 +18,27 @@ members = [
     "lib/doctavious-cli",
     "lib/doctavious-server",
     "lib/doctavious-std",
-    "lib/octokit",
     "lib/scm",
+    "lib/software_catalog",
     "lib/somever",
     "lib/templating",
+    "lib/third-party-api-clients/core",
+    "lib/third-party-api-clients/gitlab",
     "lib/testing",
 ]
 
 [workspace.dependencies]
 anyhow = "1.0.70"
+async-trait = "0.1.88"
 axum = { version = "0.8.1", features = ["http2", "macros", "multipart", "ws"] }
 bincode = "2.0.1"
 blake3 = "1.3.3"
-chrono = { version = "0.4" }
+chrono = { version = "0.4", features = ["serde"] }
 chrono-tz = { version = "0.10.0" }
 clap = { version = "4.0.32" }
 console-subscriber = "0.4.0"
 crc32c = "0.6.5"
+# cyclonedx-bom = "0.8.0"
 dotavious = "0.2.1"
 dotenvy = "0.15"
 directories = "6.0.0"
@@ -45,20 +49,24 @@ git-conventional = { version = "0.12.4" }
 glob = "0.3.0"
 glob-match = "0.2.1"
 gray_matter = "0.2"
+http = "1"
 hyper = { version = "1.0", features = [] }
 indexmap = { version = "2.0.2", features = ["serde"] }
 insta = { version = "1.38.0" }
+jsonwebtoken = "9"
 keyring = "3.0.5"
 lazy_static = "1.4"
 md5 = "0.7.0"
 mime = "0.3.17"
 minijinja = "2.0.1"
 once_cell = "1.17.1"
-opendal = "0.52.0"
+opendal = "0.53.2"
 opentelemetry = { version = "0.26.0", features = ["rt-tokio", "trace"] }
 opentelemetry-otlp = "0.26.0"
 opentelemetry-semantic-conventions = "0.26.0"
-progenitor = { version = "0.9.1" }
+# progenitor = { version = "0.9.1" }
+percent-encoding = "2.3.1"
+pyo3 = "0.24.2"
 rayon = "1.9.0"
 regex = "1.8.4"
 remain = "0.2.11"
@@ -69,7 +77,8 @@ serde = { version = "1.0", features = ["derive"] }
 serde_derive = "1.0"
 serde_json = { version = "1.0" }
 serde_regex = "1.1.0"
-serde-xml-rs = "0.6.0"
+serde_urlencoded = "0.7"
+serde-xml-rs = "0.8.0"
 # TODO: no longer maintained. probably should follow insta and vendor it. yaml-rust2 currently doesnt support serde
 serde_yaml = "0.9"
 shellexpand = "3.1.0"
@@ -78,7 +87,7 @@ swc_ecma_parser = "0.149.0"
 swc = "0.284.0"
 swc_common = { version = "0.37.3", features = ["tty-emitter"] }
 swc_ecma_ast = { version = "0.118.1", features=["serde-impl"] }
-tabled = "0.18.0"
+tabled = "0.19.0"
 temp-env = "0.3.1"
 tempfile = "3.3.0"
 test-case = "3.3.1"
@@ -96,7 +105,27 @@ tracing-test = "0.2"
 typify = "0.2"
 ulid = { version = "1.0.1", features = ["serde"] }
 unidecode = "0.3.0"
-url = { version = "2.3.1", features = ["serde"] }
+url = { version = "2", features = ["serde"] }
 uuid = { version = "1.3.2", features = ["serde", "v4"] }
 walkdir = "2.3.2"
 which = "7.0.0"
+
+
+#[workspace.lints.rust]
+#elided_lifetimes_in_paths = "warn"
+
+#[workspace.lints.clippy]
+# TODO: turn this back on once we've fixed them :/
+#wildcard_imports = "deny"
+
+# TODO: should clean up the comments eventually and switch these back to warn.
+#too_long_first_doc_paragraph = "allow"
+#doc_lazy_continuation = "allow"
+
+# TODO: these are currently allowed because it would be a giant pain to fix
+# them, but we should make them warn in the future!
+#too_many_arguments = "allow"
+#identity_op = "allow"
+#missing_safety_doc = "allow"
+#manual_inspect = "allow"
+#single_match = "allow"
