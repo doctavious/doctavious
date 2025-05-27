@@ -39,15 +39,15 @@ fn parse() {
 
 }
 
-fn get_program_commands(program: &str) -> CliDocsResult<Vec<String>> {
-    let mut command = Command::new(program);
-    let output = command.args(["--help"]).output()?.stdout;
-    let help: Vec<String> = String::from_utf8(output)?;
-
-    // TODO: parse
-
-    Ok(())
-}
+// fn get_program_commands(program: &str) -> CliDocsResult<Vec<String>> {
+//     let mut command = Command::new(program);
+//     let output = command.args(["--help"]).output()?.stdout;
+//     let help: Vec<String> = String::from_utf8(output)?;
+//
+//     // TODO: parse
+//
+//     Ok(())
+// }
 
 fn get_command_help(program: &str, cmd: &str) -> CliDocsResult<String> {
     let mut command = Command::new(program);
