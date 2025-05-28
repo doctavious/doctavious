@@ -3,6 +3,8 @@ use clap::{Parser, Subcommand};
 use crate::commands::adr::ADRCommand;
 use crate::commands::build::BuildCommand;
 use crate::commands::changelog::ChangelogCommand;
+use crate::commands::codenotify::CodeNotifyCli;
+use crate::commands::codeowners::CodeOwnersCli;
 use crate::commands::deploy::DeployCommand;
 use crate::commands::frameworks::FrameworksCommand;
 use crate::commands::init::InitCommand;
@@ -15,6 +17,8 @@ use crate::commands::whoami::WhoAmICommand;
 pub mod adr;
 pub mod build;
 pub mod changelog;
+pub mod codeowners;
+pub mod codenotify;
 pub mod deploy;
 pub mod frameworks;
 pub mod init;
@@ -54,6 +58,10 @@ pub enum Command {
     Adr(ADRCommand),
     Build(BuildCommand),
     Changelog(ChangelogCommand),
+    #[command(name = "codenotify")]
+    CodeNotify(CodeNotifyCli),
+    #[command(name = "codeowners")]
+    CodeOwners(CodeOwnersCli),
     Deploy(DeployCommand),
     Frameworks(FrameworksCommand),
     Init(InitCommand),

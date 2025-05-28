@@ -3,7 +3,7 @@ use doctavious_cli::cmd::{build, deploy, frameworks};
 use tracing::error;
 
 use crate::commands::frameworks::FrameworkSubCommand;
-use crate::commands::{Command, Opt, adr, changelog, rfd, scmhook, til, version};
+use crate::commands::{Command, Opt, adr, changelog, codenotify, codeowners, rfd, scmhook, til, version};
 
 mod built_info;
 mod commands;
@@ -43,6 +43,8 @@ fn main() {
         Command::Adr(cmd) => adr::execute(cmd),
         Command::Build(cmd) => build::invoke(cmd.cwd, cmd.dry, cmd.skip_install),
         Command::Changelog(cmd) => changelog::execute(cmd),
+        Command::CodeNotify(cmd) => codenotify::execute(cmd),
+        Command::CodeOwners(cmd) => codeowners::execute(cmd),
         Command::Deploy(cmd) => deploy::invoke(cmd.cwd, cmd.build),
         Command::Frameworks(cmd) => match cmd.framework_command {
             FrameworkSubCommand::Detect(cmd) => frameworks::detect::invoke(cmd.cwd),
