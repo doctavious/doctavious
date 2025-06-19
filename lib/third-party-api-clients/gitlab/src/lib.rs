@@ -1,18 +1,23 @@
-pub mod merge_requests;
-
 // I liked the look of the design from https://github.com/oxidecomputer/third-party-api-clients/tree/main
 // Good portion of code lifted from that
+
+pub mod merge_requests;
+
+use std::collections::HashMap;
 use std::fmt;
+use std::str::FromStr;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
+use http::Uri;
 use jsonwebtoken as jwt;
-use percent_encoding::{utf8_percent_encode, AsciiSet, CONTROLS};
-use reqwest::header::HeaderMap;
+use percent_encoding::{AsciiSet, CONTROLS, utf8_percent_encode};
 use reqwest::StatusCode;
+use reqwest::header::HeaderMap;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use tracing::{debug, info};
+use url::Url;
 
 // TODO: this will be different
 const TOKEN_ENDPOINT: &str = "https://gitlab.com/oauth/token";
@@ -24,7 +29,7 @@ const MAX_JWT_TOKEN_LIFE: Duration = Duration::from_secs(60 * 9);
 const JWT_TOKEN_REFRESH_PERIOD: Duration = Duration::from_secs(60 * 8);
 
 mod support {
-    use percent_encoding::{utf8_percent_encode, AsciiSet, CONTROLS};
+    use percent_encoding::{AsciiSet, CONTROLS, utf8_percent_encode};
 
     const PATH_SET: &AsciiSet = &CONTROLS
         .add(b' ')
@@ -57,6 +62,16 @@ impl<T> Response<T> {
             body,
         }
     }
+}
+
+// TODO: what about this?
+// TODO: could expand implementation to includes fields such as whats in
+// https://github.com/spring-projects/spring-data-commons/blob/main/src/main/java/org/springframework/data/domain/PageImpl.java#L83
+pub struct PagedResponse<T> {
+    pub status: StatusCode,
+    pub headers: HeaderMap,
+    pub body: T,
+    pub pagination: LinkHeader,
 }
 
 /// Errors returned by the client
@@ -308,6 +323,117 @@ pub struct AccessToken {
 /// the provider prior to storing
 const REFRESH_THRESHOLD: Duration = Duration::from_secs(60);
 
+#[derive(Serialize)]
+pub struct OffsetBasedPagination {
+    /// For offset-based and keyset-based paginated result sets, the number of results to include per page.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    per_page: Option<u64>,
+    /// For offset-based paginated result sets, page of results to retrieve. Defaults to 20 and max 100
+    #[serde(skip_serializing_if = "Option::is_none")]
+    page: Option<u64>,
+}
+
+// Note(sean): I'm somewhat confused by what Gitlab uses as the key to page as they seem to have a
+// a few different ways which include: id_after, page_token, cursor.
+// I think for now we won't codify it as we'll be using whatever is returned from the Link header
+/// Keyset-pagination allows for more efficient retrieval of pages and - in contrast to offset-based
+/// pagination - runtime is independent of the size of the collection.
+/// This method is controlled by the following parameters. order_by and sort are both mandatory.
+#[derive(Serialize)]
+pub struct KeysetBasedPagination {
+    /// For keyset-based paginated result sets, the value must be `"keyset"`
+    pagination: String,
+    /// For offset-based and keyset-based paginated result sets, the number of results to include per page.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    per_page: Option<u64>,
+    /// For keyset-based paginated result sets, name of the column by which to order
+    order_by: String,
+    /// For keyset-based paginated result sets, sort order (`"asc"`` or `"desc"`)
+    sort: String,
+}
+
+#[derive(Serialize)]
+pub enum Pagination {
+    Offset(OffsetBasedPagination),
+    Keyset(KeysetBasedPagination),
+}
+
+// TODO: this is really split between Offset-based pagination and Keyset-based pagination
+/// ListOptions specifies the optional parameters to various List methods that support pagination.
+pub struct ListOptions {
+    /// For keyset-based paginated result sets, the value must be `"keyset"`
+    pagination: String,
+    /// For offset-based and keyset-based paginated result sets, the number of results to include per page.
+    per_page: u64,
+    /// For offset-based paginated result sets, page of results to retrieve.
+    page: u64,
+    /// For keyset-based paginated result sets, tree record ID at which to fetch the next page.
+    page_token: String,
+    /// For keyset-based paginated result sets, name of the column by which to order
+    order_by: String,
+    /// For keyset-based paginated result sets, sort order (`"asc"`` or `"desc"`)
+    sort: String,
+}
+
+#[derive(Debug, PartialEq)]
+pub struct Link {
+    /// A parsed form of the URI
+    pub uri: Url,
+
+    /// The raw text string of the URI
+    pub raw_uri: String,
+}
+
+type Rel = String;
+pub type RelLinkMap = HashMap<Rel, Link>;
+pub struct LinkHeader {
+    links: HashMap<Rel, Link>,
+}
+
+impl LinkHeader {
+    // link: <https://gitlab.example.com/api/v4/projects/8/issues/8/notes?page=1&per_page=3>; rel="prev", <https://gitlab.example.com/api/v4/projects/8/issues/8/notes?page=3&per_page=3>; rel="next", <https://gitlab.example.com/api/v4/projects/8/issues/8/notes?page=1&per_page=3>; rel="first", <https://gitlab.example.com/api/v4/projects/8/issues/8/notes?page=3&per_page=3>; rel="last"
+
+    // TODO: do we want to return an error if we fail to parse?
+    fn parse(header: &str) -> ClientResult<Self> {
+        let mut links = RelLinkMap::new();
+        for part in header.split(',') {
+            let sections: Vec<&str> = part.trim().split(';').collect();
+            if sections.len() < 2 {
+                continue;
+            }
+
+            let raw_url = sections[0]
+                .trim()
+                .trim_start_matches('<')
+                .trim_end_matches('>');
+            let mut rel = "";
+            for param in &sections[1..] {
+                let trimmed = param.trim();
+                if trimmed.starts_with("rel=") {
+                    rel = trimmed.trim_start_matches("rel=").trim_matches('"');
+                }
+            }
+
+            if !rel.is_empty() {
+                links.insert(
+                    rel.to_string(),
+                    // url.to_string()
+                    Link {
+                        raw_uri: raw_url.to_string(),
+                        uri: Url::from_str(raw_url)?,
+                    },
+                );
+            }
+        }
+
+        Ok(Self { links })
+    }
+
+    fn get(&self, rel: &Rel) -> Option<&Link> {
+        self.links.get(rel)
+    }
+}
+
 impl Client {
     pub fn new<A, C>(agent: A, credentials: C) -> ClientResult<Self>
     where
@@ -347,7 +473,10 @@ impl Client {
         )
     }
 
-    // TODO: may want to support link headers / NextLink
+    // TODO: Support Link header / next link
+    // I would prefer if Response included pagination / link
+    // TODO (sean): As of 2025-05-20 it doesn't appear that Gitlab includes etag/checksum to support
+    // HTTP cache / conditional gets. When/if it does, include logic to support
     async fn request<Out>(
         &self,
         method: http::Method,
@@ -355,7 +484,7 @@ impl Client {
         message: Message,
         media_type: MediaType,
         authentication: AuthenticationConstraint,
-    ) -> ClientResult<Response<Out>>
+    ) -> ClientResult<(Option<LinkHeader>, Response<Out>)>
     where
         Out: serde::de::DeserializeOwned + 'static + Send,
     {
@@ -365,16 +494,16 @@ impl Client {
 
         let response = req.send().await?;
 
-        // TODO: any rate limiting headers?
-        // let (remaining, reset) = crate::utils::get_header_values(response.headers());
+        // TODO (sean): As of 2025-05-20 it doesn't appear that Gitlab includes any rate limit
+        // details in their response headers. Once they do add here...
 
         let status = response.status();
         let headers = response.headers().clone();
-        // let link = response
-        //     .headers()
-        //     .get(http::header::LINK)
-        //     .and_then(|l| l.to_str().ok());
-        //     .and_then(|l| parse_link_header::parse(l).ok());
+        let link = response
+            .headers()
+            .get(http::header::LINK)
+            .and_then(|l| l.to_str().ok())
+            .and_then(|l| LinkHeader::parse(l).ok());
         // let next_link = link.as_ref().and_then(crate::utils::next_link);
 
         let response_body = response.bytes().await?;
@@ -389,70 +518,34 @@ impl Client {
             } else {
                 serde_json::from_slice::<Out>(&response_body)?
             };
-            Ok(Response::new(status, headers, parsed_response))
+            Ok((None, Response::new(status, headers, parsed_response)))
         } else if status.is_redirection() {
             match status {
-                // StatusCode::NOT_MODIFIED => {
-                //     #[cfg(not(feature = "httpcache"))]
-                //     {
-                //         unreachable!(
-                //             "this should not be reachable without the httpcache feature enabled"
-                //         )
-                //     }
-                // }
+                StatusCode::NOT_MODIFIED => {
+                    unreachable!("this should not be reachable without the an HTTP cache")
+                }
                 _ => {
-                    // The body still needs to be parsed. Except in the case of 304 (handled above),
-                    // returning a body in the response is allowed.
                     let body = if std::any::TypeId::of::<Out>() == std::any::TypeId::of::<()>() {
                         serde_json::from_str("null")?
                     } else {
                         serde_json::from_slice::<Out>(&response_body)?
                     };
 
-                    Ok(Response::new(status, headers, body))
+                    Ok((None, Response::new(status, headers, body)))
                 }
             }
         } else {
-            // let error = match (remaining, reset) {
-            //     (Some(remaining), Some(reset)) if remaining == 0 => {
-            //         let now = std::time::SystemTime::now()
-            //             .duration_since(std::time::UNIX_EPOCH)
-            //             .unwrap()
-            //             .as_secs();
-            //         ClientError::RateLimited {
-            //             duration: u64::from(reset).saturating_sub(now),
-            //         }
-            //     }
-            //     _ => {
-            //         if response_body.is_empty() {
-            //             ClientError::HttpError {
-            //                 status,
-            //                 headers,
-            //                 error: "empty response".into(),
-            //             }
-            //         } else {
-            //             ClientError::HttpError {
-            //                 status,
-            //                 headers,
-            //                 error: String::from_utf8_lossy(&response_body).into(),
-            //             }
-            //         }
-            //     }
-            // };
-            let error = if response_body.is_empty() {
-                ClientError::HttpError {
-                    status,
-                    headers,
-                    error: "empty response".into(),
-                }
+            let error_msg = if response_body.is_empty() {
+                "empty response".to_string()
             } else {
-                ClientError::HttpError {
-                    status,
-                    headers,
-                    error: String::from_utf8_lossy(&response_body).into(),
-                }
+                String::from_utf8_lossy(&response_body).to_string()
             };
-            Err(error)
+
+            Err(ClientError::HttpError {
+                status,
+                headers,
+                error: error_msg,
+            })
         }
     }
 
@@ -467,7 +560,7 @@ impl Client {
     where
         D: serde::de::DeserializeOwned + 'static + Send,
     {
-        let r = self
+        let (_, r) = self
             .request(method, uri, message, media_type, authentication)
             .await?;
         Ok(r)
@@ -494,6 +587,67 @@ impl Client {
             uri,
             message,
             media,
+            AuthenticationConstraint::Unconstrained,
+        )
+        .await
+    }
+
+    async fn get_all_pages<D>(&self, uri: &str, _message: Message) -> ClientResult<Response<Vec<D>>>
+    where
+        D: serde::de::DeserializeOwned + 'static + Send,
+    {
+        let mut global_items = Vec::new();
+        let (new_link, mut response) = self.get_pages(uri).await?;
+        let mut link = new_link;
+        while !response.body.is_empty() {
+            global_items.append(&mut response.body);
+            // We need to get the next link.
+
+            if let Some(link_header) = &link {
+                if let Some(next_link) = link_header.get(&"next".to_string()) {
+                    let url = Url::parse(&next_link.raw_uri)?;
+                    let (new_link, new_response) = self.get_pages_url(&url).await?;
+                    link = new_link;
+                    response = new_response;
+                }
+            }
+        }
+
+        Ok(Response::new(
+            response.status,
+            response.headers,
+            global_items,
+        ))
+    }
+
+    async fn get_pages<D>(&self, uri: &str) -> ClientResult<(Option<LinkHeader>, Response<Vec<D>>)>
+    where
+        D: serde::de::DeserializeOwned + 'static + Send,
+    {
+        self.request(
+            http::Method::GET,
+            uri,
+            Message::default(),
+            MediaType::Json,
+            AuthenticationConstraint::Unconstrained,
+        )
+        .await
+    }
+
+    // TODO: this seems unnecessary? Whats the difference between this and get_pages? Just the input
+    // Could we just do a AsRef<&str> / Into<&str>?
+    async fn get_pages_url<D>(
+        &self,
+        url: &reqwest::Url,
+    ) -> ClientResult<(Option<LinkHeader>, Response<Vec<D>>)>
+    where
+        D: serde::de::DeserializeOwned + 'static + Send,
+    {
+        self.request(
+            http::Method::GET,
+            url.as_str(),
+            Message::default(),
+            MediaType::Json,
             AuthenticationConstraint::Unconstrained,
         )
         .await

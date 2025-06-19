@@ -1,7 +1,7 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
-use crate::{Client, ClientResult, Response};
+use crate::{Client, ClientResult, OffsetBasedPagination, Response};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MergeRequestNote {
@@ -32,6 +32,12 @@ pub struct MergeRequestNoteAuthor {
     created_at: DateTime<Utc>,
 }
 
+pub struct ListAllMergeRequestNotesRequest {
+    project_id: String,
+    merge_request_iid: u64,
+    pagination: OffsetBasedPagination,
+}
+
 pub struct MergeRequests {
     pub client: Client,
 }
@@ -56,7 +62,19 @@ impl MergeRequests {
         &self,
         project_id: &str,
         merge_request_iid: u64,
+        sort: Option<&str>,
+        order_by: Option<&str>,
+        pagination: Option<OffsetBasedPagination>,
     ) -> ClientResult<Response<Vec<MergeRequestNote>>> {
+        let mut query_args: Vec<(String, String)> = Default::default();
+        if let Some(sort) = sort {}
+
+        if let Some(order_by) = order_by {}
+
+        if let Some(pagination) = pagination {}
+
+        let query_ = serde_urlencoded::to_string(&query_args).unwrap();
+
         let url = self.client.url(
             &format!(
                 "/projects/{}/merge_requests/{}/notes",
