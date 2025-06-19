@@ -61,7 +61,7 @@ impl CodeNotify {
         Ok(())
     }
 
-    fn notify_with_writer<W: Write>(&self, writer: &mut W) -> CodeNotifyResult<()> {
+    pub fn notify_with_writer<W: Write>(&self, writer: &mut W) -> CodeNotifyResult<()> {
         let scm = Scm::get(&self.cwd)?;
         let paths = scm.diff_paths(Some(&self.commit_range))?;
         self.inner_notify(writer, paths)?;
