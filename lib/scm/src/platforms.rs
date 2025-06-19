@@ -1,6 +1,7 @@
 pub mod github;
 pub mod gitlab;
 
+use std::env::Vars;
 use std::hash::Hash;
 use std::path::PathBuf;
 
@@ -32,6 +33,35 @@ impl ScmPlatforms {
             PathBuf::from(".gitlab"),
         ]
     }
+
+    pub fn get_client_from_env<R>(
+        &self,
+        env_vars: std::env::Vars,
+    ) -> Box<dyn ScmPlatformClient<R>> {
+        if std::env::var("GITHUB_ACTIONS")
+            .ok()
+            .is_some_and(|a| a == "true")
+        {
+        } else if std::env::var("GITLAB_CI").ok().is_some_and(|a| a == "true") {
+        } else if std::env::var("GITEA_ACTIONS")
+            .ok()
+            .is_some_and(|a| a == "true")
+        {
+        } else if std::env::var("BITBUCKET_BUILD_NUMBER")
+            .ok()
+            .is_some_and(|a| a == "true")
+        {
+        }
+    }
+
+    pub fn get_client_from_webhook(&self, data: serde_json::Value) {}
+
+    // pub fn get_client<R>(&self) -> Box<dyn ScmPlatformClient<R>> {
+    //     match &self {
+    //         ScmPlatforms::GitHub => return Box::new(github::provider::GithubProvider::new()),
+    //         _ => todo!(),
+    //     }
+    // }
 }
 
 // impl Hash for ScmProviders {
@@ -71,9 +101,29 @@ pub struct ScmPlatformRelease {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MergeRequestNote {}
 
+// TODO: what if we have a concept of a "BoundScmPlatformClient" in which the client is bound
+// to an repository based on env, webhook, or other context?
+// Why? This way construction would be through a specific context that would internally the
+// associated repository identifier and it wouldnt have to be constructed externally and passed in
+
+// How about auth? We could get auth from env var, context object, Doctavious configuration, etc
+pub trait ScmPlatformClientBuilder {
+    fn from_env();
+
+    fn from_webhook();
+
+    fn auth_from_env(&self);
+
+    // TODO: pass in auth. What do we need to support?
+    fn auth(&self);
+
+    fn build(&self);
+}
+
 #[async_trait::async_trait]
-pub trait ScmPlatform {
-    type RepositoryIdentifier;
+pub trait ScmPlatformClient<R> {
+    // TODO: input so perhaps better as generic type parameter?
+    // type RepositoryIdentifier;
 
     // fn get_commits(&self) -> Vec<ScmProviderCommitsResponse>;
     //
@@ -81,20 +131,23 @@ pub trait ScmPlatform {
 
     // TODO: per_page / page, sort, direction
     // -> Vec<PullRequestNote>
-    async fn list_all_merge_requests_notes(&self, repo_id: Self::RepositoryIdentifier, mr: u64);
+    // async fn list_all_merge_requests_notes(&self, repo_id: Self::RepositoryIdentifier, mr: u64);
+    async fn list_all_merge_requests_notes(&self, repo_id: R, mr: u64);
 
-    async fn create_merge_request_note(
-        &self,
-        repo_id: Self::RepositoryIdentifier,
-        mr: u64,
-        body: String,
-    );
+    // async fn create_merge_request_note(
+    //     &self,
+    //     repo_id: Self::RepositoryIdentifier,
+    //     mr: u64,
+    //     body: String,
+    // );
+    async fn create_merge_request_note(&self, repo_id: R, mr: u64, body: String);
 
-    async fn update_merge_request_note(
-        &self,
-        repo_id: Self::RepositoryIdentifier,
-        mr: u64,
-        note_id: u64,
-        body: String,
-    );
+    // async fn update_merge_request_note(
+    //     &self,
+    //     repo_id: Self::RepositoryIdentifier,
+    //     mr: u64,
+    //     note_id: u64,
+    //     body: String,
+    // );
+    async fn update_merge_request_note(&self, repo_id: R, mr: u64, note_id: u64, body: String);
 }

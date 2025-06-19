@@ -9,12 +9,12 @@ publish = false
 [dependencies]
 async-trait = { workspace = true }
 chrono = { workspace = true }
+github-client = { path = "../../lib/third-party-api-clients/github" }
 gitlab-client = { path = "../../lib/third-party-api-clients/gitlab" }
 git2 = { workspace = true }
 glob = { workspace = true }
 indexmap = { workspace = true, features = ["serde"] }
 lazy_static = { workspace = true }
-octocrab = "0.44.0"
 regex = { workspace = true }
 remain = { workspace = true }
 reqwest = { workspace = true, default-features = false, features = ["json", "rustls-tls"] }

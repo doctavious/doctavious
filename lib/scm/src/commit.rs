@@ -66,4 +66,16 @@ impl Hash for ScmTag {
 }
 
 // TODO: inclusive/exclusive
+#[derive(Debug)]
 pub struct ScmCommitRange(pub String, pub Option<String>);
+
+pub enum ScmCommitRangeBound {
+    Inclusive,
+    Exclusive,
+}
+
+// pub struct ScmCommitRange<'a> {
+//     start: &'a str,
+//     end: &'a str,
+//     bound: ScmCommitRangeBound
+// }
