@@ -6,7 +6,7 @@ use std::thread;
 
 use tracing::error;
 
-use crate::error::Result;
+use crate::error::DoctaviousStdResult;
 
 /// Runs the given program and returns the output as string.
 pub fn run_program(
@@ -14,7 +14,7 @@ pub fn run_program(
     args: &str,
     root: Option<&Path>,
     envs: Vec<(&str, &str)>,
-) -> Result<String> {
+) -> DoctaviousStdResult<String> {
     let mut command = Command::new(program);
     command.arg(args).envs(envs);
     if let Some(cwd) = root {
@@ -30,7 +30,7 @@ pub fn run_program_with_args<I, S>(
     args: I,
     root: Option<&Path>,
     envs: Vec<(&str, &str)>,
-) -> Result<String>
+) -> DoctaviousStdResult<String>
 where
     I: IntoIterator<Item = S>,
     S: AsRef<OsStr>,
@@ -54,7 +54,7 @@ pub fn run(
     input: Option<String>,
     root: &Path,
     envs: Vec<(&str, &str)>,
-) -> Result<String> {
+) -> DoctaviousStdResult<String> {
     let mut child = if cfg!(target_os = "windows") {
         Command::new("cmd")
             .envs(envs)
@@ -85,7 +85,7 @@ pub fn run(
     handle_output(output)
 }
 
-fn handle_output(output: Output) -> Result<String> {
+fn handle_output(output: Output) -> DoctaviousStdResult<String> {
     if output.status.success() {
         Ok(std::str::from_utf8(&output.stdout)?.to_string())
     } else {
