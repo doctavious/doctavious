@@ -1,6 +1,5 @@
-use std::process::Command;
-
 use std::io;
+use std::process::Command;
 use std::string::FromUtf8Error;
 
 use thiserror::Error;
@@ -8,7 +7,6 @@ use thiserror::Error;
 #[remain::sorted]
 #[derive(Debug, Error)]
 pub enum CliDocsError {
-
     #[error(transparent)]
     IoError(#[from] io::Error),
 
@@ -27,17 +25,12 @@ pub enum Framework {
     Fire,
     Go,
     OClif,
-    Unknown
+    Unknown,
 }
 
+fn generate() {}
 
-fn generate() {
-
-}
-
-fn parse() {
-
-}
+fn parse() {}
 
 // fn get_program_commands(program: &str) -> CliDocsResult<Vec<String>> {
 //     let mut command = Command::new(program);

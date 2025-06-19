@@ -8,5 +8,4 @@ pub enum Framework {
     JSDoc,
     Maven, // mvn site
     DocFx, // docfx
-
 }
