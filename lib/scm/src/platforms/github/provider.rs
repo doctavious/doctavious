@@ -73,7 +73,7 @@ impl ScmPlatformClient<GithubRepositoryIdentifier> for GithubProvider {
             .client
             .pull_requests()
             .update_pull_request_note(&repo_id.owner, &repo_id.repository, note_id, body)
-            .pulls(repo_id.owner, repo_id.repository)
+            // .pulls(repo_id.owner, repo_id.repository)
             // .comment(CommentId(note_id))
             // .update(&body)
             .await;

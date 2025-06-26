@@ -11,8 +11,10 @@ path = "src/main.rs"
 anyhow = { workspace = true }
 clap = { workspace = true, features = ["derive", "env", "string"] }
 changelog = { path = "../../lib/changelog" }
+code-ownify = { path = "../../lib/code-ownify" }
 directories = { workspace = true }
 doctavious-cli = { path = "../../lib/doctavious-cli" }
+doctavious-std = { path = "../../lib/doctavious-std" }
 glob = { workspace  = true }
 keyring = { workspace = true }
 lazy_static = { workspace = true }
@@ -27,11 +29,14 @@ strum = {workspace = true }
 tracing = { workspace = true }
 tracing-subscriber = { workspace = true }
 
+# TODO: should we we go through SCM???
+github-client = { path = "../../lib/third-party-api-clients/github" }
+gitlab-client = { path = "../../lib/third-party-api-clients/gitlab" }
+
 [dev-dependencies]
-doctavious-std = { path = "../../lib/doctavious-std" }
 insta = { workspace = true }
 tempfile = { workspace = true }
 testing = { path = "../../lib/testing" }
 
 [build-dependencies]
-built = "0.7"
+built = "0.8.0"

@@ -3,7 +3,9 @@ use doctavious_cli::cmd::{build, deploy, frameworks};
 use tracing::error;
 
 use crate::commands::frameworks::FrameworkSubCommand;
-use crate::commands::{Command, Opt, adr, changelog, codenotify, codeowners, rfd, scmhook, til, version};
+use crate::commands::{
+    Command, Opt, adr, changelog, codenotify, codeowners, rfd, scmhook, til, version,
+};
 
 mod built_info;
 mod commands;
@@ -60,6 +62,7 @@ fn main() {
         Command::WhoAmI(..) => unimplemented!(),
     };
 
+    // TODO: support more process exit codes
     match result {
         Ok(output) => {
             if let Some(output) = output {

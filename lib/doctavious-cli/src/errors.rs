@@ -28,6 +28,10 @@ pub enum DoctaviousCliError {
     #[error(transparent)]
     DoctaviousTemplatingError(#[from] doctavious_templating::TemplatingError),
 
+    // TODO: adhoc might be a better name
+    #[error("{0}")]
+    GeneralError(String),
+
     /// Error variant that represents errors coming out of libgit2.
     #[error("Git error: `{0}`")]
     GitError(#[from] git2::Error),

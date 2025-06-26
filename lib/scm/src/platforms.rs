@@ -1,7 +1,6 @@
 pub mod github;
 pub mod gitlab;
 
-use std::env::Vars;
 use std::hash::Hash;
 use std::path::PathBuf;
 
@@ -38,20 +37,7 @@ impl ScmPlatforms {
         &self,
         env_vars: std::env::Vars,
     ) -> Box<dyn ScmPlatformClient<R>> {
-        if std::env::var("GITHUB_ACTIONS")
-            .ok()
-            .is_some_and(|a| a == "true")
-        {
-        } else if std::env::var("GITLAB_CI").ok().is_some_and(|a| a == "true") {
-        } else if std::env::var("GITEA_ACTIONS")
-            .ok()
-            .is_some_and(|a| a == "true")
-        {
-        } else if std::env::var("BITBUCKET_BUILD_NUMBER")
-            .ok()
-            .is_some_and(|a| a == "true")
-        {
-        }
+        todo!()
     }
 
     pub fn get_client_from_webhook(&self, data: serde_json::Value) {}

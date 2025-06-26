@@ -17,6 +17,7 @@ members = [
     "lib/clidocs",
     "lib/code-docs",
     "lib/code-ownify",
+    "lib/continuous-integration",
     "lib/doctavious-cli",
     "lib/doctavious-server",
     "lib/doctavious-std",

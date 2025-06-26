@@ -47,6 +47,7 @@ pub fn parse_with_default<K: AsRef<OsStr>, R: std::str::FromStr>(key: K, default
 #[cfg(test)]
 mod tests {
     use crate::env::{as_boolean, as_boolean_truthy, as_hashmap, parse, parse_with_default};
+    use std::path::PathBuf;
 
     #[test]
     fn to_hashmap() {
@@ -105,6 +106,14 @@ mod tests {
         temp_env::with_vars([("INT_VAR", Some("1")), ("FLOAT_VAR", Some("2.5"))], || {
             assert_eq!(1, parse("INT_VAR").unwrap());
             assert_eq!(2.5, parse("FLOAT_VAR").unwrap());
+        });
+    }
+
+    #[test]
+    fn parse_supports_pathbuf() {
+        temp_env::with_vars([("PATH", Some("./filename.txt")), ("FLOAT_VAR", Some("2.5"))], || {
+            let actual: PathBuf = parse("PATH").unwrap();
+            assert_eq!(PathBuf::from("./filename.txt"), actual);
         });
     }
 

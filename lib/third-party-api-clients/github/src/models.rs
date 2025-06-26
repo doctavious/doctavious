@@ -9,6 +9,8 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Deserializer, Serialize, de};
 use url::Url;
 
+use api_client_core::serde::deserialize_rfc3339_epoch_second;
+
 type BaseIdType = u64;
 
 macro_rules! id_type {
@@ -295,7 +297,7 @@ pub struct Repository {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub homepage: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub language: Option<::serde_json::Value>,
+    pub language: Option<serde_json::Value>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub forks_count: Option<u32>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -331,19 +333,19 @@ pub struct Repository {
     #[serde(
         skip_serializing_if = "Option::is_none",
         default,
-        deserialize_with = "date_serde::deserialize_opt"
+        deserialize_with = "deserialize_rfc3339_epoch_second::deserialize_option"
     )]
     pub pushed_at: Option<DateTime<Utc>>,
     #[serde(
         skip_serializing_if = "Option::is_none",
         default,
-        deserialize_with = "date_serde::deserialize_opt"
+        deserialize_with = "deserialize_rfc3339_epoch_second::deserialize_option"
     )]
     pub created_at: Option<DateTime<Utc>>,
     #[serde(
         skip_serializing_if = "Option::is_none",
         default,
-        deserialize_with = "date_serde::deserialize_opt"
+        deserialize_with = "deserialize_rfc3339_epoch_second::deserialize_option"
     )]
     pub updated_at: Option<DateTime<Utc>>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -440,13 +442,13 @@ pub struct Installation {
     #[serde(
         skip_serializing_if = "Option::is_none",
         default,
-        deserialize_with = "date_serde::deserialize_opt"
+        deserialize_with = "deserialize_rfc3339_epoch_second::deserialize_option"
     )]
     pub created_at: Option<DateTime<Utc>>,
     #[serde(
         skip_serializing_if = "Option::is_none",
         default,
-        deserialize_with = "date_serde::deserialize_opt"
+        deserialize_with = "deserialize_rfc3339_epoch_second::deserialize_option"
     )]
     pub updated_at: Option<DateTime<Utc>>,
 }

@@ -5,9 +5,7 @@ use clap::Args;
 use code_ownify::notify::CodeNotify;
 use github_client::webhook::PullRequestWebhookEventPayload;
 use scm::commit::ScmCommitRange;
-use scm::platforms::gitlab::provider::GitlabRepositoryIdentifier;
-use scm::platforms::{ScmPlatformClient, github, gitlab};
-use strum::{Display, EnumIter, EnumString, VariantNames};
+use scm::platforms::gitlab;
 
 #[derive(Args, Debug)]
 #[command()]
@@ -63,22 +61,13 @@ pub(crate) fn execute(cmd: NotifyCommand) -> anyhow::Result<Option<String>> {
 // TODO (sean): not sure whats the best way to handle, or how much we care to handle, related to
 // CI discovery. For now we'll put here but we should reconsider this in the future
 fn get_options(cmd: NotifyCommand) -> anyhow::Result<CodeNotify> {
-    if std::env::var("GITHUB_ACTIONS")
-        .ok()
-        .is_some_and(|a| a == "true")
-    {
+    if doctavious_std::env::as_boolean("GITHUB_ACTIONS") {
         return github_actions_options(cmd);
-    } else if std::env::var("GITLAB_CI").ok().is_some_and(|a| a == "true") {
+    } else if doctavious_std::env::as_boolean("GITLAB_CI") {
         return gitlab_ci_options(cmd);
-    } else if std::env::var("GITEA_ACTIONS")
-        .ok()
-        .is_some_and(|a| a == "true")
-    {
+    } else if doctavious_std::env::as_boolean("GITEA_ACTIONS") {
         return gitea_actions_options(cmd);
-    } else if std::env::var("BITBUCKET_BUILD_NUMBER")
-        .ok()
-        .is_some_and(|a| a == "true")
-    {
+    } else if doctavious_std::env::as_boolean("BITBUCKET_BUILD_NUMBER") {
         return bitbucket_pipelines_options();
     }
 
@@ -126,10 +115,8 @@ fn github_actions_options(cmd: NotifyCommand) -> anyhow::Result<CodeNotify> {
         std::process::exit(1)
     }
 
-    let subscriber_threshold = std::env::var("DOCTAVIOUS_CODENOTIFY_SUBSCRIBER_THRESHOLD")
-        .unwrap_or_default()
-        .parse::<i8>()
-        .unwrap_or_default();
+    let subscriber_threshold: i8 =
+        doctavious_std::env::parse("DOCTAVIOUS_CODENOTIFY_SUBSCRIBER_THRESHOLD").unwrap_or_default();
 
     // TODO: constant?
     let filename =
@@ -159,10 +146,7 @@ fn github_actions_options(cmd: NotifyCommand) -> anyhow::Result<CodeNotify> {
 }
 
 fn gitlab_ci_options(cmd: NotifyCommand) -> anyhow::Result<CodeNotify> {
-    let draft = std::env::var("CI_MERGE_REQUEST_DRAFT")
-        .ok()
-        .is_some_and(|e| e == "true");
-
+    let draft = doctavious_std::env::as_boolean("CI_MERGE_REQUEST_DRAFT");
     if draft {
         println!("Not sending notifications for draft pull request");
         // return error or just exit
@@ -173,11 +157,8 @@ fn gitlab_ci_options(cmd: NotifyCommand) -> anyhow::Result<CodeNotify> {
     let cwd = std::env::var("CI_BUILDS_DIR")
         .and_then(|s| Ok(PathBuf::from(s)))
         .unwrap_or(std::env::current_dir()?);
-
-    let subscriber_threshold = std::env::var("DOCTAVIOUS_CODENOTIFY_SUBSCRIBER_THRESHOLD")
-        .unwrap_or_default()
-        .parse::<i8>()
-        .unwrap_or_default();
+    let subscriber_threshold: i8 =
+        doctavious_std::env::parse("DOCTAVIOUS_CODENOTIFY_SUBSCRIBER_THRESHOLD").unwrap_or_default();
 
     // TODO: constant?
     let filename =
