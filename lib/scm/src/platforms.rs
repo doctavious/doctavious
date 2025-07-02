@@ -14,7 +14,7 @@ use crate::commit::ScmSignature;
 #[derive(Clone, Debug, Deserialize, EnumIter, Eq, Hash, PartialEq, Serialize)]
 #[serde(rename_all = "lowercase")]
 #[remain::sorted]
-pub enum ScmPlatforms {
+pub enum ScmPlatform {
     BitBucket,
     Gitea,
     GitHub,
@@ -22,7 +22,7 @@ pub enum ScmPlatforms {
     Gogs,
 }
 
-impl ScmPlatforms {
+impl ScmPlatform {
     pub fn dot_directories() -> Vec<PathBuf> {
         // TODO: these values maybe belong to the individual provider mods but fine for now
         vec![
@@ -33,10 +33,7 @@ impl ScmPlatforms {
         ]
     }
 
-    pub fn get_client_from_env<R>(
-        &self,
-        env_vars: std::env::Vars,
-    ) -> Box<dyn ScmPlatformClient<R>> {
+    pub fn get_client_from_env<R>(&self) -> Box<dyn ScmPlatformClient<R>> {
         todo!()
     }
 

@@ -12,6 +12,7 @@ anyhow = { workspace = true }
 clap = { workspace = true, features = ["derive", "env", "string"] }
 changelog = { path = "../../lib/changelog" }
 code-ownify = { path = "../../lib/code-ownify" }
+continuous-integration = { path = "../../lib/continuous-integration" }
 directories = { workspace = true }
 doctavious-cli = { path = "../../lib/doctavious-cli" }
 doctavious-std = { path = "../../lib/doctavious-std" }

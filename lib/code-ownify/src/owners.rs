@@ -4,7 +4,7 @@ use std::path::{Path, PathBuf};
 use std::string::FromUtf8Error;
 use std::{fs, io};
 
-use scm::platforms::ScmPlatforms;
+use scm::platforms::ScmPlatform;
 use thiserror::Error;
 use tracing::info;
 
@@ -57,7 +57,7 @@ impl CodeOwners {
             }));
         }
 
-        for dot_directory in ScmPlatforms::dot_directories() {
+        for dot_directory in ScmPlatform::dot_directories() {
             if dot_directory.exists() {
                 return Ok(Some(Self {
                     owners: CodeOwners::parse(&dot_directory)?,

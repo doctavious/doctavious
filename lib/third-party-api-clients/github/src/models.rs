@@ -5,11 +5,10 @@ pub mod teams;
 use std::fmt;
 use std::ops::{Deref, DerefMut};
 
+use api_client_core::serde::deserialize_rfc3339_epoch_second;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Deserializer, Serialize, de};
 use url::Url;
-
-use api_client_core::serde::deserialize_rfc3339_epoch_second;
 
 type BaseIdType = u64;
 

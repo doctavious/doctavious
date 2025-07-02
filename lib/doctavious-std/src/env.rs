@@ -1,7 +1,20 @@
 use std::collections::HashMap;
 use std::env;
-use std::ffi::OsStr;
 use std::str::FromStr;
+
+use thiserror::Error;
+
+#[derive(Debug, Error)]
+pub enum EnvVarError {
+    #[error("Missing required environment variable `{0}`")]
+    Missing(String),
+
+    #[error("Failed to parse `{0}`: {1}")]
+    ParseError(String, String),
+
+    #[error(transparent)]
+    VarError(#[from] env::VarError),
+}
 
 pub fn as_hashmap() -> HashMap<String, String> {
     let mut map = HashMap::new();
@@ -14,30 +27,30 @@ pub fn as_hashmap() -> HashMap<String, String> {
     map
 }
 
-pub fn as_boolean<K: AsRef<OsStr>>(key: K) -> bool {
+pub fn as_boolean(key: &str) -> bool {
     env::var(key)
         .ok()
         .is_some_and(|a| a.to_lowercase() == "true")
 }
 
-pub fn as_boolean_truthy<K: AsRef<OsStr>>(key: K) -> bool {
+pub fn as_boolean_truthy(key: &str) -> bool {
     env::var(key)
         .ok()
         .is_some_and(|a| a.to_lowercase() == "true" || a == "1")
 }
 
-pub fn parse<K: AsRef<OsStr>, T>(key: K) -> Result<T, String>
+pub fn parse<T>(key: &str) -> Result<T, EnvVarError>
 where
     T: FromStr,
     T::Err: std::fmt::Display,
 {
-    let value = env::var(key).map_err(|e| format!("{}", e))?;
+    let value = env::var(&key)?;
     value
         .parse::<T>()
-        .map_err(|e| format!("Parse error for '{}': {}", value, e))
+        .map_err(|e| EnvVarError::ParseError(key.to_string(), e.to_string()))
 }
 
-pub fn parse_with_default<K: AsRef<OsStr>, R: std::str::FromStr>(key: K, default: R) -> R {
+pub fn parse_with_default<R: FromStr>(key: &str, default: R) -> R {
     match env::var(key) {
         Ok(v) => v.parse::<R>().unwrap_or(default),
         Err(_) => default,
@@ -46,8 +59,11 @@ pub fn parse_with_default<K: AsRef<OsStr>, R: std::str::FromStr>(key: K, default
 
 #[cfg(test)]
 mod tests {
-    use crate::env::{as_boolean, as_boolean_truthy, as_hashmap, parse, parse_with_default};
     use std::path::PathBuf;
+
+    use crate::env::{
+        EnvVarError, as_boolean, as_boolean_truthy, as_hashmap, parse, parse_with_default,
+    };
 
     #[test]
     fn to_hashmap() {
@@ -95,9 +111,14 @@ mod tests {
     #[test]
     fn invalid_parse_should_return_error() {
         temp_env::with_vars([("INT_VAR", Some("1a"))], || {
-            let result: Result<u32, String> = parse("INT_VAR");
+            let result: Result<u32, EnvVarError> = parse("INT_VAR");
             assert!(result.is_err());
-            assert!(result.err().unwrap().contains("1a"))
+            match result.err().unwrap() {
+                EnvVarError::ParseError(input, e) => {
+                    assert!(input.contains("1a"))
+                }
+                _ => panic!("Invalid EnvVarError variant"),
+            }
         });
     }
 
@@ -111,10 +132,13 @@ mod tests {
 
     #[test]
     fn parse_supports_pathbuf() {
-        temp_env::with_vars([("PATH", Some("./filename.txt")), ("FLOAT_VAR", Some("2.5"))], || {
-            let actual: PathBuf = parse("PATH").unwrap();
-            assert_eq!(PathBuf::from("./filename.txt"), actual);
-        });
+        temp_env::with_vars(
+            [("PATH", Some("./filename.txt")), ("FLOAT_VAR", Some("2.5"))],
+            || {
+                let actual: PathBuf = parse("PATH").unwrap();
+                assert_eq!(PathBuf::from("./filename.txt"), actual);
+            },
+        );
     }
 
     #[test]

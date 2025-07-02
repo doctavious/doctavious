@@ -3,6 +3,7 @@ use std::sync::Arc;
 
 use clap::Args;
 use code_ownify::notify::CodeNotify;
+use continuous_integration::ContinuousIntegrationProvider;
 use github_client::webhook::PullRequestWebhookEventPayload;
 use scm::commit::ScmCommitRange;
 use scm::platforms::gitlab;
@@ -20,15 +21,23 @@ pub struct NotifyCommand {
 
     // TODO: use constant from lib
     /// The filename in which file subscribers are defined (Default: CODENOTIFY)
-    #[arg(long, default_value = "CODENOTIFY")]
+    #[arg(
+        long,
+        env = "DOCTAVIOUS_CODENOTIFY_FILENAME",
+        default_value = "CODENOTIFY"
+    )]
     pub file_name: String,
 
     /// The threshold for notifying subscribers (Default: 0)
-    #[arg(long, default_value_t = 0)]
+    #[arg(
+        long,
+        env = "DOCTAVIOUS_CODENOTIFY_SUBSCRIBER_THRESHOLD",
+        default_value_t = 0
+    )]
     pub subscriber_threshold: i8,
 
-    #[arg(long, default_value = "")]
-    pub base_ref: String,
+    #[arg(long)]
+    pub base_ref: Option<String>,
 
     #[arg(long)]
     pub head_ref: Option<String>,
@@ -40,18 +49,8 @@ pub struct NotifyCommand {
     // pub scm_platform: Option<ScmPlatform>,
 }
 
-// #[derive(Clone, Copy, Debug, Display, EnumIter, EnumString, VariantNames, PartialEq)]
-// #[strum(serialize_all = "lowercase")]
-// #[non_exhaustive]
-// pub enum ScmPlatform {
-//     // #[strum(serialize = "github")]
-//     Github,
-//     // #[strum(serialize = "gitlab")]
-//     Gitlab,
-// }
-
 pub(crate) fn execute(cmd: NotifyCommand) -> anyhow::Result<Option<String>> {
-    // TODO: pass in scm to support writing comments
+    // TODO: Support writing comment to SCM platform
     let code_notify = get_options(cmd)?;
 
     code_notify.notify()?;
@@ -61,17 +60,53 @@ pub(crate) fn execute(cmd: NotifyCommand) -> anyhow::Result<Option<String>> {
 // TODO (sean): not sure whats the best way to handle, or how much we care to handle, related to
 // CI discovery. For now we'll put here but we should reconsider this in the future
 fn get_options(cmd: NotifyCommand) -> anyhow::Result<CodeNotify> {
-    if doctavious_std::env::as_boolean("GITHUB_ACTIONS") {
-        return github_actions_options(cmd);
-    } else if doctavious_std::env::as_boolean("GITLAB_CI") {
-        return gitlab_ci_options(cmd);
-    } else if doctavious_std::env::as_boolean("GITEA_ACTIONS") {
-        return gitea_actions_options(cmd);
-    } else if doctavious_std::env::as_boolean("BITBUCKET_BUILD_NUMBER") {
-        return bitbucket_pipelines_options();
+    let subscriber_threshold = cmd.subscriber_threshold;
+    let file_name = cmd.file_name;
+
+    if let Some(ci_provider) = ContinuousIntegrationProvider::from_env() {
+        let ci_context = ci_provider.context_from_env()?;
+        if ci_context.draft {
+            // TODO: better way to exit program
+            std::process::exit(1)
+        }
+
+        let base_ref = cmd.base_ref.unwrap_or(ci_context.base);
+        let head_ref = cmd.head_ref.unwrap_or(ci_context.head);
+
+        Ok(CodeNotify {
+            cwd: ci_context.build_directory,
+            format: "markdown".to_string(),
+            file_name,
+            subscriber_threshold,
+            commit_range: ScmCommitRange(base_ref, Some(head_ref)),
+            author: ci_context.author,
+        })
+    } else {
+        // cli_options(cmd)
+
+        Ok(CodeNotify {
+            cwd: cmd.cwd.unwrap_or(std::env::current_dir()?),
+            format: cmd.format.unwrap_or("text".to_string()),
+            file_name,
+            subscriber_threshold,
+            commit_range: ScmCommitRange(cmd.base_ref.unwrap_or_default(), cmd.head_ref),
+            author: None,
+        })
     }
 
-    cli_options(cmd)
+    // TODO: how do we want to support third-party CI providers?
+    // Should maybe separate CI provider from SCM even if they are the same
+    // if doctavious_std::env::as_boolean("GITHUB_ACTIONS") {
+    //     return github_actions_options(cmd);
+    // } else if doctavious_std::env::as_boolean("GITLAB_CI") {
+    //     return gitlab_ci_options(cmd);
+    // } else if doctavious_std::env::as_boolean("GITEA_ACTIONS") {
+    //     return gitea_actions_options(cmd);
+    // } else if doctavious_std::env::as_boolean("BITBUCKET_BUILD_NUMBER") {
+    //     return bitbucket_pipelines_options();
+    // }
+    //
+    // cli_options(cmd)
 }
 
 fn cli_options(cmd: NotifyCommand) -> anyhow::Result<CodeNotify> {
@@ -80,7 +115,7 @@ fn cli_options(cmd: NotifyCommand) -> anyhow::Result<CodeNotify> {
         format: cmd.format.unwrap_or("text".to_string()),
         file_name: cmd.file_name,
         subscriber_threshold: cmd.subscriber_threshold,
-        commit_range: ScmCommitRange(cmd.base_ref, cmd.head_ref),
+        commit_range: ScmCommitRange(cmd.base_ref.unwrap_or_default(), cmd.head_ref),
         author: None,
     })
 }
@@ -116,7 +151,8 @@ fn github_actions_options(cmd: NotifyCommand) -> anyhow::Result<CodeNotify> {
     }
 
     let subscriber_threshold: i8 =
-        doctavious_std::env::parse("DOCTAVIOUS_CODENOTIFY_SUBSCRIBER_THRESHOLD").unwrap_or_default();
+        doctavious_std::env::parse("DOCTAVIOUS_CODENOTIFY_SUBSCRIBER_THRESHOLD")
+            .unwrap_or_default();
 
     // TODO: constant?
     let filename =
@@ -158,7 +194,8 @@ fn gitlab_ci_options(cmd: NotifyCommand) -> anyhow::Result<CodeNotify> {
         .and_then(|s| Ok(PathBuf::from(s)))
         .unwrap_or(std::env::current_dir()?);
     let subscriber_threshold: i8 =
-        doctavious_std::env::parse("DOCTAVIOUS_CODENOTIFY_SUBSCRIBER_THRESHOLD").unwrap_or_default();
+        doctavious_std::env::parse("DOCTAVIOUS_CODENOTIFY_SUBSCRIBER_THRESHOLD")
+            .unwrap_or_default();
 
     // TODO: constant?
     let filename =
@@ -205,6 +242,12 @@ fn gitea_actions_options(cmd: NotifyCommand) -> anyhow::Result<CodeNotify> {
 }
 
 fn bitbucket_pipelines_options() -> anyhow::Result<CodeNotify> {
+    // BITBUCKET_COMMIT
+    // BITBUCKET_PR_DESTINATION_COMMIT
+
+    // Base Commit SHA ➡️ $BITBUCKET_PR_DESTINATION_COMMIT
+    // Head Commit SHA ➡️ $BITBUCKET_COMMIT
+
     // base ref - custom webhook parsing / api
     // head ref - BITBUCKET_COMMIT
     // author - .author.display_name

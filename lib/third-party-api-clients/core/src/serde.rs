@@ -1,6 +1,3 @@
-
-
-
 pub mod deserialize_rfc3339_epoch_second {
 
     //! Serialization and Deserialization of timestamps in Github API
@@ -15,7 +12,7 @@ pub mod deserialize_rfc3339_epoch_second {
     use core::fmt;
 
     use chrono::{DateTime, LocalResult, TimeZone, Utc};
-    use serde::{de, Deserialize};
+    use serde::{Deserialize, de};
 
     pub fn deserialize<'de, D>(deserializer: D) -> Result<DateTime<Utc>, D::Error>
     where
@@ -26,7 +23,9 @@ pub mod deserialize_rfc3339_epoch_second {
 
     /// Helper struct to tell serde the deserializer to use when working with Option<DateTime<Utc>>
     #[derive(Debug, Deserialize)]
-    struct WrappedRfc3339EpochSecondTimestamp(#[serde(deserialize_with = "deserialize")] DateTime<Utc>);
+    struct WrappedRfc3339EpochSecondTimestamp(
+        #[serde(deserialize_with = "deserialize")] DateTime<Utc>,
+    );
 
     pub fn deserialize_option<'de, D>(deserializer: D) -> Result<Option<DateTime<Utc>>, D::Error>
     where
@@ -42,8 +41,9 @@ pub mod deserialize_rfc3339_epoch_second {
         type Value = DateTime<Utc>;
 
         fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
-            formatter
-                .write_str("a RFC3339 date and time _string_ or a unix timestamp _integer_ in seconds")
+            formatter.write_str(
+                "a RFC3339 date and time _string_ or a unix timestamp _integer_ in seconds",
+            )
         }
 
         fn visit_i64<E>(self, v: i64) -> Result<Self::Value, E>
@@ -85,5 +85,4 @@ pub mod deserialize_rfc3339_epoch_second {
             LocalResult::Single(val) => Ok(val),
         }
     }
-
 }

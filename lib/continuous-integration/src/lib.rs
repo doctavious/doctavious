@@ -1,9 +1,32 @@
 use std::collections::HashMap;
 use std::error::Error;
+use std::io;
 use std::path::PathBuf;
+
+use github_client::webhook::PullRequestWebhookEventPayload;
+use scm::platforms::ScmPlatform;
 use serde_derive::{Deserialize, Serialize};
 use strum::{EnumIter, IntoEnumIterator};
-use github_client::webhook::PullRequestWebhookEventPayload;
+use thiserror::Error;
+
+// TODO: was hoping to not have to define an error or result here...
+#[remain::sorted]
+#[derive(Debug, Error)]
+pub enum ContinuousIntegrationError {
+    #[error(transparent)]
+    EnvVarError(#[from] doctavious_std::env::EnvVarError),
+
+    #[error(transparent)]
+    IoError(#[from] io::Error),
+
+    #[error(transparent)]
+    SerdeJson(#[from] serde_json::Error),
+
+    #[error(transparent)]
+    VarError(#[from] std::env::VarError),
+}
+
+pub type ContinuousIntegrationResult<T> = Result<T, ContinuousIntegrationError>;
 
 #[derive(Clone, Debug, Deserialize, EnumIter, Eq, Hash, PartialEq, Serialize)]
 #[serde(rename_all = "lowercase")]
@@ -29,7 +52,6 @@ pub enum ContinuousIntegrationProvider {
 }
 
 impl ContinuousIntegrationProvider {
-
     pub fn from_env() -> Option<Self> {
         for provider in Self::iter() {
             if provider.in_ci() {
@@ -42,12 +64,22 @@ impl ContinuousIntegrationProvider {
 
     pub fn in_ci(&self) -> bool {
         match self {
-            ContinuousIntegrationProvider::AzureDevOpsPipelines => doctavious_std::env::as_boolean("TF_BUILD"),
-            ContinuousIntegrationProvider::BitBucket => std::env::var("BITBUCKET_BUILD_NUMBER").is_ok(),
-            ContinuousIntegrationProvider::Buildkite => doctavious_std::env::as_boolean("BUILDKITE"),
+            ContinuousIntegrationProvider::AzureDevOpsPipelines => {
+                doctavious_std::env::as_boolean("TF_BUILD")
+            }
+            ContinuousIntegrationProvider::BitBucket => {
+                std::env::var("BITBUCKET_BUILD_NUMBER").is_ok()
+            }
+            ContinuousIntegrationProvider::Buildkite => {
+                doctavious_std::env::as_boolean("BUILDKITE")
+            }
             ContinuousIntegrationProvider::CircleCI => doctavious_std::env::as_boolean("CIRCLECI"),
-            ContinuousIntegrationProvider::Gitea => doctavious_std::env::as_boolean("GITEA_ACTIONS"),
-            ContinuousIntegrationProvider::GitHubActions => doctavious_std::env::as_boolean("GITHUB_ACTIONS"),
+            ContinuousIntegrationProvider::Gitea => {
+                doctavious_std::env::as_boolean("GITEA_ACTIONS")
+            }
+            ContinuousIntegrationProvider::GitHubActions => {
+                doctavious_std::env::as_boolean("GITHUB_ACTIONS")
+            }
             ContinuousIntegrationProvider::GitLab => doctavious_std::env::as_boolean("GITLAB_CI"),
             ContinuousIntegrationProvider::Jenkins => std::env::var("JENKINS_URL").is_ok(),
             ContinuousIntegrationProvider::TeamCity => std::env::var("TEAMCITY_VERSION").is_ok(),
@@ -55,7 +87,7 @@ impl ContinuousIntegrationProvider {
         }
     }
 
-    pub fn context_from_env(&self) -> Result<ContinuousIntegrationContext, Box<dyn Error>> {
+    pub fn context_from_env(&self) -> ContinuousIntegrationResult<ContinuousIntegrationContext> {
         Ok(match self {
             ContinuousIntegrationProvider::GitHubActions => {
                 let build_directory = doctavious_std::env::parse("GITHUB_WORKSPACE")?;
@@ -69,7 +101,10 @@ impl ContinuousIntegrationProvider {
                     base: event.pull_request.base.sha,
                     head: event.pull_request.head.sha,
                     draft: event.pull_request.draft.unwrap_or(false),
-                    author: event.pull_request.user.and_then(|u| Some(format!("@{}", u.login).to_string()))
+                    author: event
+                        .pull_request
+                        .user
+                        .and_then(|u| Some(format!("@{}", u.login).to_string())),
                 }
             }
             ContinuousIntegrationProvider::GitLab => {
@@ -106,27 +141,16 @@ impl ContinuousIntegrationProvider {
                     base: event.pull_request.base.sha,
                     head: event.pull_request.head.sha,
                     draft: event.pull_request.draft.unwrap_or(false),
-                    author: event.pull_request.user.and_then(|u| Some(format!("@{}", u.login).to_string()))
+                    author: event
+                        .pull_request
+                        .user
+                        .and_then(|u| Some(format!("@{}", u.login).to_string())),
                 }
             }
-            _ => todo!()
+            _ => todo!(),
         })
     }
 
-
-    // fn gitea_actions_options(cmd: NotifyCommand) -> anyhow::Result<CodeNotify> {
-    //     // https://docs.gitea.com/usage/webhooks?_highlight=event#event-information
-    //     // For pull_request events, in GitHub Actions, the ref is refs/pull/:prNumber/merge,
-    //     // which is a reference to the merge commit preview. However, Gitea has no such reference.
-    //     // Therefore, the ref in Gitea Actions is refs/pull/:prNumber/head, which points to the
-    //     // head of pull request rather than the preview of the merge commit.
-    //
-    //     // base ref - github.event.pull_request.base.sha
-    //     // head ref - github.event.pull_request.head.sha
-    //     // author - github.event.pull_request.user.login
-    //     todo!()
-    // }
-    //
     // fn bitbucket_pipelines_options() -> anyhow::Result<CodeNotify> {
     //     // BITBUCKET_COMMIT
     //     // BITBUCKET_PR_DESTINATION_COMMIT
@@ -153,13 +177,18 @@ impl ContinuousIntegrationProvider {
     // TODO: does this make sense?
     // if we can determine which scm provider we can do that here or context?
     // even if we did determine we wouldnt know the authentication key to use and
-    // would need users to pass details into the CLI. we check for a well known env var
-    // pub fn associated_scm
-
+    // would need users to pass details into the CLI. we can check for a well known env var
+    pub fn associated_scm_platform(&self) -> Option<ScmPlatform> {
+        match self {
+            ContinuousIntegrationProvider::Gitea => Some(ScmPlatform::Gitea),
+            ContinuousIntegrationProvider::GitHubActions => Some(ScmPlatform::GitHub),
+            ContinuousIntegrationProvider::GitLab => Some(ScmPlatform::GitLab),
+            _ => todo!(),
+        }
+    }
 }
 
 pub trait ContinuousIntegrationOperations: Send + Sync {
-
     // TODO: maybe something like a mode? or source? to support info from webhook?
     /// Check if currently running in CI environment
     fn in_ci(&self) -> bool;
@@ -185,7 +214,9 @@ impl ContinuousIntegrationOperations for GitHubActionsProvider {
     }
 
     fn env_vars(&self) -> HashMap<String, String> {
-        std::env::vars().filter(|(key, _)| key.starts_with("GITHUB_")).collect()
+        std::env::vars()
+            .filter(|(key, _)| key.starts_with("GITHUB_"))
+            .collect()
     }
 
     fn get_context(&self) -> ContinuousIntegrationContext {
@@ -204,7 +235,9 @@ impl ContinuousIntegrationOperations for GitLabCiProvider {
     }
 
     fn env_vars(&self) -> HashMap<String, String> {
-        std::env::vars().filter(|(key, _)| key.starts_with("CI_") ||  key.starts_with("GITLAB_")).collect()
+        std::env::vars()
+            .filter(|(key, _)| key.starts_with("CI_") || key.starts_with("GITLAB_"))
+            .collect()
     }
 
     fn get_context(&self) -> ContinuousIntegrationContext {
@@ -223,7 +256,9 @@ impl ContinuousIntegrationOperations for CircleCiProvider {
     }
 
     fn env_vars(&self) -> HashMap<String, String> {
-        std::env::vars().filter(|(key, _)| key.starts_with("CIRCLECI_")).collect()
+        std::env::vars()
+            .filter(|(key, _)| key.starts_with("CIRCLECI_"))
+            .collect()
     }
 
     fn get_context(&self) -> ContinuousIntegrationContext {
