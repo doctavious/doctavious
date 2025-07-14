@@ -6,4 +6,7 @@ use thiserror::Error;
 
 /// Errors returned by the client
 #[derive(Debug, Error)]
-pub enum ClientError {}
+pub enum ClientError {
+    #[error("GitHub error: `{0}`")]
+    GitHubClientError(#[from] github_client::client::ClientError),
+}

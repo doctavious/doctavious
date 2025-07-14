@@ -3,7 +3,7 @@ use std::sync::Arc;
 use crate::platforms::ScmPlatformClient;
 
 pub struct GitLabProvider {
-    pub client: Arc<gitlab_client::Client>,
+    pub client: Arc<gitlab_client::client::Client>,
 }
 
 pub struct GitlabRepositoryIdentifier {

@@ -1,5 +1,5 @@
 [package]
-name = "gitlab-client"
+name = "github-client"
 version = "0.1.0"
 edition = "2024"
 publish = false
@@ -8,11 +8,15 @@ publish = false
 
 [dependencies]
 chrono = { workspace = true }
+api-client-core = { path = "../core" }
 http = { workspace = true }
 jsonwebtoken = { workspace = true }
 mime = { workspace = true }
 percent-encoding = { workspace = true }
 reqwest = { workspace = true }
+reqwest-middleware = { workspace = true }
+reqwest-retry = { workspace = true }
+reqwest-tracing = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 serde_urlencoded = { workspace = true }

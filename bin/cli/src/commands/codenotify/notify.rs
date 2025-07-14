@@ -6,7 +6,10 @@ use code_ownify::notify::CodeNotify;
 use continuous_integration::ContinuousIntegrationProvider;
 use github_client::webhook::PullRequestWebhookEventPayload;
 use scm::commit::ScmCommitRange;
-use scm::platforms::gitlab;
+use scm::platforms::{ScmPlatform, gitlab};
+use strum::VariantNames;
+
+use crate::clap_enum_variants;
 
 #[derive(Args, Debug)]
 #[command()]
@@ -45,8 +48,13 @@ pub struct NotifyCommand {
     /// The author of the file diff
     #[arg(long)]
     pub author: Option<String>,
-    // // TODO: this should be an enum
-    // pub scm_platform: Option<ScmPlatform>,
+
+    // TODO: Doesnt work yet with lowercase values...
+    #[arg(
+        long,
+        value_parser = clap_enum_variants!(ScmPlatform)
+    )]
+    pub scm_platform: Option<ScmPlatform>,
 }
 
 pub(crate) fn execute(cmd: NotifyCommand) -> anyhow::Result<Option<String>> {
@@ -73,6 +81,13 @@ fn get_options(cmd: NotifyCommand) -> anyhow::Result<CodeNotify> {
         let base_ref = cmd.base_ref.unwrap_or(ci_context.base);
         let head_ref = cmd.head_ref.unwrap_or(ci_context.head);
 
+        let scm = ci_context.provider.associated_scm_platform();
+        if scm.is_none() {
+            // TODO: return error unable to detect SCM Platform
+        }
+
+        // let client = scm.unwrap().get_client_from_env();
+
         Ok(CodeNotify {
             cwd: ci_context.build_directory,
             format: "markdown".to_string(),
@@ -83,6 +98,10 @@ fn get_options(cmd: NotifyCommand) -> anyhow::Result<CodeNotify> {
         })
     } else {
         // cli_options(cmd)
+
+        if let Some(scm_platform) = cmd.scm_platform {
+            // TODO: get client
+        }
 
         Ok(CodeNotify {
             cwd: cmd.cwd.unwrap_or(std::env::current_dir()?),
@@ -159,6 +178,7 @@ fn github_actions_options(cmd: NotifyCommand) -> anyhow::Result<CodeNotify> {
         std::env::var("DOCTAVIOUS_CODENOTIFY_FILENAME").unwrap_or("CODENOTIFY".to_string());
 
     // TODO: github client
+    // TODO: GITHUB_API_URL
     // token := os.Getenv("GITHUB_TOKEN")
     // if token == "" {
     //     return fmt.Errorf("GITHUB_TOKEN is not set")
@@ -211,7 +231,7 @@ fn gitlab_ci_options(cmd: NotifyCommand) -> anyhow::Result<CodeNotify> {
 
     // TODO: fix this
     let provider = gitlab::provider::GitLabProvider {
-        client: Arc::new(gitlab_client::Client::new("", None)?),
+        client: Arc::new(gitlab_client::client::Client::new("", None)?),
     };
 
     // provider.update_merge_request_note(GitlabRepositoryIdentifier {

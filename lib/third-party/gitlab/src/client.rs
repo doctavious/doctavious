@@ -1,6 +1,3 @@
-pub mod models;
-pub mod webhook;
-
 use std::collections::HashMap;
 use std::fmt;
 use std::str::FromStr;
@@ -12,15 +9,21 @@ use jsonwebtoken as jwt;
 use percent_encoding::{AsciiSet, CONTROLS, utf8_percent_encode};
 use reqwest::StatusCode;
 use reqwest::header::HeaderMap;
+use reqwest_middleware::Middleware;
+use reqwest_retry::RetryTransientMiddleware;
+use reqwest_tracing::TracingMiddleware;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use tracing::{debug, info};
 use url::Url;
 
-use crate::models::pulls;
+use crate::merge_requests;
 
-// TODO: confirm
-const TOKEN_ENDPOINT: &str = "https://github.com/oauth/token";
+// TODO: this will be different
+const TOKEN_ENDPOINT: &str = "https://gitlab.com/oauth/token";
+
+const DEFAULT_HOST: &str = "https://gitlab.com/api/v4/";
+const DEFAULT_CLIENT_AGENT: &str = "doctavious-gitlab";
 
 // We use 9 minutes for the life to give some buffer for clock drift between
 // our clock and GitHub's. The absolute max is 10 minutes.
@@ -28,7 +31,7 @@ const MAX_JWT_TOKEN_LIFE: Duration = Duration::from_secs(60 * 9);
 // 8 minutes so we refresh sooner than it actually expires
 const JWT_TOKEN_REFRESH_PERIOD: Duration = Duration::from_secs(60 * 8);
 
-mod support {
+pub(crate) mod support {
     use percent_encoding::{AsciiSet, CONTROLS, utf8_percent_encode};
 
     const PATH_SET: &AsciiSet = &CONTROLS
@@ -92,6 +95,10 @@ pub enum ClientError {
     #[error(transparent)]
     ReqwestError(#[from] reqwest::Error),
 
+    /// Errors returned by reqwest middleware
+    #[error(transparent)]
+    ReqwestMiddleWareError(#[from] reqwest_middleware::Error),
+
     /// Serde JSON parsing error
     #[error(transparent)]
     SerdeJsonError(#[from] serde_json::Error),
@@ -101,7 +108,7 @@ pub enum ClientError {
     UrlParserError(#[from] url::ParseError),
 }
 
-type ClientResult<T> = Result<T, ClientError>;
+pub type ClientResult<T> = Result<T, ClientError>;
 
 #[derive(Debug, Default)]
 pub(crate) struct Message {
@@ -115,15 +122,9 @@ pub struct Client {
     host: String,
     host_override: Option<String>,
     agent: String,
-    // #[cfg(feature = "middleware")]
-    // client: reqwest_middleware::ClientWithMiddleware,
-    // #[cfg(not(feature = "middleware"))]
-    client: reqwest::Client,
+    client: reqwest_middleware::ClientWithMiddleware,
     credentials: Option<Credentials>,
-    // #[cfg(feature = "httpcache")]
-    // http_cache: crate::http_cache::BoxedHttpCache,
-
-    // auto_refresh: bool,
+    // TODO: http_cache
 }
 
 #[derive(Clone, Copy, Default)]
@@ -435,6 +436,7 @@ impl LinkHeader {
 }
 
 impl Client {
+
     pub fn new<A, C>(agent: A, credentials: C) -> ClientResult<Self>
     where
         A: Into<String>,
@@ -444,14 +446,33 @@ impl Client {
             .redirect(reqwest::redirect::Policy::none())
             .build()?;
 
+        let client = reqwest_middleware::ClientBuilder::new(http).build();
+
         Ok(Self {
-            // TODO: default server host
-            host: "".to_string(),
+            host: DEFAULT_HOST.to_string(),
+            host_override: None,
+            agent: agent.into(),
+            client,
+            credentials: credentials.into(),
+        })
+    }
+
+    pub fn custom<A, C>(
+        agent: A,
+        credentials: C,
+        http: reqwest_middleware::ClientWithMiddleware,
+    ) -> Self
+    where
+        A: Into<String>,
+        C: Into<Option<Credentials>>,
+    {
+        Self {
+            host: DEFAULT_HOST.to_string(),
             host_override: None,
             agent: agent.into(),
             client: http,
             credentials: credentials.into(),
-        })
+        }
     }
 
     pub fn get_host_override(&self) -> Option<&str> {
@@ -566,7 +587,7 @@ impl Client {
         Ok(r)
     }
 
-    async fn get<D>(&self, uri: &str, message: Message) -> ClientResult<Response<D>>
+    pub async fn get<D>(&self, uri: &str, message: Message) -> ClientResult<Response<D>>
     where
         D: serde::de::DeserializeOwned + 'static + Send,
     {
@@ -662,7 +683,7 @@ impl Client {
         message: Message,
         media_type: MediaType,
         authentication: AuthenticationConstraint,
-    ) -> ClientResult<reqwest::RequestBuilder> {
+    ) -> ClientResult<reqwest_middleware::RequestBuilder> {
         let (url, auth) = self.url_and_auth(uri, authentication).await?;
 
         let mut req = self.client.request(method, url);
@@ -724,7 +745,7 @@ impl Client {
         }
     }
 
-    async fn post<D>(&self, uri: &str, message: Message) -> ClientResult<Response<D>>
+    pub async fn post<D>(&self, uri: &str, message: Message) -> ClientResult<Response<D>>
     where
         D: serde::de::DeserializeOwned + 'static + Send,
     {
@@ -777,7 +798,7 @@ impl Client {
         self.patch_media(uri, message, MediaType::Json).await
     }
 
-    async fn put<D>(&self, uri: &str, message: Message) -> ClientResult<Response<D>>
+    pub async fn put<D>(&self, uri: &str, message: Message) -> ClientResult<Response<D>>
     where
         D: serde::de::DeserializeOwned + 'static + Send,
     {
@@ -819,7 +840,180 @@ impl Client {
 
     // TODO: JWT refresh token
 
-    pub fn pull_requests(&self) -> pulls::PullRequests {
-        pulls::PullRequests::new(self.clone())
+    // parameters = 'client_id=APP_ID&code=RETURNED_CODE&grant_type=authorization_code&redirect_uri=REDIRECT_URI&code_verifier=CODE_VERIFIER'
+    // RestClient.post 'https://gitlab.example.com/oauth/token', parameters
+    // {
+    // "access_token": "de6780bc506a0446309bd9362820ba8aed28aa506c71eedbe1c5c4f9dd350e54",
+    // "token_type": "bearer",
+    // "expires_in": 7200,
+    // "refresh_token": "8257e65c97202ed1726cf9571600918f3bffb2544b26e00a61df9897668c33a1",
+    // "created_at": 1607635748
+    // }
+    // To retrieve a new access_token, use the refresh_token parameter.
+    // Refresh tokens may be used even after the access_token itself expires. This request:
+    // parameters = 'client_id=APP_ID&refresh_token=REFRESH_TOKEN&grant_type=refresh_token&redirect_uri=REDIRECT_URI&code_verifier=CODE_VERIFIER'
+    // RestClient.post 'https://gitlab.example.com/oauth/token', parameters
+    // {
+    // "access_token": "c97d1fe52119f38c7f67f0a14db68d60caa35ddc86fd12401718b649dcfa9c68",
+    // "token_type": "bearer",
+    // "expires_in": 7200,
+    // "refresh_token": "803c1fd487fec35562c205dac93e9d8e08f9d3652a24079d704df3039df1158f",
+    // "created_at": 1628711391
+    // }
+
+    // /// Refresh an access token from a refresh token. Client must have a refresh token for this to work.
+    // pub async fn refresh_access_token(&self) -> ClientResult<AccessToken> {
+    //     let response = {
+    //         let refresh_token = &self.token.read().await.refresh_token;
+    //
+    //         if refresh_token.is_empty() {
+    //             return Err(ClientError::EmptyRefreshToken);
+    //         }
+    //
+    //         let mut headers = reqwest::header::HeaderMap::new();
+    //         headers.append(
+    //             reqwest::header::ACCEPT,
+    //             reqwest::header::HeaderValue::from_static("application/json"),
+    //         );
+    //
+    //         let params = [
+    //             ("grant_type", "refresh_token"),
+    //             ("refresh_token", refresh_token),
+    //             ("client_id", &self.client_id),
+    //             ("client_secret", &self.client_secret),
+    //             ("redirect_uri", &self.redirect_uri),
+    //         ];
+    //         let client = reqwest::Client::new();
+    //         client
+    //             .post(TOKEN_ENDPOINT)
+    //             .headers(headers)
+    //             .form(&params)
+    //             .basic_auth(&self.client_id, Some(&self.client_secret))
+    //             .send()
+    //             .await?
+    //     };
+    //
+    //     // Unwrap the response.
+    //     let t: AccessToken = response.json().await?;
+    //
+    //     let refresh_token = self.token.read().await.refresh_token.clone();
+    //
+    //     *self.token.write().await = InnerToken {
+    //         access_token: t.access_token.clone(),
+    //         refresh_token,
+    //         expires_at: Self::compute_expires_at(t.expires_in),
+    //     };
+    //
+    //     Ok(t)
+    // }
+
+    pub fn merge_requests(&self) -> merge_requests::MergeRequests {
+        merge_requests::MergeRequests::new(self.clone())
+    }
+}
+
+
+// https://docs.rs/ethers-providers/2.0.14/src/ethers_providers/rpc/transports/retry.rs.html#366
+// Retry Policy
+// Rate Limit Retry Policy
+
+// https://github.com/TrueLayer/reqwest-middleware
+// https://github.com/TrueLayer/retry-policies
+// let retry_policy = ExponentialBackoff::builder().build_with_max_retries(3);
+// pub struct RateLimitRetry {
+//     pub header: String
+// }
+// impl RetryableStrategy for RateLimitRetry {
+//     fn handle(&self, res: &Result<reqwest::Response>) -> Option<Retryable> {
+//         match res {
+//             Ok(success) => None,
+//             Err(error) => default_on_request_failure(error),
+//         }
+//     }
+// }
+
+pub struct ClientBuilder {
+    host: String,
+    agent: String,
+    // TODO: if we want to support more convenience fns we could make this a ClientBuilder
+    http: reqwest::Client,
+    middleware: Vec<Arc<dyn Middleware>>,
+    credentials: Option<Credentials>,
+}
+
+impl ClientBuilder {
+    pub fn new() -> ClientResult<Self> {
+        let http = reqwest::Client::builder()
+            .redirect(reqwest::redirect::Policy::none())
+            .build()?;
+
+        Ok(Self {
+            host: DEFAULT_HOST.to_string(),
+            agent: format!("{}/{}", DEFAULT_CLIENT_AGENT, env!("CARGO_PKG_VERSION")),
+            http,
+            middleware: Vec::new(),
+            credentials: None,
+        })
+    }
+
+    pub fn with_agent(mut self, agent: &str) -> Self {
+        self.agent = agent.to_string();
+        self
+    }
+
+    pub fn with_host_override(mut self, host_override: &str) -> Self {
+        self.host = host_override.to_string();
+        self
+    }
+
+    pub fn with_http(mut self, http: reqwest::Client) -> Self {
+        self.http = http;
+        self
+    }
+
+    pub fn add_middleware<M>(mut self, middleware: M) -> Self
+    where
+        M: Middleware,
+    {
+        self.add_middleware_arc(Arc::new(middleware))
+    }
+
+    fn add_middleware_arc(mut self, middleware: Arc<dyn Middleware>) -> Self {
+        self.middleware.push(middleware);
+        self
+    }
+
+    /// Convenience method to attach tracing middleware
+    pub fn with_tracing(mut self) -> Self {
+        self.add_middleware(TracingMiddleware::default())
+    }
+
+    /// Convenience method to attach retry middleware
+    pub fn with_retry(mut self) -> Self {
+        // TODO: conditional middleware? https://github.com/oxidecomputer/reqwest-conditional-middleware/tree/main
+        // TODO: rate limit retry middleware?
+        let retry_policy =
+            reqwest_retry::policies::ExponentialBackoff::builder().build_with_max_retries(3);
+        self.add_middleware(RetryTransientMiddleware::new_with_policy(retry_policy))
+    }
+
+    pub fn with_credentials(mut self, credentials: Credentials) -> Self {
+        self.credentials = Some(credentials);
+        self
+    }
+
+    pub fn build(self) -> ClientResult<Client> {
+        let mut builder = reqwest_middleware::ClientBuilder::new(self.http);
+        for middleware in self.middleware {
+            builder = builder.with_arc(middleware)
+        }
+
+        Ok(Client {
+            host: self.host,
+            host_override: None,
+            agent: self.agent,
+            client: builder.build(),
+            credentials: self.credentials,
+        })
     }
 }

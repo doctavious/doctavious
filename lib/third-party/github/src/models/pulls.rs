@@ -1,10 +1,10 @@
 use serde::{Deserialize, Serialize};
 use url::Url;
 
+use crate::client::{Client, ClientResult, OffsetBasedPagination, Response};
 use crate::models::{
     Author, AuthorAssociation, IssueState, Label, Milestone, PullRequestId, Repository, teams,
 };
-use crate::{Client, ClientResult, OffsetBasedPagination, Response};
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[non_exhaustive]

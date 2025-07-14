@@ -1,20 +1,26 @@
 pub mod github;
 pub mod gitlab;
 
+use std::env;
 use std::hash::Hash;
 use std::path::PathBuf;
 
 use chrono::{DateTime, Utc};
 use serde_derive::{Deserialize, Serialize};
-use strum::EnumIter;
+use strum::{EnumIter, EnumString, VariantNames};
 
 use crate::commit::ScmSignature;
+use crate::platforms;
 
 // TODO: rename to ScmHostedProviders?
-#[derive(Clone, Debug, Deserialize, EnumIter, Eq, Hash, PartialEq, Serialize)]
+#[derive(
+    Clone, Debug, Deserialize, Eq, Hash, PartialEq, Serialize, EnumIter, EnumString, VariantNames,
+)]
 #[serde(rename_all = "lowercase")]
 #[remain::sorted]
+#[non_exhaustive]
 pub enum ScmPlatform {
+    Azure,
     BitBucket,
     Gitea,
     GitHub,
@@ -34,6 +40,27 @@ impl ScmPlatform {
     }
 
     pub fn get_client_from_env<R>(&self) -> Box<dyn ScmPlatformClient<R>> {
+        let env_var_credentials_key = match self {
+            ScmPlatform::Azure => "",
+            ScmPlatform::BitBucket => "",
+            ScmPlatform::Gitea => "",
+            ScmPlatform::GitHub => "",
+            ScmPlatform::GitLab => "",
+            ScmPlatform::Gogs => "",
+        };
+
+        match self {
+            ScmPlatform::Azure => {}
+            ScmPlatform::BitBucket => {}
+            ScmPlatform::Gitea => {}
+            ScmPlatform::GitHub => {
+                let creds = env::var(env_var_credentials_key).unwrap();
+                let github_provider = platforms::github::provider::GithubProvider::new(&creds);
+            }
+            ScmPlatform::GitLab => {}
+            ScmPlatform::Gogs => {}
+        }
+
         todo!()
     }
 
@@ -79,6 +106,10 @@ pub struct ScmPlatformRelease {
     pub prerelease: bool,
     pub created: DateTime<Utc>,
     pub published: DateTime<Utc>,
+}
+
+pub enum Credentials {
+    Environment(String),
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -133,4 +164,29 @@ pub trait ScmPlatformClient<R> {
     //     body: String,
     // );
     async fn update_merge_request_note(&self, repo_id: R, mr: u64, note_id: u64, body: String);
+}
+
+// TODO: probably could just be named ScmPlatformRepositoryClient
+// A client that is bound to a specific SCM repository
+#[async_trait::async_trait]
+pub trait ScmPlatformRepositoryBoundedClient {
+    // TODO: per_page / page, sort, direction
+    // -> Vec<PullRequestNote>
+    // async fn list_all_merge_requests_notes(&self, mr: u64);
+    async fn list_all_merge_requests_notes(&self, mr: u64);
+
+    // async fn create_merge_request_note(
+    //     &self,
+    //     mr: u64,
+    //     body: String,
+    // );
+    async fn create_merge_request_note(&self, mr: u64, body: String);
+
+    // async fn update_merge_request_note(
+    //     &self,
+    //     mr: u64,
+    //     note_id: u64,
+    //     body: String,
+    // );
+    async fn update_merge_request_note(&self, mr: u64, note_id: u64, body: String);
 }

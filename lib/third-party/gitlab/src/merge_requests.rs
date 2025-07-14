@@ -1,7 +1,7 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
-use crate::{Client, ClientResult, OffsetBasedPagination, Response};
+use crate::client::{Client, ClientResult, OffsetBasedPagination, Response};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MergeRequestNote {
@@ -78,7 +78,7 @@ impl MergeRequests {
         let url = self.client.url(
             &format!(
                 "/projects/{}/merge_requests/{}/notes",
-                crate::support::encode_path(project_id),
+                crate::client::support::encode_path(project_id),
                 merge_request_iid,
             ),
             None,
@@ -86,7 +86,7 @@ impl MergeRequests {
         self.client
             .get(
                 &url,
-                crate::Message {
+                crate::client::Message {
                     body: None,
                     content_type: None,
                 },
@@ -116,7 +116,7 @@ impl MergeRequests {
         let url = self.client.url(
             &format!(
                 "/projects/{}/merge_requests/{}/notes",
-                crate::support::encode_path(project_id),
+                crate::client::support::encode_path(project_id),
                 merge_request_iid,
             ),
             None,
@@ -125,7 +125,7 @@ impl MergeRequests {
         self.client
             .post(
                 &url,
-                crate::Message {
+                crate::client::Message {
                     body: Some(reqwest::Body::from(body)),
                     content_type: None,
                 },
@@ -154,7 +154,7 @@ impl MergeRequests {
         let url = self.client.url(
             &format!(
                 "/projects/{}/merge_requests/{}/notes/{}",
-                crate::support::encode_path(project_id),
+                crate::client::support::encode_path(project_id),
                 note_id,
                 merge_request_iid,
             ),
@@ -164,7 +164,7 @@ impl MergeRequests {
         self.client
             .put(
                 &url,
-                crate::Message {
+                crate::client::Message {
                     body: Some(reqwest::Body::from(body)),
                     content_type: None,
                 },
