@@ -27,12 +27,13 @@ serde = { workspace = true }
 serde_json = { workspace = true }
 shellexpand = { workspace = true }
 strum = {workspace = true }
+tokio = { workspace = true, features = ["full"] }
 tracing = { workspace = true }
 tracing-subscriber = { workspace = true }
 
 # TODO: should we we go through SCM???
-github-client = { path = "../../lib/third-party-api-clients/github" }
-gitlab-client = { path = "../../lib/third-party-api-clients/gitlab" }
+github-client = { path = "../../lib/third-party/github" }
+gitlab-client = { path = "../../lib/third-party/gitlab" }
 
 [dev-dependencies]
 insta = { workspace = true }

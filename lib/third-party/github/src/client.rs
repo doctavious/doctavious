@@ -435,7 +435,6 @@ impl LinkHeader {
 }
 
 impl Client {
-
     pub fn new<A, C>(agent: A, credentials: C) -> ClientResult<Self>
     where
         A: Into<String>,
@@ -585,7 +584,7 @@ impl Client {
         Ok(r)
     }
 
-    async fn get<D>(&self, uri: &str, message: Message) -> ClientResult<Response<D>>
+    pub async fn get<D>(&self, uri: &str, message: Message) -> ClientResult<Response<D>>
     where
         D: serde::de::DeserializeOwned + 'static + Send,
     {
@@ -611,7 +610,11 @@ impl Client {
         .await
     }
 
-    async fn get_all_pages<D>(&self, uri: &str, _message: Message) -> ClientResult<Response<Vec<D>>>
+    pub async fn get_all_pages<D>(
+        &self,
+        uri: &str,
+        _message: Message,
+    ) -> ClientResult<Response<Vec<D>>>
     where
         D: serde::de::DeserializeOwned + 'static + Send,
     {
@@ -639,7 +642,10 @@ impl Client {
         ))
     }
 
-    async fn get_pages<D>(&self, uri: &str) -> ClientResult<(Option<LinkHeader>, Response<Vec<D>>)>
+    pub async fn get_pages<D>(
+        &self,
+        uri: &str,
+    ) -> ClientResult<(Option<LinkHeader>, Response<Vec<D>>)>
     where
         D: serde::de::DeserializeOwned + 'static + Send,
     {
@@ -743,7 +749,7 @@ impl Client {
         }
     }
 
-    async fn post<D>(&self, uri: &str, message: Message) -> ClientResult<Response<D>>
+    pub async fn post<D>(&self, uri: &str, message: Message) -> ClientResult<Response<D>>
     where
         D: serde::de::DeserializeOwned + 'static + Send,
     {
@@ -756,7 +762,7 @@ impl Client {
         .await
     }
 
-    async fn post_media<D>(
+    pub async fn post_media<D>(
         &self,
         uri: &str,
         message: Message,

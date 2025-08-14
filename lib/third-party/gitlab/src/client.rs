@@ -436,7 +436,6 @@ impl LinkHeader {
 }
 
 impl Client {
-
     pub fn new<A, C>(agent: A, credentials: C) -> ClientResult<Self>
     where
         A: Into<String>,
@@ -911,7 +910,6 @@ impl Client {
         merge_requests::MergeRequests::new(self.clone())
     }
 }
-
 
 // https://docs.rs/ethers-providers/2.0.14/src/ethers_providers/rpc/transports/retry.rs.html#366
 // Retry Policy

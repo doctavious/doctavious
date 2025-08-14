@@ -4,7 +4,8 @@ use std::io;
 use std::path::PathBuf;
 
 use github_client::webhook::PullRequestWebhookEventPayload;
-use scm::platforms::ScmPlatform;
+use scm::platforms::github::provider::GithubRepositoryBoundedProvider;
+use scm::platforms::{ScmPlatform, ScmPlatformRepositoryBoundedClient, github};
 use serde_derive::{Deserialize, Serialize};
 use strum::{EnumIter, IntoEnumIterator};
 use thiserror::Error;
@@ -15,6 +16,9 @@ use thiserror::Error;
 pub enum ContinuousIntegrationError {
     #[error(transparent)]
     EnvVarError(#[from] doctavious_std::env::EnvVarError),
+
+    #[error(transparent)]
+    GithubScmPlatformError(#[from] github::ClientError),
 
     #[error(transparent)]
     IoError(#[from] io::Error),
@@ -42,7 +46,7 @@ pub enum ContinuousIntegrationProvider {
     CircleCI,
     /// https://docs.gitea.com/usage/webhooks?_highlight=event#event-information
     Gitea,
-    /// https://docs.github.com/en/actions/writing-workflows/choosing-what-your-workflow-does/store-information-in-variables#default-environment-variables
+    /// https://docs.github.com/en/actions/reference/variables-reference?versionId=free-pro-team%40latest&productId=actions#default-environment-variables
     GitHubActions,
     /// https://docs.gitlab.com/ci/variables/predefined_variables/
     GitLab,
@@ -93,7 +97,9 @@ impl ContinuousIntegrationProvider {
                 let build_directory = doctavious_std::env::parse("GITHUB_WORKSPACE")?;
                 let event_path = std::env::var("GITHUB_EVENT_PATH")?;
                 let data = std::fs::read_to_string(event_path)?;
+                // TODO: do we have to handle if this isn't the payload we expect?
                 let event: PullRequestWebhookEventPayload = serde_json::from_str(&data)?;
+
                 ContinuousIntegrationContext {
                     provider: ContinuousIntegrationProvider::GitHubActions,
                     is_ci: self.in_ci(),
@@ -105,6 +111,15 @@ impl ContinuousIntegrationProvider {
                         .pull_request
                         .user
                         .and_then(|u| Some(format!("@{}", u.login).to_string())),
+
+                    repository: std::env::var("GITHUB_REPOSITORY").ok(),
+                    branch: std::env::var("GITHUB_REF_NAME").ok(),
+                    commit: std::env::var("GITHUB_SHA").ok(),
+                    is_pull_request: std::env::var("GITHUB_EVENT_NAME").ok()
+                        == Some("pull_request".to_string()),
+                    pull_request: Some(event.pull_request.id.to_string()),
+                    scm_platform: Some(ScmPlatform::GitHub),
+                    metadata: Default::default(),
                 }
             }
             ContinuousIntegrationProvider::GitLab => {
@@ -125,6 +140,13 @@ impl ContinuousIntegrationProvider {
                     head,
                     draft,
                     author,
+                    repository: std::env::var("CI_PROJECT_PATH").ok(),
+                    branch: std::env::var("CI_COMMIT_REF_NAME").ok(),
+                    commit: std::env::var("CI_COMMIT_SHA").ok(),
+                    is_pull_request: std::env::var("CI_MERGE_REQUEST_ID").is_ok(),
+                    pull_request: std::env::var("CI_MERGE_REQUEST_ID").ok(),
+                    scm_platform: Some(ScmPlatform::GitLab),
+                    metadata: Default::default(),
                 }
             }
             ContinuousIntegrationProvider::Gitea => {
@@ -145,27 +167,76 @@ impl ContinuousIntegrationProvider {
                         .pull_request
                         .user
                         .and_then(|u| Some(format!("@{}", u.login).to_string())),
+                    // TODO: confirm
+                    repository: std::env::var("GITHUB_REPOSITORY").ok(),
+                    branch: std::env::var("GITHUB_REF_NAME").ok(),
+                    commit: std::env::var("GITHUB_SHA").ok(),
+                    is_pull_request: std::env::var("GITHUB_EVENT_NAME").ok()
+                        == Some("pull_request".to_string()),
+                    pull_request: Some(event.pull_request.id.to_string()),
+                    scm_platform: Some(ScmPlatform::Gitea),
+                    metadata: Default::default(),
                 }
             }
+            // TODO: finish...
+            ContinuousIntegrationProvider::Buildkite => ContinuousIntegrationContext {
+                provider: ContinuousIntegrationProvider::Buildkite,
+                is_ci: self.in_ci(),
+                build_directory: Default::default(),
+                head: "".to_string(),
+                base: "".to_string(),
+                draft: false,
+                author: None,
+                repository: std::env::var("BUILDKITE_PIPELINE_SLUG").ok(),
+                branch: std::env::var("BUILDKITE_BRANCH").ok(),
+                commit: std::env::var("BUILDKITE_COMMIT").ok(),
+                is_pull_request: std::env::var("BUILDKITE_PULL_REQUEST").is_ok(),
+                pull_request: None,
+                scm_platform: Self::detect_scm_from_repo_url(std::env::var("BUILDKIT_REPO").ok()),
+                metadata: Default::default(),
+            },
+            // TODO: finish...
+            ContinuousIntegrationProvider::CircleCI => ContinuousIntegrationContext {
+                provider: ContinuousIntegrationProvider::CircleCI,
+                is_ci: self.in_ci(),
+                build_directory: Default::default(),
+                head: "".to_string(),
+                base: "".to_string(),
+                draft: false,
+                author: None,
+                repository: std::env::var("CIRCLECPROJECT_REPONAME").ok(),
+                branch: std::env::var("CIRCLECI_BRANCH").ok(),
+                commit: std::env::var("CIRCLECI_SHA1").ok(),
+                is_pull_request: std::env::var("CIRCLECI_PULL_REQUEST").is_ok(),
+                pull_request: None,
+                scm_platform: Self::detect_scm_from_repo_url(
+                    std::env::var("CIRCLECI_REPOSITORY_URL").ok(),
+                ),
+                metadata: Default::default(),
+            },
             _ => todo!(),
         })
     }
 
-    // fn bitbucket_pipelines_options() -> anyhow::Result<CodeNotify> {
-    //     // BITBUCKET_COMMIT
-    //     // BITBUCKET_PR_DESTINATION_COMMIT
-    //
-    //     // Base Commit SHA ➡️ $BITBUCKET_PR_DESTINATION_COMMIT
-    //     // Head Commit SHA ➡️ $BITBUCKET_COMMIT
-    //
-    //     // base ref - custom webhook parsing / api
-    //     // head ref - BITBUCKET_COMMIT
-    //     // author - .author.display_name
-    //     // curl -s -u $USERNAME:$APP_PASSWORD \
-    //     // "https://api.bitbucket.org/2.0/repositories/$BITBUCKET_REPO_FULL_NAME/pullrequests/$PR_ID" \
-    //     // | jq -r '.destination.commit.hash, .source.commit.hash, .author.display_name'
-    //     todo!()
-    // }
+    fn detect_scm_from_repo_url(repo_url: Option<String>) -> Option<ScmPlatform> {
+        repo_url.and_then(|url| {
+            if url.contains("github.com") {
+                Some(ScmPlatform::GitHub)
+            } else if url.contains("gitlab.com") {
+                Some(ScmPlatform::GitLab)
+            } else if url.contains("bitbucket.org") {
+                Some(ScmPlatform::BitBucket)
+            } else if url.contains("dev.azure.com") {
+                Some(ScmPlatform::Azure)
+            } else if url.contains("gitea.com") {
+                Some(ScmPlatform::Gitea)
+            } else if url.contains("gogs.io") {
+                Some(ScmPlatform::Gogs)
+            } else {
+                None
+            }
+        })
+    }
 
     // TODO: is this useful here or is it mainly an SCMProvider concern?
     // GitHub Actions does reference a webhook payload path in their CI env which does contain
@@ -183,6 +254,33 @@ impl ContinuousIntegrationProvider {
             ContinuousIntegrationProvider::Gitea => Some(ScmPlatform::Gitea),
             ContinuousIntegrationProvider::GitHubActions => Some(ScmPlatform::GitHub),
             ContinuousIntegrationProvider::GitLab => Some(ScmPlatform::GitLab),
+            _ => todo!(),
+        }
+    }
+
+    // TODO (sean): Not sure if this is the best way to handle this but trying to make progress on
+    // something. Will revisit later in particular when we get to the point of how to integrate this
+    // when handling customer webhooks.
+    pub fn associated_bound_scm_client(
+        &self,
+        context: &ContinuousIntegrationContext,
+    ) -> ContinuousIntegrationResult<Option<Box<dyn ScmPlatformRepositoryBoundedClient>>> {
+        match self {
+            ContinuousIntegrationProvider::GitHubActions => {
+                let token = std::env::var("GITHUB_TOKEN")?;
+                if let Some((owner, repo_name)) =
+                    context.repository.as_ref().unwrap().split_once('/')
+                {
+                    let p = GithubRepositoryBoundedProvider::new(
+                        owner.to_string(),
+                        repo_name.to_string(),
+                        &token,
+                    )?;
+                    Ok(Some(Box::new(p)))
+                } else {
+                    Ok(None)
+                }
+            }
             _ => todo!(),
         }
     }
@@ -284,4 +382,11 @@ pub struct ContinuousIntegrationContext {
     pub base: String,
     pub draft: bool,
     pub author: Option<String>,
+    pub repository: Option<String>,
+    pub branch: Option<String>,
+    pub commit: Option<String>,
+    pub is_pull_request: bool,
+    pub pull_request: Option<String>,
+    pub scm_platform: Option<ScmPlatform>,
+    pub metadata: HashMap<String, String>,
 }

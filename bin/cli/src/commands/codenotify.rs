@@ -1,7 +1,6 @@
 mod notify;
 
 use clap::{Args, Parser, Subcommand};
-use doctavious_cli::errors::DoctaviousCliError::DoctaviousStdError;
 use doctavious_cli::errors::{CliResult, DoctaviousCliError};
 
 use crate::commands::codenotify::notify::NotifyCommand;
@@ -19,10 +18,10 @@ enum Commands {
     Notify(NotifyCommand),
 }
 
-pub(crate) fn execute(cli: CodeNotifyCli) -> CliResult<Option<String>> {
+pub(crate) async fn execute(cli: CodeNotifyCli) -> CliResult<Option<String>> {
     // TODO: map_err is a hack. need to determine if I want to use anyhow through this stack
     match cli.command {
-        Commands::Notify(cmd) => notify::execute(cmd),
+        Commands::Notify(cmd) => notify::execute(cmd).await,
     }
     .map_err(|e| DoctaviousCliError::GeneralError(e.to_string()))?;
 

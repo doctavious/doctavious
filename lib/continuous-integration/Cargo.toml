@@ -6,8 +6,8 @@ publish = false
 
 [dependencies]
 doctavious-std = { path = "../../lib/doctavious-std" }
-github-client = { path = "../../lib/third-party-api-clients/github" }
-gitlab-client = { path = "../../lib/third-party-api-clients/gitlab" }
+github-client = { path = "../../lib/third-party/github" }
+gitlab-client = { path = "../../lib/third-party/gitlab" }
 remain = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }

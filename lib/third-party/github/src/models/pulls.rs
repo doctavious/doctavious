@@ -239,6 +239,12 @@ pub enum MergeableState {
     Unstable,
 }
 
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct PullRequestNote {
+    id: String,
+    body: String,
+}
+
 pub struct PullRequests {
     pub client: Client,
 }
@@ -248,7 +254,6 @@ impl PullRequests {
         PullRequests { client }
     }
 
-    // Vec<PullRequestNote>>
     pub async fn list_all_pull_request_notes(
         &self,
         owner: &str,
@@ -257,8 +262,26 @@ impl PullRequests {
         sort: Option<&str>,
         order_by: Option<&str>,
         pagination: Option<OffsetBasedPagination>,
-    ) -> ClientResult<Response<()>> {
-        todo!()
+    ) -> ClientResult<Response<Vec<PullRequestNote>>> {
+        let mut query_args: Vec<(String, String)> = Default::default();
+        if let Some(sort) = sort {}
+
+        if let Some(order_by) = order_by {}
+
+        if let Some(pagination) = pagination {}
+
+        let query_ = serde_urlencoded::to_string(&query_args).unwrap();
+
+        let url = self.client.url(&format!(""), None);
+        self.client
+            .get(
+                &url,
+                crate::client::Message {
+                    body: None,
+                    content_type: None,
+                },
+            )
+            .await
     }
 
     // MergeRequestNote

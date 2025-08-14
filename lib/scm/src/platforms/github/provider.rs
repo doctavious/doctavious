@@ -1,7 +1,9 @@
 use std::sync::Arc;
 
 use crate::platforms::github::ClientResult;
-use crate::platforms::{ScmPlatformClient, ScmPlatformRepositoryBoundedClient};
+use crate::platforms::{
+    ScmPlatformClient, ScmPlatformMergeRequestComment, ScmPlatformRepositoryBoundedClient,
+};
 
 pub(crate) struct GithubProvider {
     pub client: Arc<github_client::client::Client>,
@@ -93,10 +95,13 @@ pub struct GithubRepositoryBoundedProvider {
 
 impl GithubRepositoryBoundedProvider {
     pub fn new(owner: String, repository: String, credentials: &str) -> ClientResult<Self> {
-        let client = github_client::client::Client::new(
-            "",
-            github_client::client::Credentials::PrivateToken(String::from(credentials)),
-        )?;
+        // TODO: include retry middleware and eventually tracing
+        let client = github_client::client::ClientBuilder::new()?
+            .with_credentials(github_client::client::Credentials::PrivateToken(
+                String::from(credentials),
+            ))
+            .build()?;
+
         Ok(Self {
             owner,
             repository,
@@ -108,12 +113,14 @@ impl GithubRepositoryBoundedProvider {
 #[async_trait::async_trait]
 impl ScmPlatformRepositoryBoundedClient for GithubRepositoryBoundedProvider {
     // TODO: sort / order by / pagination
-    async fn list_all_merge_requests_notes(&self, pr: u64) {
+    async fn list_all_merge_requests_notes(&self, pr: u64) -> Vec<ScmPlatformMergeRequestComment> {
         let comments = self
             .client
             .pull_requests()
             .list_all_pull_request_notes(&self.owner, &self.repository, pr, None, None, None)
             .await;
+
+        todo!()
     }
 
     async fn create_merge_request_note(&self, pr: u64, body: String) {

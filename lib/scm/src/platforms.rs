@@ -6,6 +6,7 @@ use std::hash::Hash;
 use std::path::PathBuf;
 
 use chrono::{DateTime, Utc};
+use gitlab_client::merge_requests::MergeRequestNoteAuthor;
 use serde_derive::{Deserialize, Serialize};
 use strum::{EnumIter, EnumString, VariantNames};
 
@@ -108,6 +109,11 @@ pub struct ScmPlatformRelease {
     pub published: DateTime<Utc>,
 }
 
+pub struct ScmPlatformMergeRequestComment {
+    pub id: u64,
+    pub body: String,
+}
+
 pub enum Credentials {
     Environment(String),
 }
@@ -167,13 +173,13 @@ pub trait ScmPlatformClient<R> {
 }
 
 // TODO: probably could just be named ScmPlatformRepositoryClient
-// A client that is bound to a specific SCM repository
+// A SCM platform client that is bound to a specific repository
 #[async_trait::async_trait]
 pub trait ScmPlatformRepositoryBoundedClient {
     // TODO: per_page / page, sort, direction
     // -> Vec<PullRequestNote>
     // async fn list_all_merge_requests_notes(&self, mr: u64);
-    async fn list_all_merge_requests_notes(&self, mr: u64);
+    async fn list_all_merge_requests_notes(&self, mr: u64) -> Vec<ScmPlatformMergeRequestComment>;
 
     // async fn create_merge_request_note(
     //     &self,

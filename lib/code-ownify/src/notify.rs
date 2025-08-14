@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 use std::io::Write;
 use std::path::{Path, PathBuf};
+use std::string::FromUtf8Error;
 use std::{fs, io, path};
 
 use scm::commit::ScmCommitRange;
@@ -15,6 +16,9 @@ use crate::parser::pattern_to_regex;
 #[remain::sorted]
 #[derive(Debug, Error)]
 pub enum CodeNotifyError {
+    #[error(transparent)]
+    FromUtf8Error(#[from] FromUtf8Error),
+
     #[error(transparent)]
     IoError(#[from] io::Error),
 
@@ -32,6 +36,11 @@ pub enum CodeNotifyError {
 }
 
 pub type CodeNotifyResult<T> = Result<T, CodeNotifyError>;
+
+pub struct CodeNotifyOutput {
+    pub notify: HashMap<String, Vec<String>>,
+    pub message: String,
+}
 
 pub struct CodeNotify {
     pub cwd: PathBuf,
@@ -53,27 +62,40 @@ pub struct CodeNotify {
     pub author: Option<String>,
 }
 
-// TODO: Provider support - start with github actions (env: GITHUB_ACTIONS)
 impl CodeNotify {
-    pub fn notify(&self) -> CodeNotifyResult<()> {
-        let mut writer = io::stdout();
-        self.notify_with_writer(&mut writer)?;
-        Ok(())
+    // TODO: In order for the CLI to appropriately determine if there are notifications that need
+    // to be written to destination I've decided to return output rather than just write to the
+    // writer and as a result I don't think we need the writer here. We can just write to String
+    // and have the CLI determine what the writer should be.
+    pub fn notify(&self) -> CodeNotifyResult<CodeNotifyOutput> {
+        let mut writer = Vec::new();
+        let notify = self.notify_with_writer(&mut writer)?;
+        Ok(CodeNotifyOutput {
+            notify,
+            message: String::from_utf8(writer)?,
+        })
     }
 
-    pub fn notify_with_writer<W: Write>(&self, writer: &mut W) -> CodeNotifyResult<()> {
+    fn notify_with_writer<W: Write>(
+        &self,
+        writer: &mut W,
+    ) -> CodeNotifyResult<HashMap<String, Vec<String>>> {
         let scm = Scm::get(&self.cwd)?;
         let paths = scm.diff_paths(Some(&self.commit_range))?;
-        self.inner_notify(writer, paths)?;
+        let notifs = self.inner_notify(writer, paths)?;
 
-        Ok(())
+        Ok(notifs)
     }
 
-    fn inner_notify<W: Write>(&self, writer: &mut W, paths: Vec<PathBuf>) -> CodeNotifyResult<()> {
+    fn inner_notify<W: Write>(
+        &self,
+        writer: &mut W,
+        paths: Vec<PathBuf>,
+    ) -> CodeNotifyResult<HashMap<String, Vec<String>>> {
         let notifs = self.notifications(&paths)?;
-        self.write_notifications(writer, notifs)?;
+        self.write_notifications(writer, &notifs)?;
 
-        Ok(())
+        Ok(notifs)
     }
 
     fn notifications(
@@ -83,7 +105,7 @@ impl CodeNotify {
         let mut notifications: HashMap<String, Vec<String>> = HashMap::new();
         let root = &self.cwd;
         for p in paths {
-            // We need to add root to paths as they dont contain it and we want to make sure we
+            // We need to add root to paths as paths don't contain it, and we want to make sure we
             // check for codenotify files there.
             let full_path = root.join(p);
             let subs = self.subscribers(&full_path)?;
@@ -101,7 +123,7 @@ impl CodeNotify {
     fn write_notifications<W: Write>(
         &self,
         writer: &mut W,
-        notifications: HashMap<String, Vec<String>>,
+        notifications: &HashMap<String, Vec<String>>,
     ) -> CodeNotifyResult<()> {
         if self.subscriber_threshold > 0 && notifications.len() > self.subscriber_threshold as usize
         {
@@ -146,7 +168,7 @@ impl CodeNotify {
                 }
             }
             "markdown" => {
-                write!(writer, "{}", self.markdown_comment_title(&self.file_name))?;
+                write!(writer, "{}", self.markdown_comment_title())?;
                 write!(
                     writer,
                     "[CodeNotify](https://github.com/doctavious): Notifying subscribers in {} files for diff {}...{}.\n\n",
@@ -213,8 +235,8 @@ impl CodeNotify {
         Ok(subscribers)
     }
 
-    fn markdown_comment_title(&self, file_name: &str) -> String {
-        format!("<!-- codenotify:{} report -->\n", file_name)
+    pub fn markdown_comment_title(&self) -> String {
+        format!("<!-- codenotify:{} report -->\n", &self.file_name)
     }
 }
 
@@ -250,7 +272,8 @@ mod tests {
             format: "text".to_string(),
             file_name: "CODENOTIFY".to_string(),
             subscriber_threshold: 0,
-            // TODO: avoid these clones
+            // TODO: avoid these clones..its a test so this instance doesn't matter but we want to
+            // make the usage ergonomic
             commit_range: ScmCommitRange(br.clone(), Some(hr.clone())),
             author: None,
         };
@@ -428,11 +451,12 @@ mod tests {
         ];
 
         for t in test_scenarios {
+            println!("Testing {}", t.name);
             let (temp_dir, _tempdir_guard) = TempDirGuard::new().unwrap();
             let code_notify = t.opts.to_codenotify(temp_dir);
 
             let mut writer = Vec::<u8>::new();
-            let r = code_notify.write_notifications(&mut writer, t.notifs);
+            let r = code_notify.write_notifications(&mut writer, &t.notifs);
             if r.is_err() && t.err.is_none() {
                 panic!(
                     "expected ok result error; got {}",

@@ -19,9 +19,10 @@ pub trait RunnableCmd: Send + Sync {
 
 // TODO: do we need/want custom error codes?
 // TODO: this should probably have
-// #[tokio::main]
-fn main() {
+#[tokio::main]
+async fn main() {
     // TODO: get version and check for updates. print if cli is not latest
+    // Example: https://github.com/KittyCAD/cli/blob/main/src/main.rs
 
     let opt = Opt::parse();
 
@@ -45,7 +46,7 @@ fn main() {
         Command::Adr(cmd) => adr::execute(cmd),
         Command::Build(cmd) => build::invoke(cmd.cwd, cmd.dry, cmd.skip_install),
         Command::Changelog(cmd) => changelog::execute(cmd),
-        Command::CodeNotify(cmd) => codenotify::execute(cmd),
+        Command::CodeNotify(cmd) => codenotify::execute(cmd).await,
         Command::CodeOwners(cmd) => codeowners::execute(cmd),
         Command::Deploy(cmd) => deploy::invoke(cmd.cwd, cmd.build),
         Command::Frameworks(cmd) => match cmd.framework_command {
