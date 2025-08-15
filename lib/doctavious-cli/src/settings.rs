@@ -13,7 +13,7 @@ use markup::MarkupFormat;
 use regex::Regex;
 use scm::drivers::git::TagSort;
 use scm::hooks::ScmHook;
-use scm::platforms::ScmPlatforms;
+use scm::platforms::ScmPlatform;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use tracing::warn;

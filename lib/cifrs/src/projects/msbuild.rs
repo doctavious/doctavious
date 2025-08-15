@@ -45,7 +45,7 @@ impl MsBuildSolutionFile {
 #[derive(Debug, Deserialize, PartialEq)]
 #[serde(rename = "Project")]
 pub(crate) struct MsBuildProj {
-    #[serde(rename = "Sdk")]
+    #[serde(rename = "@Sdk")]
     pub sdk: String,
 
     #[serde(rename = "ItemGroup")]
@@ -83,6 +83,8 @@ pub(crate) struct ItemGroup {
 #[derive(Debug, Deserialize, PartialEq)]
 #[serde(rename_all = "PascalCase")]
 pub(crate) struct PackageReference {
+    #[serde(rename = "@Include")]
     pub include: String,
+    #[serde(rename = "@Version")]
     pub version: Option<String>,
 }

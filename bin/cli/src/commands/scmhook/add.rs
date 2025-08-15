@@ -54,7 +54,7 @@ mod tests {
     #[test]
     fn should_fail_if_scm_not_initialized() {
         let temp_dir = TempDir::new().unwrap();
-        let temp_path = temp_dir.into_path();
+        let temp_path = temp_dir.keep();
         let _c = CleanUp::new(Box::new(|| {
             let _ = fs::remove_dir_all(&temp_path);
         }));
@@ -287,7 +287,7 @@ root = "backend"
 
     fn setup(doctavous_config: Option<&str>) -> (PathBuf, GitScmRepository) {
         let temp_dir = TempDir::new().unwrap();
-        let temp_path = temp_dir.into_path();
+        let temp_path = temp_dir.keep();
 
         copy_dir("./tests/fixtures/scmhook/", &temp_path).expect("copy test fixtures");
         if let Some(config) = doctavous_config {

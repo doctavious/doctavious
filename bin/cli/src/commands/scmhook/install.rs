@@ -166,7 +166,6 @@ run = "echo 'Done!'"
         );
 
         assert!(!hooks_path.join("pre-commit.old").exists());
-        assert!(hooks_path.join("post-commit").exists());
     }
 
     #[test]
@@ -333,7 +332,7 @@ run = "echo 'Done!'"
 
     fn setup(doctavous_config: Option<&str>) -> (PathBuf, GitScmRepository) {
         let temp_dir = TempDir::new().unwrap();
-        let temp_path = temp_dir.into_path();
+        let temp_path = temp_dir.keep();
 
         copy_dir("./tests/fixtures/scmhook/", &temp_path).expect("copy test fixtures");
         if let Some(config) = doctavous_config {

@@ -310,7 +310,7 @@ runner = "bash"
 
     fn setup(doctavous_config: &str) -> PathBuf {
         let temp_dir = TempDir::new().unwrap();
-        let temp_path = temp_dir.into_path();
+        let temp_path = temp_dir.keep();
 
         copy_dir("./tests/fixtures/scmhook/", &temp_path).expect("copy test fixtures");
         fs::write(temp_path.join(Config::config_file_path()), doctavous_config)

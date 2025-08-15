@@ -9,8 +9,8 @@ pub enum EnvVarError {
     #[error("Missing required environment variable `{0}`")]
     Missing(String),
 
-    #[error("Failed to parse `{0}`: {1}")]
-    ParseError(String, String),
+    #[error("Failed to parse environment variable `{0}` with value '{1}: {2}")]
+    ParseError(String, String, String),
 
     #[error(transparent)]
     VarError(#[from] env::VarError),
@@ -47,7 +47,7 @@ where
     let value = env::var(&key)?;
     value
         .parse::<T>()
-        .map_err(|e| EnvVarError::ParseError(key.to_string(), e.to_string()))
+        .map_err(|e| EnvVarError::ParseError(key.to_string(), value, e.to_string()))
 }
 
 pub fn parse_with_default<R: FromStr>(key: &str, default: R) -> R {
@@ -113,12 +113,15 @@ mod tests {
         temp_env::with_vars([("INT_VAR", Some("1a"))], || {
             let result: Result<u32, EnvVarError> = parse("INT_VAR");
             assert!(result.is_err());
-            match result.err().unwrap() {
-                EnvVarError::ParseError(input, e) => {
-                    assert!(input.contains("1a"))
-                }
-                _ => panic!("Invalid EnvVarError variant"),
-            }
+            let err = result.err().unwrap();
+            assert!(matches!(err, EnvVarError::ParseError(_, _, _)));
+            assert!(err.to_string().contains("1a"));
+            // match err {
+            //     EnvVarError::ParseError(_env_var, _value, e) => {
+            //         assert!(e.contains("1a"))
+            //     }
+            //     _ => panic!("Invalid EnvVarError variant"),
+            // }
         });
     }
 

@@ -40,7 +40,13 @@ strum = { workspace = true }
 tabled = { workspace = true }
 tempfile = { workspace = true }
 thiserror = { workspace = true }
-toml = { workspace = true }
+
+# I'm included preserve_order to fix some failing tests.
+# TODO: check these tests and see if I can remove the need to preserve order
+#commands::scmhook::install::tests::should_fail_with_existing_hook_and_old
+#commands::scmhook::install::tests::should_install_with_existing_doctavious_config
+#commands::scmhook::install::tests::should_update_stale_synchronization_file
+toml = { workspace = true, features = ["preserve_order"] }
 tracing = { workspace = true }
 unidecode = { workspace = true }
 walkdir = { workspace = true }

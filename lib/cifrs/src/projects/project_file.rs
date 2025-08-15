@@ -1,9 +1,7 @@
+use std::fs;
 use std::ops::Deref;
 use std::path::{Path, PathBuf};
-use std::str::FromStr;
-use std::{env, fs};
 
-use glob::glob;
 use lazy_static::lazy_static;
 use regex::Regex;
 use serde_derive::{Deserialize, Serialize};
@@ -235,11 +233,14 @@ impl ProjectFile {
                     Self::GoMod => project_file_content.contains(dependency),
                     Self::MsBuild => {
                         let mut has_dependency = false;
-                        if let Ok(build_proj) =
-                            serde_xml_rs::from_str::<MsBuildProj>(&project_file_content)
-                        {
-                            if build_proj.has_package_reference(dependency) {
-                                has_dependency = true;
+                        match serde_xml_rs::from_str::<MsBuildProj>(&project_file_content) {
+                            Ok(build_proj) => {
+                                if build_proj.has_package_reference(dependency) {
+                                    has_dependency = true;
+                                }
+                            }
+                            Err(e) => {
+                                error!("{}", e);
                             }
                         }
 
@@ -259,7 +260,7 @@ impl ProjectFile {
                         let root: toml::Value = toml::from_str(project_file_content.as_str())?;
                         root["tool.poetry.dependencies"][dependency].is_str()
                     }
-                    Self::RequirementsTxt => project_file_content
+                    RequirementsTxt => project_file_content
                         .lines()
                         .find(|l| l.trim().starts_with(dependency))
                         .is_some(),
@@ -281,10 +282,9 @@ impl ProjectFile {
 #[cfg(test)]
 mod tests {
     use std::fs::File;
-    // use crate::commands::build::package_manager::ProjectFile;
     use std::io::Write;
     use std::panic::{RefUnwindSafe, UnwindSafe};
-    use std::path::{Path, PathBuf};
+    use std::path::Path;
     use std::sync::Mutex;
     use std::{env, fs, io, panic};
 

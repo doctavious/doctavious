@@ -164,7 +164,7 @@ mod tests {
 
     fn setup(doctavous_config: Option<&str>) -> (PathBuf, GitScmRepository) {
         let temp_dir = TempDir::new().unwrap();
-        let temp_path = temp_dir.into_path();
+        let temp_path = temp_dir.keep();
 
         copy_dir("./tests/fixtures/scmhook/", &temp_path).expect("copy test fixtures");
         if let Some(config) = doctavous_config {

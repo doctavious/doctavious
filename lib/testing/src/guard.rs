@@ -43,7 +43,7 @@ impl TempDirGuard {
     }
 
     pub fn from_tempdir(temp_dir: TempDir) -> io::Result<(PathBuf, Self)> {
-        let path = temp_dir.into_path();
+        let path = temp_dir.keep();
         Ok((path.clone(), Self { path }))
     }
 

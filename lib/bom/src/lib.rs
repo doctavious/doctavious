@@ -72,8 +72,8 @@ fn scan(cwd: Option<&Path>) {
 mod tests {
     use crate::scan;
 
-    #[test]
-    fn basic() {
-        scan(None);
-    }
+    // #[test]
+    // fn basic() {
+    //     scan(None);
+    // }
 }

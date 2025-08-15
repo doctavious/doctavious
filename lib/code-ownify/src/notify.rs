@@ -31,7 +31,7 @@ pub enum CodeNotifyError {
     #[error("Strip path error: {0}")]
     StripPrefixError(#[from] path::StripPrefixError),
 
-    #[error("Unsupported format {0}")]
+    #[error("Unsupported format: {0}")]
     UnsupportedFormat(String),
 }
 
@@ -63,39 +63,30 @@ pub struct CodeNotify {
 }
 
 impl CodeNotify {
-    // TODO: In order for the CLI to appropriately determine if there are notifications that need
-    // to be written to destination I've decided to return output rather than just write to the
-    // writer and as a result I don't think we need the writer here. We can just write to String
-    // and have the CLI determine what the writer should be.
     pub fn notify(&self) -> CodeNotifyResult<CodeNotifyOutput> {
-        let mut writer = Vec::new();
-        let notify = self.notify_with_writer(&mut writer)?;
-        Ok(CodeNotifyOutput {
-            notify,
-            message: String::from_utf8(writer)?,
-        })
-    }
-
-    fn notify_with_writer<W: Write>(
-        &self,
-        writer: &mut W,
-    ) -> CodeNotifyResult<HashMap<String, Vec<String>>> {
         let scm = Scm::get(&self.cwd)?;
         let paths = scm.diff_paths(Some(&self.commit_range))?;
-        let notifs = self.inner_notify(writer, paths)?;
-
-        Ok(notifs)
+        self.inner_notify(paths)
     }
 
-    fn inner_notify<W: Write>(
-        &self,
-        writer: &mut W,
-        paths: Vec<PathBuf>,
-    ) -> CodeNotifyResult<HashMap<String, Vec<String>>> {
-        let notifs = self.notifications(&paths)?;
-        self.write_notifications(writer, &notifs)?;
+    // fn notify_with_writer<W: Write>(
+    //     &self,
+    //     writer: &mut W,
+    // ) -> CodeNotifyResult<HashMap<String, Vec<String>>> {
+    //     let scm = Scm::get(&self.cwd)?;
+    //     let paths = scm.diff_paths(Some(&self.commit_range))?;
+    //     let notifs = self.inner_notify(writer, paths)?;
+    //
+    //     Ok(notifs)
+    // }
 
-        Ok(notifs)
+    fn inner_notify(&self, paths: Vec<PathBuf>) -> CodeNotifyResult<CodeNotifyOutput> {
+        let notifs = self.notifications(&paths)?;
+        let notification = self.write_notifications(&notifs)?;
+        Ok(CodeNotifyOutput {
+            notify: notifs,
+            message: notification,
+        })
     }
 
     fn notifications(
@@ -120,20 +111,18 @@ impl CodeNotify {
         Ok(notifications)
     }
 
-    fn write_notifications<W: Write>(
+    fn write_notifications(
         &self,
-        writer: &mut W,
         notifications: &HashMap<String, Vec<String>>,
-    ) -> CodeNotifyResult<()> {
+    ) -> CodeNotifyResult<String> {
         if self.subscriber_threshold > 0 && notifications.len() > self.subscriber_threshold as usize
         {
-            writeln!(
-                writer,
+            let notification = format!(
                 "Not notifying subscribers as the number of notifying subscribers {} exceeds the threshold {}",
                 notifications.len(),
                 self.subscriber_threshold
-            )?;
-            return Ok(());
+            );
+            return Ok(notification);
         }
 
         // TODO: set capacity? Improve this
@@ -144,6 +133,7 @@ impl CodeNotify {
 
         subs.sort();
 
+        let mut writer = Vec::new();
         match self.format.as_str() {
             "text" => {
                 writeln!(
@@ -196,7 +186,7 @@ impl CodeNotify {
             _ => return Err(CodeNotifyError::UnsupportedFormat(self.format.to_owned())),
         }
 
-        Ok(())
+        Ok(String::from_utf8(writer)?)
     }
 
     fn subscribers(&self, path: &Path) -> CodeNotifyResult<Vec<String>> {
@@ -278,11 +268,13 @@ mod tests {
             author: None,
         };
 
-        let mut writer = Vec::<u8>::new();
-        codenotify.notify_with_writer(&mut writer).unwrap();
+        // let mut writer = Vec::<u8>::new();
+        // codenotify.notify_with_writer(&mut writer).unwrap();
+        let output = codenotify.notify().unwrap();
 
         assert_eq!(
-            str::from_utf8(&writer).unwrap(),
+            // str::from_utf8(&writer).unwrap(),
+            output.message,
             format!("{}...{}\n@markdown -> file.md\n", &br, &hr)
         );
     }
@@ -421,7 +413,7 @@ mod tests {
                     "@go".to_string(),
                     vec!["file.go".to_string(), "dir/file.go".to_string()],
                 )]),
-                err: Some("unsupported format: pdf".to_string()),
+                err: Some("Unsupported format: pdf".to_string()),
                 output: vec![],
             },
             TestScenario {
@@ -445,7 +437,7 @@ mod tests {
                 ]),
                 err: None,
                 output: vec![
-                    "Not notifying subscribers as the number of notifying subscribers 2 exceeds the threshold 1\n",
+                    "Not notifying subscribers as the number of notifying subscribers 2 exceeds the threshold 1",
                 ],
             },
         ];
@@ -455,8 +447,9 @@ mod tests {
             let (temp_dir, _tempdir_guard) = TempDirGuard::new().unwrap();
             let code_notify = t.opts.to_codenotify(temp_dir);
 
-            let mut writer = Vec::<u8>::new();
-            let r = code_notify.write_notifications(&mut writer, &t.notifs);
+            // let mwriter = Vec::<u8>::new();
+            // let r = code_notify.write_notifications(&mut writer, &t.notifs);
+            let r = code_notify.write_notifications(&t.notifs);
             if r.is_err() && t.err.is_none() {
                 panic!(
                     "expected ok result error; got {}",
@@ -464,12 +457,38 @@ mod tests {
                 );
             }
 
-            if r.is_ok() && t.err.is_some() {
-                panic!("expected error {} but result was ok", t.err.unwrap());
+            if r.is_ok() {
+                if t.err.is_some() {
+                    panic!("expected error {} but result was ok", t.err.unwrap());
+                }
+
+                let actual_output = r.unwrap();
+                assert_eq!(actual_output, t.output.join("\n"));
+            } else {
+                if t.err.is_none() {
+                    panic!(
+                        "expected ok result error; got {}",
+                        r.err().unwrap().to_string()
+                    );
+                }
+
+                let error_output = r.err().unwrap().to_string();
+                assert_eq!(error_output, t.err.unwrap());
             }
 
-            let actual_output = String::from_utf8(writer).unwrap();
-            assert_eq!(actual_output, t.output.join("\n"));
+            // if r.is_err() && t.err.is_none() {
+            //     panic!(
+            //         "expected ok result error; got {}",
+            //         r.err().unwrap().to_string()
+            //     );
+            // }
+            //
+            // if r.is_ok() && t.err.is_some() {
+            //     panic!("expected error {} but result was ok", t.err.unwrap());
+            // }
+
+            // let actual_output = r.unwrap();
+            // assert_eq!(actual_output, t.output.join("\n"));
         }
     }
 
