@@ -69,17 +69,6 @@ impl CodeNotify {
         self.inner_notify(paths)
     }
 
-    // fn notify_with_writer<W: Write>(
-    //     &self,
-    //     writer: &mut W,
-    // ) -> CodeNotifyResult<HashMap<String, Vec<String>>> {
-    //     let scm = Scm::get(&self.cwd)?;
-    //     let paths = scm.diff_paths(Some(&self.commit_range))?;
-    //     let notifs = self.inner_notify(writer, paths)?;
-    //
-    //     Ok(notifs)
-    // }
-
     fn inner_notify(&self, paths: Vec<PathBuf>) -> CodeNotifyResult<CodeNotifyOutput> {
         let notifs = self.notifications(&paths)?;
         let notification = self.write_notifications(&notifs)?;
