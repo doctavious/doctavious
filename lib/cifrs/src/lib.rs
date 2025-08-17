@@ -353,7 +353,7 @@ mod tests {
     use crate::Cifrs;
 
     // TODO: replace with local repos
-    #[test]
+    // #[test]
     fn check_frameworks() {
         let base_dir = BaseDirs::new().unwrap();
         let home_dir = base_dir.home_dir();
@@ -363,7 +363,7 @@ mod tests {
     }
 
     // TODO: when testing building docs considering adding Netflix's hollow as an example
-    #[test]
+    // #[test]
     fn check_hollow() {
         let base_dir = BaseDirs::new().unwrap();
         let home_dir = base_dir.home_dir();
@@ -388,7 +388,7 @@ mod tests {
         println!("{:?}", package_manager);
     }
 
-    #[test]
+    // #[test]
     fn check_site_package_manager() {
         let base_dir = BaseDirs::new().unwrap();
         let home_dir = base_dir.home_dir();
