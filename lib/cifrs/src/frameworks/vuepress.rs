@@ -55,8 +55,7 @@ mod tests {
     #[test]
     fn test_vuepress() {
         for path in [
-            // TODO: need js config
-            // "tests/fixtures/framework_configs/vuepress/config.js",
+            "tests/fixtures/framework_configs/vuepress/config.js",
             "tests/fixtures/framework_configs/vuepress/config.toml",
             "tests/fixtures/framework_configs/vuepress/config.ts",
         ] {

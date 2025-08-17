@@ -262,9 +262,14 @@ pub trait FrameworkConfiguration: for<'a> Deserialize<'a> {
         let path = path.as_ref();
         let format = FrameworkConfigurationFormat::from_path(path)?;
         let config = <Self as FrameworkConfiguration>::read_config(&format)?;
+        let settings = <Self as FrameworkConfiguration>::get_config_file_settings(&config);
+        println!(
+            "path: [{:?}] format: [{:?}] config: [{:?}] settings: [{:?}]",
+            path, format, config, &settings
+        );
         Ok(FrameworkConfigFile {
             path: path.to_path_buf(),
-            settings: <Self as FrameworkConfiguration>::get_config_file_settings(&config),
+            settings,
         })
     }
 
@@ -286,6 +291,7 @@ pub trait FrameworkConfiguration: for<'a> Deserialize<'a> {
     }
 }
 
+#[derive(Debug)]
 pub enum FrameworkConfigurationFormat {
     EcmaScript(Program),
     Json(serde_json::Value),

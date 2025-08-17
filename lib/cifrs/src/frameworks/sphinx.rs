@@ -37,7 +37,8 @@ mod tests {
     fn sphinx_without_missing_builddir_env_var() {
         temp_env::with_var_unset("BUILDDIR", || {
             let config =
-                SphinxConfig::get_config("tests/fixtures/framework_configs/sphinx/conf.py").unwrap();
+                SphinxConfig::get_config("tests/fixtures/framework_configs/sphinx/conf.py")
+                    .unwrap();
 
             assert_eq!(config.settings.output_dir, None)
         });
