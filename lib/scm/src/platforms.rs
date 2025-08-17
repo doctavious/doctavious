@@ -175,7 +175,7 @@ pub trait ScmPlatformClient<R> {
 // TODO: probably could just be named ScmPlatformRepositoryClient
 // A SCM platform client that is bound to a specific repository
 #[async_trait::async_trait]
-pub trait ScmPlatformRepositoryBoundedClient {
+pub trait ScmPlatformRepositoryBoundedClient: Send {
     // TODO: per_page / page, sort, direction
     // -> Vec<PullRequestNote>
     // async fn list_all_merge_requests_notes(&self, mr: u64);

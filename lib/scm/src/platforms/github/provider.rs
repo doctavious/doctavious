@@ -94,13 +94,22 @@ pub struct GithubRepositoryBoundedProvider {
 }
 
 impl GithubRepositoryBoundedProvider {
-    pub fn new(owner: String, repository: String, credentials: &str) -> ClientResult<Self> {
+    pub fn new(
+        owner: String,
+        repository: String,
+        credentials: &str,
+        host: Option<&str>,
+    ) -> ClientResult<Self> {
         // TODO: include retry middleware and eventually tracing
-        let client = github_client::client::ClientBuilder::new()?
-            .with_credentials(github_client::client::Credentials::PrivateToken(
-                String::from(credentials),
-            ))
-            .build()?;
+        let mut builder = github_client::client::ClientBuilder::new()?.with_credentials(
+            github_client::client::Credentials::PrivateToken(String::from(credentials)),
+        );
+
+        if let Some(host) = host {
+            builder = builder.with_host_override(host);
+        }
+
+        let client = builder.build()?;
 
         Ok(Self {
             owner,

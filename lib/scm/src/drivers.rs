@@ -1,6 +1,5 @@
 use std::fs;
 use std::path::{Path, PathBuf};
-use std::process::Command;
 
 use glob::Pattern;
 use indexmap::IndexMap;
@@ -167,14 +166,6 @@ impl ScmRepository for Scm {
         }
     }
 
-    fn commit(&self, message: &str) -> ScmResult<()> {
-        match self {
-            Scm::Git(r) => r.commit(message),
-            Scm::Hg(r) => r.commit(message),
-            Scm::Svn(r) => r.commit(message),
-        }
-    }
-
     fn last_commit(&self) -> ScmResult<Option<ScmCommit>> {
         match self {
             Scm::Git(r) => r.last_commit(),
@@ -331,6 +322,14 @@ impl ScmRepository for Scm {
             Scm::Git(r) => r.diff_paths(range),
             Scm::Hg(_) => unimplemented!(),
             Scm::Svn(_) => unimplemented!(),
+        }
+    }
+
+    fn commit(&self, message: &str) -> ScmResult<()> {
+        match self {
+            Scm::Git(r) => r.commit(message),
+            Scm::Hg(r) => r.commit(message),
+            Scm::Svn(r) => r.commit(message),
         }
     }
 }
