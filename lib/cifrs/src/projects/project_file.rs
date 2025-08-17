@@ -25,8 +25,8 @@ use crate::{CifrsError, CifrsResult};
 
 lazy_static! {
     static ref MSBUILD_PROJECT_FILE_PATTERNS: Vec<Regex> = vec![
-        Regex::new("*.csproj").unwrap(),
-        Regex::new("*.fsproj").unwrap()
+        Regex::new(".*.csproj").unwrap(),
+        Regex::new(".*.fsproj").unwrap()
     ];
 }
 

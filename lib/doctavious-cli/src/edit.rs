@@ -195,7 +195,7 @@ pub fn edit_bytes<B: AsRef<[u8]>>(buf: B) -> Result<Vec<u8>> {
 /// [`edit_bytes`]: fn.edit_bytes.html
 pub fn edit_bytes_with_builder<B: AsRef<[u8]>>(buf: B, builder: &Builder) -> Result<Vec<u8>> {
     let mut file = builder.tempfile()?;
-    file.write(buf.as_ref())?;
+    file.write_all(buf.as_ref())?;
 
     let path = file.into_temp_path();
     edit_file(&path)?;
