@@ -308,7 +308,9 @@ pub enum FrameworkConfigurationFormat {
 
 impl FrameworkConfigurationFormat {
     pub fn from_path<P: AsRef<Path>>(path: P) -> CifrsResult<Self> {
+        println!("from_path - path: [{:?}]", path.as_ref());
         if let Some(extension) = path.as_ref().extension() {
+            println!("from_path - extension: [{:?}]", extension);
             if let Ok(content) = fs::read_to_string(&path) {
                 return match extension.to_str() {
                     Some("json") => Ok(Self::Json(serde_json::from_str(&content)?)),
@@ -329,6 +331,8 @@ impl FrameworkConfigurationFormat {
                         ))
                     }
                 };
+            } else {
+                println!("could not get file content...");
             }
         }
 
