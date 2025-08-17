@@ -9,6 +9,7 @@ path = "src/main.rs"
 
 [dependencies]
 anyhow = { workspace = true }
+async-trait = { workspace = true }
 clap = { workspace = true, features = ["derive", "env", "string"] }
 changelog = { path = "../../lib/changelog" }
 code-ownify = { path = "../../lib/code-ownify" }
@@ -39,6 +40,7 @@ gitlab-client = { path = "../../lib/third-party/gitlab" }
 insta = { workspace = true }
 tempfile = { workspace = true }
 testing = { path = "../../lib/testing" }
+
 
 [build-dependencies]
 built = "0.8.0"

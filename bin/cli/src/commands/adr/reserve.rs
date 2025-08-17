@@ -11,7 +11,7 @@ use crate::clap_enum_variants;
 /// Reserve ADR
 #[derive(Parser, Debug)]
 #[command(name = "reserve")]
-pub(crate) struct ReserveADR {
+pub struct ReserveADR {
     /// Provide a working directory (that can be different from the current directory) when running Doctavius CLI commands.
     /// Will use the ADR directory in settings if present or fallback to the default ADR directory.
     #[arg(long, short)]
@@ -35,7 +35,7 @@ pub(crate) struct ReserveADR {
     pub format: Option<MarkupFormat>,
 }
 
-pub(crate) fn execute(cmd: ReserveADR) -> CliResult<Option<String>> {
+pub fn execute(cmd: ReserveADR) -> CliResult<Option<String>> {
     let cwd = cmd.cwd.unwrap_or(std::env::current_dir()?);
     let _ = adr::reserve(&cwd, cmd.number, cmd.title, cmd.format)?;
     Ok(Some(String::new()))

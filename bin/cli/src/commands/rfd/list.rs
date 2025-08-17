@@ -8,14 +8,14 @@ use markup::MarkupFormat;
 /// List RFDs
 #[derive(Parser, Debug)]
 #[command()]
-pub(crate) struct ListRFDs {
+pub struct ListRFDs {
     /// Provide a working directory (that can be different from the current directory) when running Doctavius CLI commands.
     /// Will use the ADR directory in settings if present or fallback to the default ADR directory.
     #[arg(long, short)]
     pub cwd: Option<PathBuf>,
 }
 
-pub(crate) fn execute(cmd: ListRFDs) -> CliResult<Option<String>> {
+pub fn execute(cmd: ListRFDs) -> CliResult<Option<String>> {
     let cwd = cmd.cwd.unwrap_or(std::env::current_dir()?);
     let output = list(&cwd, MarkupFormat::Markdown)?;
     Ok(Some(

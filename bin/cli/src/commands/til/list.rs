@@ -7,12 +7,12 @@ use doctavious_cli::errors::CliResult;
 /// List TILs
 #[derive(Parser, Debug)]
 #[command()]
-pub(crate) struct ListTils {
+pub struct ListTils {
     #[arg(long, short)]
     pub cwd: Option<PathBuf>,
 }
 
-pub(crate) fn execute(cmd: ListTils) -> CliResult<Option<String>> {
+pub fn execute(cmd: ListTils) -> CliResult<Option<String>> {
     let cwd = cmd.cwd.unwrap_or(std::env::current_dir()?);
     let output = list(&cwd)?;
     Ok(Some(

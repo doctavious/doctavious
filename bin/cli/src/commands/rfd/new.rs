@@ -11,7 +11,7 @@ use crate::clap_enum_variants;
 /// New RFD
 #[derive(Parser, Debug)]
 #[command()]
-pub(crate) struct NewRFD {
+pub struct NewRFD {
     /// Provide a working directory (that can be different from the current directory) when running Doctavius CLI commands.
     /// Will use the ADR directory in settings if present or fallback to the default ADR directory.
     #[arg(long, short)]
@@ -34,7 +34,7 @@ pub(crate) struct NewRFD {
     pub format: Option<MarkupFormat>,
 }
 
-pub(crate) fn execute(cmd: NewRFD) -> CliResult<Option<String>> {
+pub fn execute(cmd: NewRFD) -> CliResult<Option<String>> {
     let cwd = cmd.cwd.unwrap_or(std::env::current_dir()?);
     let output = rfd::new(&cwd, cmd.number, cmd.title.as_str(), cmd.format)?;
 

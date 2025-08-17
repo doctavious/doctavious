@@ -8,7 +8,7 @@ use markup::MarkupFormat;
 /// Gathers generate RFD commands
 #[derive(Parser, Debug)]
 #[command()]
-pub(crate) struct GenerateRFDs {
+pub struct GenerateRFDs {
     #[command(subcommand)]
     pub sub_command: GenerateRFDsCommand,
 }
@@ -19,7 +19,7 @@ pub(crate) struct GenerateRFDs {
 // Generate README / index file
 // Update README with table (maybe even list)
 #[derive(Parser, Debug)]
-pub(crate) enum GenerateRFDsCommand {
+pub enum GenerateRFDsCommand {
     Toc(RFDToc), // template, csv file. what is the snippet?
     Csv(RFDCsv),
     File(RFDFile),
@@ -34,7 +34,7 @@ pub(crate) enum GenerateRFDsCommand {
 /// Generates RFD CSV
 #[derive(Parser, Debug)]
 #[command()]
-pub(crate) struct RFDCsv {
+pub struct RFDCsv {
     /// Directory of RFDs
     #[arg(long, short)]
     pub directory: Option<String>,
@@ -54,7 +54,7 @@ pub(crate) struct RFDCsv {
 /// Generates RFD File
 #[derive(Parser, Debug)]
 #[command()]
-pub(crate) struct RFDFile {
+pub struct RFDFile {
     /// Directory of RFDs
     #[arg(long, short)]
     pub directory: Option<String>,
@@ -75,7 +75,7 @@ pub(crate) struct RFDFile {
 /// Generates RFD table of contents (Toc) to stdout
 #[derive(Parser, Debug)]
 #[command()]
-pub(crate) struct RFDToc {
+pub struct RFDToc {
     /// Directory of RFDs
     #[arg(long, short)]
     pub directory: Option<String>,
@@ -112,7 +112,7 @@ pub(crate) struct RFDToc {
 /// Create RFD Graph
 #[derive(Parser, Debug)]
 #[command()]
-pub(crate) struct RFDGraph {
+pub struct RFDGraph {
     /// Directory of RFDs
     #[arg(long, short)]
     pub directory: Option<String>,
@@ -125,7 +125,7 @@ pub(crate) struct RFDGraph {
     pub link_prefix: Option<String>,
 }
 
-pub(crate) fn execute(command: GenerateRFDs) -> CliResult<Option<String>> {
+pub fn execute(command: GenerateRFDs) -> CliResult<Option<String>> {
     match command.sub_command {
         GenerateRFDsCommand::Toc(_) => unimplemented!(),
         GenerateRFDsCommand::Csv(_) => unimplemented!(),

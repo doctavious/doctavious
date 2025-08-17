@@ -1,20 +1,57 @@
-use clap::Parser;
+mod commands;
+mod config;
+mod context;
+mod output;
+
+use clap::{Parser, Subcommand};
 use doctavious_cli::cmd::{build, deploy, frameworks};
 use tracing::error;
 
 use crate::commands::frameworks::FrameworkSubCommand;
-use crate::commands::{
-    Command, Opt, adr, changelog, codenotify, codeowners, rfd, scmhook, til, version,
-};
 
-mod built_info;
-mod commands;
-mod config;
-mod output;
+#[derive(Debug, Parser)]
+#[command(name = "Doctavious")]
+pub struct Opt {
+    #[arg(
+        long,
+        help = "Prints a verbose output during the program execution",
+        global = true
+    )]
+    pub debug: bool,
 
-// #[async_trait]
-pub trait RunnableCmd: Send + Sync {
-    // async fn run(&self, ctx: &Context) -> Result<()>;
+    // TODO: Implement
+    // #[arg(
+    //     long,
+    //     short,
+    //     value_parser = parse_output,
+    //     help = "How a command output should be rendered",
+    //     global = true
+    // )]
+    // pub(crate) output: Option<Output>,
+    #[command(subcommand)]
+    pub cmd: Command,
+}
+
+#[derive(Debug, Subcommand)]
+pub enum Command {
+    Adr(commands::adr::ADRCommand),
+    Build(commands::build::BuildCommand),
+    Changelog(commands::changelog::ChangelogCommand),
+    #[command(name = "codenotify")]
+    CodeNotify(commands::codenotify::CodeNotifyCli),
+    #[command(name = "codeowners")]
+    CodeOwners(commands::codeowners::CodeOwnersCli),
+    Deploy(commands::deploy::DeployCommand),
+    Frameworks(commands::frameworks::FrameworksCommand),
+    Init(commands::init::InitCommand),
+    Link(commands::link::LinkCommand),
+    Rfd(commands::rfd::RFDCommand),
+    #[command(name = "scmhook")]
+    ScmHook(commands::scmhook::ScmHookCommand),
+    Til(commands::til::TilCommand),
+    Version(commands::version::VersionCommand),
+    #[command(name = "whoami")]
+    WhoAmI(commands::whoami::WhoAmICommand),
 }
 
 // TODO: do we need/want custom error codes?
@@ -43,23 +80,23 @@ async fn main() {
 
     // TODO: would like to return something other than a string so that we could handle multiple output formats
     let result = match opt.cmd {
-        Command::Adr(cmd) => adr::execute(cmd),
-        Command::Build(cmd) => build::invoke(cmd.cwd, cmd.dry, cmd.skip_install),
-        Command::Changelog(cmd) => changelog::execute(cmd),
-        Command::CodeNotify(cmd) => codenotify::execute(cmd).await,
-        Command::CodeOwners(cmd) => codeowners::execute(cmd),
-        Command::Deploy(cmd) => deploy::invoke(cmd.cwd, cmd.build),
+        Command::Adr(cmd) => commands::adr::execute(cmd),
+        Command::Build(cmd) => build::execute(cmd.cwd, cmd.dry, cmd.skip_install),
+        Command::Changelog(cmd) => commands::changelog::execute(cmd),
+        Command::CodeNotify(cmd) => commands::codenotify::execute(cmd).await,
+        Command::CodeOwners(cmd) => commands::codeowners::execute(cmd),
+        Command::Deploy(cmd) => deploy::execute(cmd.cwd, cmd.build),
         Command::Frameworks(cmd) => match cmd.framework_command {
-            FrameworkSubCommand::Detect(cmd) => frameworks::detect::invoke(cmd.cwd),
-            FrameworkSubCommand::Get(cmd) => frameworks::get::invoke(cmd.name),
-            FrameworkSubCommand::List(_) => frameworks::list::invoke(),
+            FrameworkSubCommand::Detect(cmd) => frameworks::detect::execute(cmd.cwd),
+            FrameworkSubCommand::Get(cmd) => frameworks::get::execute(cmd.name),
+            FrameworkSubCommand::List(_) => frameworks::list::execute(),
         },
         Command::Init(..) => unimplemented!(),
         Command::Link(..) => unimplemented!(),
-        Command::Rfd(cmd) => rfd::execute(cmd),
-        Command::ScmHook(cmd) => scmhook::execute(cmd),
-        Command::Til(cmd) => til::execute(cmd),
-        Command::Version => version::execute(),
+        Command::Rfd(cmd) => commands::rfd::execute(cmd),
+        Command::ScmHook(cmd) => commands::scmhook::execute(cmd),
+        Command::Til(cmd) => commands::til::execute(cmd),
+        Command::Version(cmd) => commands::version::execute(cmd),
         Command::WhoAmI(..) => unimplemented!(),
     };
 

@@ -13,7 +13,7 @@ use markup::MarkupFormat;
 // Update README with table (maybe even list)
 #[derive(Parser, Debug)]
 #[command()]
-pub(crate) struct GenerateTils {
+pub struct GenerateTils {
     // Toc(crate::commands::rfd::generate::RFDToc), // template, csv file. what is the snippet?
     // Csv(crate::commands::rfd::generate::RFDCsv),
     // File(crate::commands::rfd::generate::RFDFile),
@@ -23,14 +23,14 @@ pub(crate) struct GenerateTils {
 }
 
 #[derive(Parser, Debug)]
-pub(crate) enum GenerateTilsCommand {
+pub enum GenerateTilsCommand {
     Toc(TilToc),
 }
 
 /// Build TIL ReadMe
 #[derive(Parser, Debug)]
 #[command()]
-pub(crate) struct TilToc {
+pub struct TilToc {
     /// Directory where TILs are stored
     #[arg(long, short)]
     pub cwd: Option<PathBuf>,
@@ -47,13 +47,13 @@ pub(crate) struct TilToc {
     pub format: Option<MarkupFormat>,
 }
 
-pub(crate) fn execute(command: GenerateTils) -> CliResult<Option<String>> {
+pub fn execute(command: GenerateTils) -> CliResult<Option<String>> {
     match command.sub_command {
         GenerateTilsCommand::Toc(cmd) => execute_generate_toc(cmd),
     }
 }
 
-pub(crate) fn execute_generate_toc(cmd: TilToc) -> CliResult<Option<String>> {
+pub fn execute_generate_toc(cmd: TilToc) -> CliResult<Option<String>> {
     let cwd = cmd.cwd.unwrap_or(std::env::current_dir()?);
 
     til::generate_toc(cwd.as_path(), cmd.format.unwrap_or_default())?;

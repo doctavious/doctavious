@@ -5,11 +5,11 @@ use doctavious_cli::errors::CliResult;
 
 #[derive(Parser, Debug)]
 #[command()]
-pub(crate) struct InitCommand {
+pub struct InitCommand {
     pub cwd: Option<PathBuf>,
 }
 
-pub(crate) fn execute(command: InitCommand) -> CliResult<Option<String>> {
+pub fn execute(command: InitCommand) -> CliResult<Option<String>> {
     let path = command.cwd.unwrap_or(std::env::current_dir()?);
 
     Ok(None)

@@ -31,7 +31,7 @@ use crate::clap_enum_variants;
 
 #[derive(Parser, Debug)]
 #[command()]
-pub(crate) struct ReleaseCommand {
+pub struct ReleaseCommand {
     #[arg(
         long,
         short,
@@ -235,7 +235,7 @@ impl ReleaseCommand {
     }
 }
 
-pub(crate) fn execute(command: ReleaseCommand) -> CliResult<Option<String>> {
+pub fn execute(command: ReleaseCommand) -> CliResult<Option<String>> {
     let path = command.cwd.unwrap_or(std::env::current_dir()?);
     let output_type = if command.individual {
         ChangelogOutputType::Individual

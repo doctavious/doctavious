@@ -4,7 +4,7 @@ use clap::Parser;
 
 #[derive(Parser, Debug)]
 #[command(about = "Links your local directory to a Doctavious Project.")]
-pub(crate) struct LinkCommand {
+pub struct LinkCommand {
     #[arg(
         long,
         short,

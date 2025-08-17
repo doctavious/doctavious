@@ -2,7 +2,7 @@ use cifrs::frameworks;
 
 use crate::errors::{CliResult, DoctaviousCliError};
 
-pub fn invoke(name: String) -> CliResult<Option<String>> {
+pub fn execute(name: String) -> CliResult<Option<String>> {
     let normalized_string = name.to_lowercase();
     let framework = frameworks::get_all().into_iter().find(|f| {
         f.name.to_lowercase() == normalized_string || f.id.to_lowercase() == normalized_string

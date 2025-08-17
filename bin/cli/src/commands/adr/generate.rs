@@ -11,13 +11,13 @@ use crate::clap_enum_variants;
 /// Gathers generate ADR commands
 #[derive(Parser, Debug)]
 #[command()]
-pub(crate) struct GenerateADRs {
+pub struct GenerateADRs {
     #[command(subcommand)]
     pub sub_command: GenerateAdrsCommand,
 }
 
 #[derive(Parser, Debug)]
-pub(crate) enum GenerateAdrsCommand {
+pub enum GenerateAdrsCommand {
     Toc(AdrToc),
     Graph(AdrGraph),
 }
@@ -25,7 +25,7 @@ pub(crate) enum GenerateAdrsCommand {
 /// Generates ADR table of contents (Toc) to stdout
 #[derive(Parser, Debug)]
 #[command()]
-pub(crate) struct AdrToc {
+pub struct AdrToc {
     /// Provide a working directory (that can be different from the current directory) when running Doctavius CLI commands.
     /// Will use the ADR directory in settings if present or fallback to the default ADR directory.
     #[arg(long, short)]
@@ -56,7 +56,7 @@ pub(crate) struct AdrToc {
 /// Create ADR Graph
 #[derive(Parser, Debug)]
 #[command()]
-pub(crate) struct AdrGraph {
+pub struct AdrGraph {
     /// Directory of ADRs
     #[arg(long, short)]
     pub directory: Option<String>,
@@ -69,7 +69,7 @@ pub(crate) struct AdrGraph {
     pub link_prefix: Option<String>,
 }
 
-pub(crate) fn execute(command: GenerateADRs) -> CliResult<Option<String>> {
+pub fn execute(command: GenerateADRs) -> CliResult<Option<String>> {
     match command.sub_command {
         GenerateAdrsCommand::Toc(cmd) => execute_generate_toc(cmd),
         GenerateAdrsCommand::Graph(_) => unimplemented!(),

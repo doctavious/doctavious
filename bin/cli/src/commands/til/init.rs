@@ -13,7 +13,7 @@ use crate::clap_enum_variants;
 /// TODO: explain creation of configurations local vs global
 #[derive(Parser, Debug)]
 #[command()]
-pub(crate) struct InitTil {
+pub struct InitTil {
     #[arg(long, short)]
     pub cwd: Option<PathBuf>,
 
@@ -34,7 +34,7 @@ pub(crate) struct InitTil {
     // TODO: should we have toc details?
 }
 
-pub(crate) fn execute(cmd: InitTil) -> CliResult<Option<String>> {
+pub fn execute(cmd: InitTil) -> CliResult<Option<String>> {
     til::init(cmd.cwd.as_deref(), cmd.format, cmd.local)?;
 
     Ok(Some(String::new()))

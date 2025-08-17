@@ -4,7 +4,7 @@ use clap::Parser;
 
 #[derive(Parser, Debug)]
 #[command(about = "Create a new deploy from the contents of a folder")]
-pub(crate) struct DeployCommand {
+pub struct DeployCommand {
     #[arg(
         long,
         short,

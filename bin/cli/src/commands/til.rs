@@ -16,14 +16,14 @@ use crate::commands::til::open::OpenTil;
 /// Manage Today I Learned (TIL) posts
 #[derive(Parser, Debug)]
 #[command()]
-pub(crate) struct TilCommand {
+pub struct TilCommand {
     #[command(subcommand)]
     pub sub_command: TilSubCommand,
 }
 
 #[remain::sorted]
 #[derive(Parser, Debug)]
-pub(crate) enum TilSubCommand {
+pub enum TilSubCommand {
     Generate(GenerateTils),
     Init(InitTil),
     List(ListTils),
@@ -33,7 +33,7 @@ pub(crate) enum TilSubCommand {
     // TODO: template
 }
 
-pub(crate) fn execute(command: TilCommand) -> CliResult<Option<String>> {
+pub fn execute(command: TilCommand) -> CliResult<Option<String>> {
     match command.sub_command {
         TilSubCommand::Generate(cmd) => generate::execute(cmd),
         TilSubCommand::Init(cmd) => init::execute(cmd),

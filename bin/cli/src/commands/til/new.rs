@@ -7,7 +7,7 @@ use doctavious_cli::errors::CliResult;
 /// New TIL
 #[derive(Parser, Debug)]
 #[command()]
-pub(crate) struct NewTil {
+pub struct NewTil {
     #[arg(long, short)]
     pub cwd: Option<PathBuf>,
 
@@ -28,7 +28,7 @@ pub(crate) struct NewTil {
     pub post: String,
 }
 
-pub(crate) fn execute(cmd: NewTil) -> CliResult<Option<String>> {
+pub fn execute(cmd: NewTil) -> CliResult<Option<String>> {
     let output = til::new(cmd.cwd.as_deref(), cmd.post, cmd.tags, cmd.toc)?;
 
     Ok(Some(output.to_string_lossy().to_string()))

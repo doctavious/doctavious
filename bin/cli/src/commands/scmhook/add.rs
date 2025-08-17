@@ -10,7 +10,7 @@ use doctavious_cli::settings::DEFAULT_CONFIG_DIR;
 /// Similar to `scmhook install` but doesn't create a configuration first.
 #[derive(Parser, Debug)]
 #[command()]
-pub(crate) struct AddScmHook {
+pub struct AddScmHook {
     #[arg(long, short)]
     pub cwd: Option<PathBuf>,
 
@@ -28,7 +28,7 @@ pub(crate) struct AddScmHook {
     pub force: bool,
 }
 
-pub(crate) fn execute(command: AddScmHook) -> CliResult<Option<String>> {
+pub fn execute(command: AddScmHook) -> CliResult<Option<String>> {
     let path = command.cwd.unwrap_or(std::env::current_dir()?);
 
     add(&path, command.name, command.dir, command.force)?;

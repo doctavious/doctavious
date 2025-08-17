@@ -2,7 +2,7 @@ use cifrs::frameworks;
 
 use crate::errors::{CliResult, DoctaviousCliError};
 
-pub fn invoke() -> CliResult<Option<String>> {
+pub fn execute() -> CliResult<Option<String>> {
     let frameworks = frameworks::get_all();
     serde_json::to_string(&frameworks)
         .map_err(DoctaviousCliError::SerdeJson)

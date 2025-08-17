@@ -5,7 +5,7 @@ use clap::Parser;
 
 #[derive(Parser, Debug)]
 #[command(about = "Build on your local machine")]
-pub(crate) struct BuildCommand {
+pub struct BuildCommand {
     /// The directory to build. Defaults to current directory.
     #[arg(long, short)]
     pub cwd: Option<PathBuf>,

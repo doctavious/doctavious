@@ -5,7 +5,7 @@ use cifrs::Cifrs;
 
 use crate::errors::CliResult;
 
-pub fn invoke(dir: Option<PathBuf>, dry: bool, skip_install: bool) -> CliResult<Option<String>> {
+pub fn execute(dir: Option<PathBuf>, dry: bool, skip_install: bool) -> CliResult<Option<String>> {
     let cwd = dir.unwrap_or(env::current_dir()?);
     Cifrs::build(&cwd, dry, skip_install)?;
 

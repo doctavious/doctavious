@@ -66,7 +66,6 @@ pub(crate) async fn execute(cmd: NotifyCommand) -> anyhow::Result<Option<String>
             Some(scm) => scm,
         };
 
-        // TODO: see if there is a way to remove these clones
         let base_ref = cmd.base_ref.unwrap_or(ci_context.base);
         let head_ref = cmd.head_ref.unwrap_or(ci_context.head);
 
@@ -124,5 +123,5 @@ pub(crate) async fn execute(cmd: NotifyCommand) -> anyhow::Result<Option<String>
         write!(io::stdout(), "{}", code_notify_result.message)?;
     }
 
-    Ok(Some(String::new()))
+    Ok(None)
 }

@@ -14,21 +14,21 @@ mod uninstall;
 /// Manage SCM Hooks
 #[derive(Parser, Debug)]
 #[command()]
-pub(crate) struct ScmHookCommand {
+pub struct ScmHookCommand {
     #[command(subcommand)]
     pub sub_command: ScmHookSubCommand,
 }
 
 #[remain::sorted]
 #[derive(Parser, Debug)]
-pub(crate) enum ScmHookSubCommand {
+pub enum ScmHookSubCommand {
     Add(AddScmHook),
     Install(InstallScmHook),
     Run(RunScmHookCommand),
     Uninstall(UninstallScmHook),
 }
 
-pub(crate) fn execute(command: ScmHookCommand) -> CliResult<Option<String>> {
+pub fn execute(command: ScmHookCommand) -> CliResult<Option<String>> {
     match command.sub_command {
         ScmHookSubCommand::Add(cmd) => add::execute(cmd),
         ScmHookSubCommand::Install(cmd) => install::execute(cmd),

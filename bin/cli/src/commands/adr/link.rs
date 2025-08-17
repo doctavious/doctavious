@@ -8,7 +8,7 @@ use doctavious_cli::errors::CliResult;
 /// Creates a link between two ADRs, from SOURCE to TARGET
 #[derive(Parser, Debug)]
 #[command(name = "link")]
-pub(crate) struct LinkADRs {
+pub struct LinkADRs {
     #[arg(long, short)]
     pub cwd: Option<PathBuf>,
 
@@ -29,7 +29,7 @@ pub(crate) struct LinkADRs {
     pub reverse_link: String,
 }
 
-pub(crate) fn execute(cmd: LinkADRs) -> CliResult<Option<String>> {
+pub fn execute(cmd: LinkADRs) -> CliResult<Option<String>> {
     let cwd = cmd.cwd.unwrap_or(std::env::current_dir()?);
     let _ = adr::link(
         &cwd,

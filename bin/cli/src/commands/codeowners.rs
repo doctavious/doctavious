@@ -5,7 +5,7 @@ use doctavious_cli::errors::CliResult;
 
 #[derive(Parser, Debug)]
 #[command()]
-pub(crate) struct CodeOwnersCli {
+pub struct CodeOwnersCli {
     #[command(subcommand)]
     command: Commands,
 }
@@ -33,7 +33,7 @@ pub struct AuditCommand {}
 #[command()]
 pub struct UnownedCommand {}
 
-pub(crate) fn execute(cli: CodeOwnersCli) -> CliResult<Option<String>> {
+pub fn execute(cli: CodeOwnersCli) -> CliResult<Option<String>> {
     match cli.command {
         Commands::Unowned(_) => {}
     };

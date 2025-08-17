@@ -16,14 +16,14 @@ use crate::commands::rfd::reserve::ReserveRFD;
 /// Manage RFDs
 #[derive(Parser, Debug)]
 #[command()]
-pub(crate) struct RFDCommand {
+pub struct RFDCommand {
     #[command(subcommand)]
     pub sub_command: RFDSubCommand,
 }
 
 #[remain::sorted]
 #[derive(Subcommand, Debug)]
-pub(crate) enum RFDSubCommand {
+pub enum RFDSubCommand {
     Generate(GenerateRFDs),
     Init(InitRFD),
     List(ListRFDs),
@@ -33,7 +33,7 @@ pub(crate) enum RFDSubCommand {
     // TODO: Templates (add/delete. global vs local)
 }
 
-pub(crate) fn execute(command: RFDCommand) -> CliResult<Option<String>> {
+pub fn execute(command: RFDCommand) -> CliResult<Option<String>> {
     match command.sub_command {
         RFDSubCommand::Init(cmd) => init::execute(cmd),
         RFDSubCommand::Generate(cmd) => generate::execute(cmd),

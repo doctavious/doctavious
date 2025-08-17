@@ -7,7 +7,7 @@ use crate::errors::CliResult;
 // TODO: do we want to offer preview deployments?
 // TODO: what setup / linking needs to occur? How to make initial onboarding as easy as possible?
 
-pub fn invoke(dir: Option<PathBuf>, prebuilt: bool) -> CliResult<Option<String>> {
+pub fn execute(dir: Option<PathBuf>, prebuilt: bool) -> CliResult<Option<String>> {
     let cwd = dir.unwrap_or(env::current_dir()?);
 
     // TODO: can only deploy directory

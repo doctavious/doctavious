@@ -12,7 +12,7 @@ use crate::clap_enum_variants;
 /// Init RFD
 #[derive(Parser, Debug)]
 #[command()]
-pub(crate) struct InitRFD {
+pub struct InitRFD {
     #[arg(long, short)]
     pub cwd: Option<PathBuf>,
 
@@ -39,7 +39,7 @@ pub(crate) struct InitRFD {
     pub format: MarkupFormat,
 }
 
-pub(crate) fn execute(cmd: InitRFD) -> CliResult<Option<String>> {
+pub fn execute(cmd: InitRFD) -> CliResult<Option<String>> {
     let cwd = cmd.cwd.unwrap_or(std::env::current_dir()?);
     let output = rfd::init(
         cwd.as_path(),

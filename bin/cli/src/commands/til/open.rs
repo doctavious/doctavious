@@ -7,7 +7,7 @@ use doctavious_cli::errors::CliResult;
 /// Open TIL
 #[derive(Parser, Debug)]
 #[command()]
-pub(crate) struct OpenTil {
+pub struct OpenTil {
     #[arg(long, short)]
     pub cwd: Option<PathBuf>,
 
@@ -16,7 +16,7 @@ pub(crate) struct OpenTil {
     pub post: String,
 }
 
-pub(crate) fn execute(cmd: OpenTil) -> CliResult<Option<String>> {
+pub fn execute(cmd: OpenTil) -> CliResult<Option<String>> {
     open(cmd.cwd.as_deref(), cmd.post)?;
     Ok(Some(String::new()))
 }
