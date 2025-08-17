@@ -8,13 +8,13 @@ use serde::Deserialize;
 
 use crate::frameworks::{FrameworkConfigFileSettings, FrameworkConfiguration};
 
-#[derive(Deserialize)]
+#[derive(Debug, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 struct MDBookBuildOptions {
     build_dir: Option<String>,
 }
 
-#[derive(Deserialize)]
+#[derive(Debug, Deserialize)]
 pub struct MDBookConfig {
     build: HashMap<String, String>,
 }

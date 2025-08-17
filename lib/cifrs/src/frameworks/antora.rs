@@ -11,7 +11,7 @@ use serde::Deserialize;
 
 use crate::frameworks::{FrameworkConfigFileSettings, FrameworkConfiguration};
 
-#[derive(Deserialize)]
+#[derive(Debug, Deserialize)]
 pub struct AntoraConfig {
     output: HashMap<String, String>,
 }

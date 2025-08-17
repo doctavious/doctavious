@@ -11,7 +11,7 @@ use crate::frameworks::{FrameworkConfigFileSettings, FrameworkConfiguration};
 use crate::js_module::{get_call_expression, get_call_string_property};
 use crate::{CifrsError, CifrsResult};
 
-#[derive(Deserialize)]
+#[derive(Debug, Deserialize)]
 pub struct AstroConfig {
     output: String,
 }

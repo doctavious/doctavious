@@ -12,7 +12,7 @@ use serde::Deserialize;
 
 use crate::frameworks::{FrameworkConfigFileSettings, FrameworkConfiguration};
 
-#[derive(Deserialize)]
+#[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct HugoConfig {
     publish_dir: Option<String>,

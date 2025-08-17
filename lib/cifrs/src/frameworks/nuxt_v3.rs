@@ -5,7 +5,7 @@ use crate::frameworks::{FrameworkConfigFileSettings, FrameworkConfiguration};
 use crate::js_module::PropertyAccessor;
 use crate::{CifrsError, CifrsResult};
 
-#[derive(Deserialize)]
+#[derive(Debug, Deserialize)]
 pub struct Nuxt3JSConfig {
     output: Option<String>,
 }

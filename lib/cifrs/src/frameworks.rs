@@ -1,4 +1,5 @@
 use std::borrow::Cow;
+use std::fmt::Debug;
 use std::fs;
 use std::path::{Path, PathBuf};
 
@@ -237,18 +238,22 @@ pub enum FrameworkBuildArg {
     },
 }
 
+#[derive(Debug)]
 pub struct FrameworkConfigFile {
     pub path: PathBuf,
     pub settings: FrameworkConfigFileSettings,
 }
 
+#[derive(Debug)]
 pub struct FrameworkConfigFileSettings {
     pub output_dir: Option<String>,
 }
 
-pub trait FrameworkConfiguration: for<'a> Deserialize<'a> {
-    // TODO(Sean): Can default to Self when associated type defaults is a stable feature
-    type Config: FrameworkConfiguration;
+
+pub trait FrameworkConfiguration: for<'a> Deserialize<'a> + Debug {
+    // TODO(Sean): Can default to Self when associated type defaults is a stable feature.
+    // Perahps this is a bad idea?
+    type Config: FrameworkConfiguration + Debug;
 
     fn from_js_module(_program: &Program) -> CifrsResult<Self> {
         unimplemented!();

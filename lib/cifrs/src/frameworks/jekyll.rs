@@ -9,7 +9,7 @@ use serde::Deserialize;
 
 use crate::frameworks::{FrameworkConfigFileSettings, FrameworkConfiguration};
 
-#[derive(Deserialize)]
+#[derive(Debug, Deserialize)]
 pub struct JekyllConfig {
     destination: Option<String>,
 }

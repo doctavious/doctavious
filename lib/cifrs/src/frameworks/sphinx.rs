@@ -11,7 +11,7 @@ use serde_derive::Deserialize;
 use crate::CifrsResult;
 use crate::frameworks::{FrameworkConfigFileSettings, FrameworkConfiguration};
 
-#[derive(Deserialize)]
+#[derive(Debug, Deserialize)]
 pub struct SphinxConfig;
 
 impl FrameworkConfiguration for SphinxConfig {

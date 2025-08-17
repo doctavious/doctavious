@@ -9,12 +9,12 @@ use serde::Deserialize;
 
 use crate::frameworks::{FrameworkConfigFileSettings, FrameworkConfiguration};
 
-#[derive(Deserialize)]
+#[derive(Debug, Deserialize)]
 pub struct DocFxConfig {
     build: HashMap<String, String>,
 }
 
-#[derive(Deserialize)]
+#[derive(Debug, Deserialize)]
 struct DocFxConfigBuild {
     dest: String,
 }

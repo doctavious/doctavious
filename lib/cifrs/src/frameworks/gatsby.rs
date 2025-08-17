@@ -18,7 +18,7 @@ use crate::{CifrsError, CifrsResult};
 // TODO: given there is no option to override does it make sense to still enforce Deserialize
 // and ConfigurationFileDeserialization?
 // I suppose we can determine if gatsby-plugin-output is in the plugins and grab it from there
-#[derive(Deserialize)]
+#[derive(Debug, Deserialize)]
 pub struct GatsbyConfig {
     output: String,
 }

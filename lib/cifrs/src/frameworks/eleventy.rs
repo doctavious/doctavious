@@ -16,7 +16,7 @@ use crate::js_module::{
 };
 use crate::{CifrsError, CifrsResult};
 
-#[derive(Deserialize)]
+#[derive(Debug, Deserialize)]
 pub struct EleventyConfig {
     output: String,
 }

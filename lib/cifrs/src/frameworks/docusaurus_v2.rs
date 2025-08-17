@@ -29,7 +29,7 @@ use swc_ecma_ast::Program;
 use crate::CifrsResult;
 use crate::frameworks::{FrameworkConfigFileSettings, FrameworkConfiguration};
 
-#[derive(Deserialize)]
+#[derive(Debug, Deserialize)]
 pub struct DocusaurusConfig;
 
 impl FrameworkConfiguration for DocusaurusConfig {
