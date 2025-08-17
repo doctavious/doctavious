@@ -34,11 +34,13 @@ mod tests {
     use crate::frameworks::sphinx::SphinxConfig;
 
     #[test]
-    fn test_sphinx() {
-        let config =
-            SphinxConfig::get_config("tests/fixtures/framework_configs/sphinx/conf.py").unwrap();
+    fn sphinx_without_missing_builddir_env_var() {
+        temp_env::with_var_unset("BUILDDIR", || {
+            let config =
+                SphinxConfig::get_config("tests/fixtures/framework_configs/sphinx/conf.py").unwrap();
 
-        assert_eq!(config.settings.output_dir, None)
+            assert_eq!(config.settings.output_dir, None)
+        });
     }
 
     #[test]
