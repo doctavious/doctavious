@@ -2,7 +2,6 @@ use std::path::PathBuf;
 
 use clap::Parser;
 use doctavious_cli::cmd::design_decisions::adr::list;
-use doctavious_cli::errors::CliResult;
 use markup::MarkupFormat;
 
 /// List ADRs
@@ -15,14 +14,17 @@ pub struct ListADRs {
     pub cwd: Option<PathBuf>,
 }
 
-pub fn execute(cmd: ListADRs) -> CliResult<Option<String>> {
-    let cwd = cmd.cwd.unwrap_or(std::env::current_dir()?);
-    let output = list(&cwd, MarkupFormat::Markdown)?;
-    Ok(Some(
-        output
-            .iter()
-            .map(|p| p.to_string_lossy())
-            .collect::<Vec<_>>()
-            .join("\n"),
-    ))
+#[async_trait::async_trait]
+impl crate::commands::Command for ListADRs {
+    async fn execute(&self) -> anyhow::Result<Option<String>> {
+        let cwd = self.resolve_cwd(self.cwd.as_ref())?;
+        let output = list(&cwd, MarkupFormat::Markdown)?;
+        Ok(Some(
+            output
+                .iter()
+                .map(|p| p.to_string_lossy())
+                .collect::<Vec<_>>()
+                .join("\n"),
+        ))
+    }
 }

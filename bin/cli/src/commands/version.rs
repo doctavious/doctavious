@@ -1,5 +1,4 @@
 use clap::Parser;
-use doctavious_cli::errors::CliResult;
 
 mod built_info {
     include!(concat!(env!("OUT_DIR"), "/built.rs"));
@@ -8,9 +7,21 @@ mod built_info {
 #[derive(Parser, Debug, Clone)]
 pub struct VersionCommand;
 
-pub fn execute(_cmd: VersionCommand) -> CliResult<Option<String>> {
-    println!("Doctavious version: {}", built_info::PKG_VERSION);
-    // TODO: include git commit hash
-    // TODO: include Doctavious API version
-    Ok(Some(String::new()))
+#[async_trait::async_trait]
+impl crate::commands::Command for VersionCommand {
+    async fn execute(&self) -> anyhow::Result<Option<String>> {
+        println!("Doctavious version: {}", built_info::PKG_VERSION);
+        println!(
+            "Built from commit: {} {}",
+            built_info::GIT_COMMIT_HASH.unwrap(),
+            if matches!(built_info::GIT_DIRTY, Some(true)) {
+                "(dirty)"
+            } else {
+                ""
+            }
+        );
+
+        // TODO: include Doctavious API version
+        Ok(None)
+    }
 }

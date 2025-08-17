@@ -2,7 +2,6 @@ use std::path::PathBuf;
 
 use clap::Parser;
 use doctavious_cli::cmd::design_decisions::adr;
-use doctavious_cli::errors::CliResult;
 use doctavious_cli::templating::AdrTemplateType;
 use markup::MarkupFormat;
 use strum::VariantNames;
@@ -57,17 +56,20 @@ pub struct NewADR {
     pub link: Option<Vec<String>>,
 }
 
-pub fn execute(cmd: NewADR) -> CliResult<Option<String>> {
-    let cwd = cmd.cwd.unwrap_or(std::env::current_dir()?);
-    let output = adr::new(
-        &cwd,
-        cmd.number,
-        cmd.title.as_str(),
-        AdrTemplateType::Record,
-        cmd.format,
-        cmd.supersede,
-        cmd.link,
-    )?;
+#[async_trait::async_trait]
+impl crate::commands::Command for NewADR {
+    async fn execute(&self) -> anyhow::Result<Option<String>> {
+        let cwd = self.resolve_cwd(self.cwd.as_ref())?;
+        let output = adr::new(
+            &cwd,
+            self.number,
+            self.title.as_str(),
+            AdrTemplateType::Record,
+            self.format,
+            self.supersede.clone(),
+            self.link.clone(),
+        )?;
 
-    Ok(Some(output.to_string_lossy().to_string()))
+        Ok(Some(output.to_string_lossy().to_string()))
+    }
 }

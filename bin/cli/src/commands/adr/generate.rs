@@ -2,7 +2,6 @@ use std::path::PathBuf;
 
 use clap::Parser;
 use doctavious_cli::cmd::design_decisions::adr::generate_toc;
-use doctavious_cli::errors::CliResult;
 use markup::MarkupFormat;
 use strum::VariantNames;
 
@@ -20,6 +19,18 @@ pub struct GenerateADRs {
 pub enum GenerateAdrsCommand {
     Toc(AdrToc),
     Graph(AdrGraph),
+}
+
+#[async_trait::async_trait]
+impl crate::commands::Command for GenerateADRs {
+    async fn execute(&self) -> anyhow::Result<Option<String>> {
+        match &self.sub_command {
+            GenerateAdrsCommand::Toc(cmd) => cmd.execute().await,
+            GenerateAdrsCommand::Graph(_) => unimplemented!(),
+        }?;
+
+        Ok(Some(String::new()))
+    }
 }
 
 /// Generates ADR table of contents (Toc) to stdout
@@ -53,6 +64,22 @@ pub struct AdrToc {
     pub format: MarkupFormat,
 }
 
+#[async_trait::async_trait]
+impl crate::commands::Command for AdrToc {
+    async fn execute(&self) -> anyhow::Result<Option<String>> {
+        let cwd = self.resolve_cwd(self.cwd.as_ref())?;
+        let output = generate_toc(
+            &cwd,
+            self.format,
+            self.intro.as_deref(),
+            self.outro.as_deref(),
+            self.link_prefix.as_deref(),
+        )?;
+
+        Ok(Some(output))
+    }
+}
+
 /// Create ADR Graph
 #[derive(Parser, Debug)]
 #[command()]
@@ -67,24 +94,4 @@ pub struct AdrGraph {
 
     #[arg(long, short)]
     pub link_prefix: Option<String>,
-}
-
-pub fn execute(command: GenerateADRs) -> CliResult<Option<String>> {
-    match command.sub_command {
-        GenerateAdrsCommand::Toc(cmd) => execute_generate_toc(cmd),
-        GenerateAdrsCommand::Graph(_) => unimplemented!(),
-    }
-}
-
-fn execute_generate_toc(cmd: AdrToc) -> CliResult<Option<String>> {
-    let cwd = cmd.cwd.unwrap_or(std::env::current_dir()?);
-    let output = generate_toc(
-        &cwd,
-        cmd.format,
-        cmd.intro.as_deref(),
-        cmd.outro.as_deref(),
-        cmd.link_prefix.as_deref(),
-    )?;
-
-    Ok(Some(output))
 }

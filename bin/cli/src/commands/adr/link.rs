@@ -3,7 +3,6 @@ use std::str::FromStr;
 
 use clap::Parser;
 use doctavious_cli::cmd::design_decisions::{LinkReference, adr};
-use doctavious_cli::errors::CliResult;
 
 /// Creates a link between two ADRs, from SOURCE to TARGET
 #[derive(Parser, Debug)]
@@ -29,14 +28,18 @@ pub struct LinkADRs {
     pub reverse_link: String,
 }
 
-pub fn execute(cmd: LinkADRs) -> CliResult<Option<String>> {
-    let cwd = cmd.cwd.unwrap_or(std::env::current_dir()?);
-    let _ = adr::link(
-        &cwd,
-        LinkReference::from_str(cmd.source.as_str())?,
-        &cmd.link,
-        LinkReference::from_str(cmd.target.as_str())?,
-        &cmd.reverse_link,
-    )?;
-    Ok(Some(String::new()))
+#[async_trait::async_trait]
+impl crate::commands::Command for LinkADRs {
+    async fn execute(&self) -> anyhow::Result<Option<String>> {
+        // let cwd = cmd.cwd.unwrap_or(std::env::current_dir()?);
+        let cwd = self.resolve_cwd(self.cwd.as_ref())?;
+        let _ = adr::link(
+            &cwd,
+            LinkReference::from_str(self.source.as_str())?,
+            &self.link,
+            LinkReference::from_str(self.target.as_str())?,
+            &self.reverse_link,
+        )?;
+        Ok(None)
+    }
 }

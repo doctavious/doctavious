@@ -4,10 +4,9 @@ mod context;
 mod output;
 
 use clap::{Parser, Subcommand};
-use doctavious_cli::cmd::{build, deploy, frameworks};
 use tracing::error;
 
-use crate::commands::frameworks::FrameworkSubCommand;
+use crate::commands::Command;
 
 #[derive(Debug, Parser)]
 #[command(name = "Doctavious")]
@@ -29,18 +28,18 @@ pub struct Opt {
     // )]
     // pub(crate) output: Option<Output>,
     #[command(subcommand)]
-    pub cmd: Command,
+    pub cmd: SubCommand,
 }
 
 #[derive(Debug, Subcommand)]
-pub enum Command {
+pub enum SubCommand {
     Adr(commands::adr::ADRCommand),
     Build(commands::build::BuildCommand),
     Changelog(commands::changelog::ChangelogCommand),
     #[command(name = "codenotify")]
-    CodeNotify(commands::codenotify::CodeNotifyCli),
+    CodeNotify(commands::codenotify::CodeNotifyCommand),
     #[command(name = "codeowners")]
-    CodeOwners(commands::codeowners::CodeOwnersCli),
+    CodeOwners(commands::codeowners::CodeOwnersCommand),
     Deploy(commands::deploy::DeployCommand),
     Frameworks(commands::frameworks::FrameworksCommand),
     Init(commands::init::InitCommand),
@@ -59,7 +58,9 @@ pub enum Command {
 #[tokio::main]
 async fn main() {
     // TODO: get version and check for updates. print if cli is not latest
-    // Example: https://github.com/KittyCAD/cli/blob/main/src/main.rs
+    // Examples:
+    // https://github.com/KittyCAD/cli/blob/main/src/main.rs
+    // https://github.com/oxidecomputer/oxide.rs/blob/main/cli/src/main.rs
 
     let opt = Opt::parse();
 
@@ -80,24 +81,20 @@ async fn main() {
 
     // TODO: would like to return something other than a string so that we could handle multiple output formats
     let result = match opt.cmd {
-        Command::Adr(cmd) => commands::adr::execute(cmd),
-        Command::Build(cmd) => build::execute(cmd.cwd, cmd.dry, cmd.skip_install),
-        Command::Changelog(cmd) => commands::changelog::execute(cmd),
-        Command::CodeNotify(cmd) => commands::codenotify::execute(cmd).await,
-        Command::CodeOwners(cmd) => commands::codeowners::execute(cmd),
-        Command::Deploy(cmd) => deploy::execute(cmd.cwd, cmd.build),
-        Command::Frameworks(cmd) => match cmd.framework_command {
-            FrameworkSubCommand::Detect(cmd) => frameworks::detect::execute(cmd.cwd),
-            FrameworkSubCommand::Get(cmd) => frameworks::get::execute(cmd.name),
-            FrameworkSubCommand::List(_) => frameworks::list::execute(),
-        },
-        Command::Init(..) => unimplemented!(),
-        Command::Link(..) => unimplemented!(),
-        Command::Rfd(cmd) => commands::rfd::execute(cmd),
-        Command::ScmHook(cmd) => commands::scmhook::execute(cmd),
-        Command::Til(cmd) => commands::til::execute(cmd),
-        Command::Version(cmd) => commands::version::execute(cmd),
-        Command::WhoAmI(..) => unimplemented!(),
+        SubCommand::Adr(cmd) => cmd.execute().await,
+        SubCommand::Build(cmd) => cmd.execute().await,
+        SubCommand::Changelog(cmd) => cmd.execute().await,
+        SubCommand::CodeNotify(cmd) => cmd.execute().await,
+        SubCommand::CodeOwners(cmd) => cmd.execute().await,
+        SubCommand::Deploy(cmd) => cmd.execute().await,
+        SubCommand::Frameworks(cmd) => cmd.execute().await,
+        SubCommand::Init(..) => unimplemented!(),
+        SubCommand::Link(..) => unimplemented!(),
+        SubCommand::Rfd(cmd) => cmd.execute().await,
+        SubCommand::ScmHook(cmd) => cmd.execute().await,
+        SubCommand::Til(cmd) => cmd.execute().await,
+        SubCommand::Version(cmd) => cmd.execute().await,
+        SubCommand::WhoAmI(..) => unimplemented!(),
     };
 
     // TODO: support more process exit codes
@@ -105,8 +102,8 @@ async fn main() {
         Ok(output) => {
             if let Some(output) = output {
                 println!("{output}");
-                std::process::exit(0);
             }
+            std::process::exit(0);
         }
         Err(e) => {
             error!("{e}");

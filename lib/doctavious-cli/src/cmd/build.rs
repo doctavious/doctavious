@@ -3,10 +3,11 @@ use std::path::PathBuf;
 
 use cifrs::Cifrs;
 
+use crate::cmd::design_decisions::adr;
 use crate::errors::CliResult;
 
-pub fn execute(dir: Option<PathBuf>, dry: bool, skip_install: bool) -> CliResult<Option<String>> {
-    let cwd = dir.unwrap_or(env::current_dir()?);
+// TODO: I think we can remove this. Seems unnecessary
+pub fn execute(cwd: PathBuf, dry: bool, skip_install: bool) -> CliResult<Option<String>> {
     Cifrs::build(&cwd, dry, skip_install)?;
 
     Ok(None)

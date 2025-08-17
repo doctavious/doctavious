@@ -5,7 +5,6 @@ mod new;
 mod open;
 
 use clap::Parser;
-use doctavious_cli::errors::CliResult;
 
 use crate::commands::til::generate::GenerateTils;
 use crate::commands::til::init::InitTil;
@@ -33,14 +32,15 @@ pub enum TilSubCommand {
     // TODO: template
 }
 
-pub fn execute(command: TilCommand) -> CliResult<Option<String>> {
-    match command.sub_command {
-        TilSubCommand::Generate(cmd) => generate::execute(cmd),
-        TilSubCommand::Init(cmd) => init::execute(cmd),
-        TilSubCommand::List(cmd) => list::execute(cmd),
-        TilSubCommand::New(cmd) => new::execute(cmd),
-        TilSubCommand::Open(cmd) => open::execute(cmd),
-    }?;
-
-    Ok(Some(String::new()))
+#[async_trait::async_trait]
+impl crate::commands::Command for TilCommand {
+    async fn execute(&self) -> anyhow::Result<Option<String>> {
+        match &self.sub_command {
+            TilSubCommand::Generate(cmd) => cmd.execute().await,
+            TilSubCommand::Init(cmd) => cmd.execute().await,
+            TilSubCommand::List(cmd) => cmd.execute().await,
+            TilSubCommand::New(cmd) => cmd.execute().await,
+            TilSubCommand::Open(cmd) => cmd.execute().await,
+        }
+    }
 }

@@ -48,80 +48,86 @@ pub struct NotifyCommand {
     pub author: Option<String>,
 }
 
-pub(crate) async fn execute(cmd: NotifyCommand) -> anyhow::Result<Option<String>> {
-    let subscriber_threshold = cmd.subscriber_threshold;
-    let file_name = cmd.file_name;
+#[async_trait::async_trait]
+impl crate::commands::Command for NotifyCommand {
+    async fn execute(&self) -> anyhow::Result<Option<String>> {
+        let subscriber_threshold = self.subscriber_threshold;
+        let file_name = self.file_name.clone();
 
-    if let Some(ci_provider) = ContinuousIntegrationProvider::from_env() {
-        // running in CI
-        let ci_context = ci_provider.context_from_env()?;
-        if ci_context.draft {
-            // TODO: better way to exit program
-            debug!("Not sending notifications for draft pull request.");
-            std::process::exit(1)
-        }
-
-        let scm = match ci_provider.associated_bound_scm_client(&ci_context)? {
-            None => anyhow::bail!("unable to determine SCM platform client"),
-            Some(scm) => scm,
-        };
-
-        let base_ref = cmd.base_ref.unwrap_or(ci_context.base);
-        let head_ref = cmd.head_ref.unwrap_or(ci_context.head);
-
-        let code_notify = CodeNotify {
-            cwd: ci_context.build_directory,
-            format: "markdown".to_string(),
-            file_name,
-            subscriber_threshold,
-            commit_range: ScmCommitRange(base_ref, Some(head_ref)),
-            author: ci_context.author,
-        };
-
-        let code_notify_result = code_notify.notify()?;
-
-        // TODO: could likely just return errors here instead of the expects
-        let pr_number = u64::from_str(
-            &ci_context
-                .pull_request
-                .expect("Pull request cannot be none"),
-        )
-        .expect("unable to parse pull request");
-
-        let notes = scm.list_all_merge_requests_notes(pr_number).await;
-        let mut comment_id = None;
-        for note in notes {
-            if note.body.starts_with(&code_notify.markdown_comment_title()) {
-                comment_id = Some(note.id);
-                break;
+        if let Some(ci_provider) = ContinuousIntegrationProvider::from_env() {
+            // running in CI
+            let ci_context = ci_provider.context_from_env()?;
+            if ci_context.draft {
+                // TODO: better way to exit program
+                debug!("Not sending notifications for draft pull request.");
+                std::process::exit(1)
             }
-        }
 
-        if let Some(comment_id) = comment_id {
-            scm.update_merge_request_note(pr_number, comment_id, code_notify_result.message)
-                .await;
-        } else {
-            if code_notify_result.notify.is_empty() {
-                debug!("not adding a comment because there are no notifications to send");
-            } else {
-                scm.create_merge_request_note(pr_number, code_notify_result.message)
+            let scm = match ci_provider.associated_bound_scm_client(&ci_context)? {
+                None => anyhow::bail!("unable to determine SCM platform client"),
+                Some(scm) => scm,
+            };
+
+            let base_ref = self.base_ref.clone().unwrap_or(ci_context.base);
+            let head_ref = self.head_ref.clone().unwrap_or(ci_context.head);
+
+            let code_notify = CodeNotify {
+                cwd: ci_context.build_directory,
+                format: "markdown".to_string(),
+                file_name,
+                subscriber_threshold,
+                commit_range: ScmCommitRange(base_ref, Some(head_ref)),
+                author: ci_context.author,
+            };
+
+            let code_notify_result = code_notify.notify()?;
+
+            // TODO: could likely just return errors here instead of the expects
+            let pr_number = u64::from_str(
+                &ci_context
+                    .pull_request
+                    .expect("Pull request cannot be none"),
+            )
+            .expect("unable to parse pull request");
+
+            let notes = scm.list_all_merge_requests_notes(pr_number).await;
+            let mut comment_id = None;
+            for note in notes {
+                if note.body.starts_with(&code_notify.markdown_comment_title()) {
+                    comment_id = Some(note.id);
+                    break;
+                }
+            }
+
+            if let Some(comment_id) = comment_id {
+                scm.update_merge_request_note(pr_number, comment_id, code_notify_result.message)
                     .await;
+            } else {
+                if code_notify_result.notify.is_empty() {
+                    debug!("not adding a comment because there are no notifications to send");
+                } else {
+                    scm.create_merge_request_note(pr_number, code_notify_result.message)
+                        .await;
+                }
             }
+        } else {
+            // running locally
+            let code_notify = CodeNotify {
+                cwd: self.resolve_cwd(self.cwd.as_ref())?,
+                format: self.format.clone().unwrap_or("text".to_string()),
+                file_name,
+                subscriber_threshold,
+                commit_range: ScmCommitRange(
+                    self.base_ref.clone().unwrap_or_default(),
+                    self.head_ref.clone(),
+                ),
+                author: None,
+            };
+
+            let code_notify_result = code_notify.notify()?;
+            write!(io::stdout(), "{}", code_notify_result.message)?;
         }
-    } else {
-        // running locally
-        let code_notify = CodeNotify {
-            cwd: cmd.cwd.unwrap_or(std::env::current_dir()?),
-            format: cmd.format.unwrap_or("text".to_string()),
-            file_name,
-            subscriber_threshold,
-            commit_range: ScmCommitRange(cmd.base_ref.unwrap_or_default(), cmd.head_ref),
-            author: None,
-        };
 
-        let code_notify_result = code_notify.notify()?;
-        write!(io::stdout(), "{}", code_notify_result.message)?;
+        Ok(None)
     }
-
-    Ok(None)
 }

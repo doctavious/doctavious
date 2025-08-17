@@ -2,7 +2,9 @@ use std::env;
 use std::path::PathBuf;
 
 use clap::Parser;
+use doctavious_cli::cmd::build;
 
+// TODO: needs more details about what "build" means
 #[derive(Parser, Debug)]
 #[command(about = "Build on your local machine")]
 pub struct BuildCommand {
@@ -36,5 +38,14 @@ impl Default for BuildCommand {
             dry: false,
             skip_install: false,
         }
+    }
+}
+
+#[async_trait::async_trait]
+impl crate::commands::Command for BuildCommand {
+    async fn execute(&self) -> anyhow::Result<Option<String>> {
+        let cwd = self.resolve_cwd(self.cwd.as_ref())?;
+        let result = build::execute(cwd, self.dry, self.skip_install)?;
+        Ok(result)
     }
 }

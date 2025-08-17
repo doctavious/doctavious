@@ -14,11 +14,22 @@ pub mod til;
 pub mod version;
 pub mod whoami;
 
+use std::path::PathBuf;
+use std::{env, io};
+
 use anyhow::Result;
 
 use crate::context::Context;
 
-#[async_trait::async_trait()]
+#[async_trait::async_trait]
 pub trait Command: Send + Sync {
-    async fn execute(&self, ctx: &Context) -> Result<Option<String>>;
+    // TODO: include ctx: &Context
+    async fn execute(&self) -> Result<Option<String>>;
+
+    fn resolve_cwd(&self, cwd: Option<&PathBuf>) -> io::Result<PathBuf> {
+        match cwd {
+            Some(p) => Ok(p.clone()),
+            None => env::current_dir(),
+        }
+    }
 }

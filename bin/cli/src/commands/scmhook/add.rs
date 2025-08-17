@@ -2,8 +2,6 @@ use std::path::PathBuf;
 
 use clap::Parser;
 use doctavious_cli::cmd::scm_hooks::add::add;
-use doctavious_cli::errors::CliResult;
-use doctavious_cli::settings::DEFAULT_CONFIG_DIR;
 
 /// Create a SCM Hook.
 ///
@@ -28,12 +26,13 @@ pub struct AddScmHook {
     pub force: bool,
 }
 
-pub fn execute(command: AddScmHook) -> CliResult<Option<String>> {
-    let path = command.cwd.unwrap_or(std::env::current_dir()?);
-
-    add(&path, command.name, command.dir, command.force)?;
-
-    Ok(None)
+#[async_trait::async_trait]
+impl crate::commands::Command for AddScmHook {
+    async fn execute(&self) -> anyhow::Result<Option<String>> {
+        let cwd = self.resolve_cwd(self.cwd.as_ref())?;
+        add(&cwd, self.name.clone(), self.dir, self.force)?;
+        Ok(None)
+    }
 }
 
 #[cfg(test)]
@@ -49,22 +48,25 @@ mod tests {
     use tempfile::TempDir;
     use testing::cleanup::CleanUp;
 
-    use crate::commands::scmhook::add::{AddScmHook, execute};
+    use crate::commands::Command;
+    use crate::commands::scmhook::add::AddScmHook;
 
-    #[test]
-    fn should_fail_if_scm_not_initialized() {
+    #[tokio::test]
+    async fn should_fail_if_scm_not_initialized() {
         let temp_dir = TempDir::new().unwrap();
         let temp_path = temp_dir.keep();
         let _c = CleanUp::new(Box::new(|| {
             let _ = fs::remove_dir_all(&temp_path);
         }));
 
-        let result = execute(AddScmHook {
+        let cmd = AddScmHook {
             cwd: Some(temp_path.clone()),
             name: "pre-commit".to_string(),
             dir: false,
             force: false,
-        });
+        };
+
+        let result = cmd.execute().await;
 
         assert!(result.is_err());
         assert_eq!(
@@ -73,19 +75,21 @@ mod tests {
         );
     }
 
-    #[test]
-    fn should_fail_with_invalid_hook() {
+    #[tokio::test]
+    async fn should_fail_with_invalid_hook() {
         let (temp_path, _) = setup(None);
         let _c = CleanUp::new(Box::new(|| {
             let _ = fs::remove_dir_all(&temp_path);
         }));
 
-        let result = execute(AddScmHook {
+        let cmd = AddScmHook {
             cwd: Some(temp_path.clone()),
             name: "invalid-hook".to_string(),
             dir: false,
             force: false,
-        });
+        };
+
+        let result = cmd.execute().await;
 
         assert!(result.is_err());
         assert_eq!(
@@ -94,27 +98,29 @@ mod tests {
         );
     }
 
-    #[test]
-    fn should_add_without_doctavious_configuration() {
+    #[tokio::test]
+    async fn should_add_without_doctavious_configuration() {
         let (temp_path, scm) = setup(None);
         let _c = CleanUp::new(Box::new(|| {
             let _ = fs::remove_dir_all(&temp_path);
         }));
 
-        let result = execute(AddScmHook {
+        let cmd = AddScmHook {
             cwd: Some(temp_path.clone()),
             name: "pre-commit".to_string(),
             dir: false,
             force: false,
-        });
+        };
+
+        let result = cmd.execute().await;
 
         assert!(result.is_ok());
         assert!(scm.hooks_path().unwrap().join("pre-commit").exists());
         assert!(!temp_path.join(".doctavious/scmhooks/pre-commit").exists());
     }
 
-    #[test]
-    fn should_add_with_doctavious_configured() {
+    #[tokio::test]
+    async fn should_add_with_doctavious_configured() {
         let config = r###"[scmhook_settings]
 [scmhook_settings.hooks.pre-commit.executions.format-backend]
 type = "command"
@@ -127,12 +133,14 @@ root = "backend"
             let _ = fs::remove_dir_all(&temp_path);
         }));
 
-        let result = execute(AddScmHook {
+        let cmd = AddScmHook {
             cwd: Some(temp_path.clone()),
             name: "pre-commit".to_string(),
             dir: false,
             force: false,
-        });
+        };
+
+        let result = cmd.execute().await;
 
         assert!(result.is_ok());
         let pre_commit_path = scm.hooks_path().unwrap().join("pre-commit");
@@ -144,27 +152,29 @@ root = "backend"
         );
     }
 
-    #[test]
-    fn should_create_hooks_script_configuration_directory() {
+    #[tokio::test]
+    async fn should_create_hooks_script_configuration_directory() {
         let (temp_path, scm) = setup(None);
         let _c = CleanUp::new(Box::new(|| {
             let _ = fs::remove_dir_all(&temp_path);
         }));
 
-        let result = execute(AddScmHook {
+        let cmd = AddScmHook {
             cwd: Some(temp_path.clone()),
             name: "pre-commit".to_string(),
             dir: true,
             force: false,
-        });
+        };
+
+        let result = cmd.execute().await;
 
         assert!(result.is_ok());
         assert!(scm.hooks_path().unwrap().join("pre-commit").exists());
         assert!(temp_path.join(".doctavious/scmhooks/pre-commit").is_dir());
     }
 
-    #[test]
-    fn should_replace_existing_hook() {
+    #[tokio::test]
+    async fn should_replace_existing_hook() {
         let (temp_path, scm) = setup(None);
         let _c = CleanUp::new(Box::new(|| {
             let _ = fs::remove_dir_all(&temp_path);
@@ -174,12 +184,14 @@ root = "backend"
         let pre_commit_path = scm_hooks_path.join("pre-commit");
         fs::write(&pre_commit_path, "some hook content").unwrap();
 
-        let result = execute(AddScmHook {
+        let cmd = AddScmHook {
             cwd: Some(temp_path.clone()),
             name: "pre-commit".to_string(),
             dir: false,
             force: false,
-        });
+        };
+
+        let result = cmd.execute().await;
 
         assert!(result.is_ok());
         assert!(pre_commit_path.exists());
@@ -191,8 +203,8 @@ root = "backend"
         assert!(scm_hooks_path.join("pre-commit.old").exists());
     }
 
-    #[test]
-    fn should_replace_existing_doctavious_hook() {
+    #[tokio::test]
+    async fn should_replace_existing_doctavious_hook() {
         let (temp_path, scm) = setup(None);
         let _c = CleanUp::new(Box::new(|| {
             let _ = fs::remove_dir_all(&temp_path);
@@ -202,12 +214,14 @@ root = "backend"
         let pre_commit_path = scm_hooks_path.join("pre-commit");
         fs::write(&pre_commit_path, HOOK_TEMPLATE).unwrap();
 
-        let result = execute(AddScmHook {
+        let cmd = AddScmHook {
             cwd: Some(temp_path.clone()),
             name: "pre-commit".to_string(),
             dir: false,
             force: false,
-        });
+        };
+
+        let result = cmd.execute().await;
 
         assert!(result.is_ok());
         assert!(pre_commit_path.exists());
@@ -219,8 +233,8 @@ root = "backend"
         assert!(!scm_hooks_path.join("pre-commit.old").exists());
     }
 
-    #[test]
-    fn should_fail_with_existing_old_hook() {
+    #[tokio::test]
+    async fn should_fail_with_existing_old_hook() {
         let (temp_path, scm) = setup(None);
         let _c = CleanUp::new(Box::new(|| {
             let _ = fs::remove_dir_all(&temp_path);
@@ -233,12 +247,14 @@ root = "backend"
         fs::write(&pre_commit_path, "some hook content").unwrap();
         fs::write(&old_pre_commit_path, "some old hook content").unwrap();
 
-        let result = execute(AddScmHook {
+        let cmd = AddScmHook {
             cwd: Some(temp_path.clone()),
             name: "pre-commit".to_string(),
             dir: false,
             force: false,
-        });
+        };
+
+        let result = cmd.execute().await;
 
         assert!(result.is_err());
         assert_eq!(
@@ -251,8 +267,8 @@ root = "backend"
         assert!(hooks_path.join("pre-commit.old").exists());
     }
 
-    #[test]
-    fn should_replace_hook_and_overwrite_old_with_force() {
+    #[tokio::test]
+    async fn should_replace_hook_and_overwrite_old_with_force() {
         let (temp_path, scm) = setup(None);
         let _c = CleanUp::new(Box::new(|| {
             let _ = fs::remove_dir_all(&temp_path);
@@ -265,12 +281,14 @@ root = "backend"
         fs::write(&pre_commit_path, "some hook content").unwrap();
         fs::write(&old_pre_commit_path, "some old hook content").unwrap();
 
-        let result = execute(AddScmHook {
+        let cmd = AddScmHook {
             cwd: Some(temp_path.clone()),
             name: "pre-commit".to_string(),
             dir: false,
             force: true,
-        });
+        };
+
+        let result = cmd.execute().await;
 
         assert!(result.is_ok());
         assert!(pre_commit_path.exists());
@@ -295,7 +313,7 @@ root = "backend"
         }
 
         let scm = GitScmRepository::init(&temp_path).expect("init git");
-        scm.add_all();
+        scm.add_all().expect("Should add all files to SCM");
 
         (temp_path, scm)
     }

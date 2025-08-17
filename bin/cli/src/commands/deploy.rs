@@ -1,6 +1,7 @@
 use std::path::PathBuf;
 
 use clap::Parser;
+use doctavious_cli::cmd::deploy;
 
 #[derive(Parser, Debug)]
 #[command(about = "Create a new deploy from the contents of a folder")]
@@ -42,4 +43,14 @@ pub struct DeployCommand {
     // '-y': '--yes', is autoConfirm
 
     // allow for build-env
+}
+
+#[async_trait::async_trait]
+impl crate::commands::Command for DeployCommand {
+    async fn execute(&self) -> anyhow::Result<Option<String>> {
+        let cwd = self.resolve_cwd(self.cwd.as_ref())?;
+        deploy::execute(Some(cwd), self.build)?;
+
+        Ok(None)
+    }
 }

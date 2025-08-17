@@ -3,7 +3,6 @@ use std::path::PathBuf;
 use clap::Parser;
 use clap::builder::PossibleValuesParser;
 use doctavious_cli::cmd::til;
-use doctavious_cli::errors::CliResult;
 use markup::MarkupFormat;
 
 // TODO: flush this out more?
@@ -27,6 +26,15 @@ pub enum GenerateTilsCommand {
     Toc(TilToc),
 }
 
+#[async_trait::async_trait]
+impl crate::commands::Command for GenerateTils {
+    async fn execute(&self) -> anyhow::Result<Option<String>> {
+        match &self.sub_command {
+            GenerateTilsCommand::Toc(cmd) => cmd.execute().await,
+        }
+    }
+}
+
 /// Build TIL ReadMe
 #[derive(Parser, Debug)]
 #[command()]
@@ -47,16 +55,11 @@ pub struct TilToc {
     pub format: Option<MarkupFormat>,
 }
 
-pub fn execute(command: GenerateTils) -> CliResult<Option<String>> {
-    match command.sub_command {
-        GenerateTilsCommand::Toc(cmd) => execute_generate_toc(cmd),
+#[async_trait::async_trait]
+impl crate::commands::Command for TilToc {
+    async fn execute(&self) -> anyhow::Result<Option<String>> {
+        let cwd = self.resolve_cwd(self.cwd.as_ref())?;
+        til::generate_toc(cwd.as_path(), self.format.unwrap_or_default())?;
+        Ok(None)
     }
-}
-
-pub fn execute_generate_toc(cmd: TilToc) -> CliResult<Option<String>> {
-    let cwd = cmd.cwd.unwrap_or(std::env::current_dir()?);
-
-    til::generate_toc(cwd.as_path(), cmd.format.unwrap_or_default())?;
-
-    Ok(Some(String::new()))
 }

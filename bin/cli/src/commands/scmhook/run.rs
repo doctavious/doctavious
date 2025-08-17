@@ -2,7 +2,6 @@ use std::path::PathBuf;
 
 use clap::Parser;
 use doctavious_cli::cmd::scm_hooks::run::{ScmHookRunFiles, run};
-use doctavious_cli::errors::CliResult;
 
 /// Execute commands/scripts associated to the specified hook.
 ///
@@ -43,49 +42,48 @@ pub(crate) struct RunScmHookCommand {
     pub force: bool,
 }
 
-pub(crate) fn execute(command: RunScmHookCommand) -> CliResult<Option<String>> {
-    let path = command.cwd.unwrap_or(std::env::current_dir()?);
+#[async_trait::async_trait]
+impl crate::commands::Command for RunScmHookCommand {
+    async fn execute(&self) -> anyhow::Result<Option<String>> {
+        let cwd = self.resolve_cwd(self.cwd.as_ref())?;
+        let cmd_files = self.file.clone().unwrap_or_default();
+        let files = if !cmd_files.is_empty() {
+            Some(ScmHookRunFiles::Specific(cmd_files))
+        } else if self.all_files {
+            Some(ScmHookRunFiles::All)
+        } else {
+            None
+        };
 
-    let cmd_files = command.file.unwrap_or_default();
-    let files = if !cmd_files.is_empty() {
-        Some(ScmHookRunFiles::Specific(cmd_files))
-    } else if command.all_files {
-        Some(ScmHookRunFiles::All)
-    } else {
-        None
-    };
+        run(
+            &cwd,
+            &self.hook,
+            files,
+            self.run_only_executions.clone().unwrap_or_default(),
+            !self.skip_auto_synchronize,
+            self.force,
+        )?;
 
-    run(
-        &path,
-        &command.hook,
-        files,
-        command.run_only_executions.unwrap_or_default(),
-        !command.skip_auto_synchronize,
-        command.force,
-    )?;
-
-    Ok(None)
+        Ok(None)
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use std::fs;
-    use std::path::{Path, PathBuf};
+    use std::path::PathBuf;
 
-    use doctavious_cli::errors::CliResult;
     use doctavious_cli::settings::Config;
     use doctavious_std::fs::copy_dir;
     use scm::drivers::git::GitScmRepository;
-    use scm::hooks::OLD_HOOK_POSTFIX;
-    use serde::{Deserialize, Serialize};
     use tempfile::TempDir;
     use testing::cleanup::CleanUp;
 
-    use crate::commands::scmhook::install::InstallScmHook;
-    use crate::commands::scmhook::run::{RunScmHookCommand, execute};
+    use crate::commands::Command;
+    use crate::commands::scmhook::run::RunScmHookCommand;
 
-    #[test]
-    fn execute_hook() {
+    #[tokio::test]
+    async fn execute_hook() {
         let config = r###"[scmhook_settings]
 [scmhook_settings.hooks.pre-commit.executions.format-backend]
 type = "command"
@@ -99,7 +97,7 @@ tags = ["backed", "style"]
             let _ = fs::remove_dir_all(&temp_path);
         }));
 
-        let result = execute(RunScmHookCommand {
+        let cmd = RunScmHookCommand {
             hook: "pre-commit".to_string(),
             cwd: Some(temp_path.clone()),
             file: None,
@@ -107,14 +105,16 @@ tags = ["backed", "style"]
             run_only_executions: None,
             skip_auto_synchronize: false,
             force: false,
-        });
+        };
+
+        let result = cmd.execute().await;
 
         assert!(result.is_ok());
         insta::assert_snapshot!(fs::read_to_string(&temp_path.join("backend/src/lib.rs")).unwrap());
     }
 
-    #[test]
-    fn specified_files() {
+    #[tokio::test]
+    async fn specified_files() {
         let config = r###"[scmhook_settings]
 [scmhook_settings.hooks.pre-commit.executions.specified-files]
 name = "specified-files"
@@ -127,7 +127,7 @@ run = "echo '{files}' > test_specified_files.txt"
             let _ = fs::remove_dir_all(&temp_path);
         }));
 
-        let result = execute(RunScmHookCommand {
+        let cmd = RunScmHookCommand {
             hook: "pre-commit".to_string(),
             cwd: Some(temp_path.clone()),
             file: Some(vec![PathBuf::from("/backend/src/lib.rs")]),
@@ -135,7 +135,9 @@ run = "echo '{files}' > test_specified_files.txt"
             run_only_executions: None,
             skip_auto_synchronize: false,
             force: false,
-        });
+        };
+
+        let result = cmd.execute().await;
 
         assert!(result.is_ok());
         insta::assert_snapshot!(
@@ -143,8 +145,8 @@ run = "echo '{files}' > test_specified_files.txt"
         );
     }
 
-    #[test]
-    fn all_files() {
+    #[tokio::test]
+    async fn all_files() {
         let config = r###"[scmhook_settings]
 [scmhook_settings.hooks.pre-commit.executions.all-files]
 name = "all-files"
@@ -156,7 +158,7 @@ run = "echo '{files}' > test_all_files.txt"
             let _ = fs::remove_dir_all(&temp_path);
         }));
 
-        let result = execute(RunScmHookCommand {
+        let cmd = RunScmHookCommand {
             hook: "pre-commit".to_string(),
             cwd: Some(temp_path.clone()),
             file: None,
@@ -164,14 +166,16 @@ run = "echo '{files}' > test_all_files.txt"
             run_only_executions: None,
             skip_auto_synchronize: false,
             force: false,
-        });
+        };
+
+        let result = cmd.execute().await;
 
         assert!(result.is_ok());
         insta::assert_snapshot!(fs::read_to_string(&temp_path.join("test_all_files.txt")).unwrap());
     }
 
-    #[test]
-    fn script() {
+    #[tokio::test]
+    async fn script() {
         let config = r###"[scmhook_settings]
 [scmhook_settings.hooks.pre-commit.executions.script]
 file_name = "good-script.sh"
@@ -184,7 +188,7 @@ runner = "bash"
             let _ = fs::remove_dir_all(&temp_path);
         }));
 
-        let result = execute(RunScmHookCommand {
+        let cmd = RunScmHookCommand {
             hook: "pre-commit".to_string(),
             cwd: Some(temp_path.clone()),
             file: None,
@@ -192,14 +196,16 @@ runner = "bash"
             run_only_executions: None,
             skip_auto_synchronize: false,
             force: false,
-        });
+        };
+
+        let result = cmd.execute().await;
 
         assert!(result.is_ok());
         insta::assert_snapshot!(fs::read_to_string(&temp_path.join("script_output.txt")).unwrap());
     }
 
-    #[test]
-    fn run_only_executions() {
+    #[tokio::test]
+    async fn run_only_executions() {
         let config = r###"[scmhook_settings]
 [scmhook_settings.hooks.pre-commit.executions.format-backend]
 type = "command"
@@ -215,7 +221,7 @@ runner = "bash"
             let _ = fs::remove_dir_all(&temp_path);
         }));
 
-        let result = execute(RunScmHookCommand {
+        let cmd = RunScmHookCommand {
             hook: "pre-commit".to_string(),
             cwd: Some(temp_path.clone()),
             file: None,
@@ -223,15 +229,17 @@ runner = "bash"
             run_only_executions: Some(vec!["format-backend".to_string()]),
             skip_auto_synchronize: false,
             force: false,
-        });
+        };
+
+        let result = cmd.execute().await;
 
         assert!(result.is_ok());
         insta::assert_snapshot!(fs::read_to_string(&temp_path.join("backend/src/lib.rs")).unwrap());
         assert!(!&temp_path.join("script_output.txt").exists())
     }
 
-    #[test]
-    fn force() {
+    #[tokio::test]
+    async fn force() {
         let config = r###"[scmhook_settings]
 [scmhook_settings.hooks.pre-commit.executions.format-backend]
 type = "command"
@@ -246,7 +254,7 @@ skip = true
         }));
 
         // first confirm that we skip execution...
-        let result = execute(RunScmHookCommand {
+        let cmd = RunScmHookCommand {
             hook: "pre-commit".to_string(),
             cwd: Some(temp_path.clone()),
             file: None,
@@ -254,13 +262,15 @@ skip = true
             run_only_executions: None,
             skip_auto_synchronize: false,
             force: false,
-        });
+        };
+
+        let result = cmd.execute().await;
 
         assert!(result.is_ok());
         insta::assert_snapshot!(fs::read_to_string(&temp_path.join("backend/src/lib.rs")).unwrap());
 
         // then confirm that execution is run when force is set to true...
-        let result = execute(RunScmHookCommand {
+        let run_cmd = RunScmHookCommand {
             hook: "pre-commit".to_string(),
             cwd: Some(temp_path.clone()),
             file: None,
@@ -268,14 +278,16 @@ skip = true
             run_only_executions: None,
             skip_auto_synchronize: false,
             force: true,
-        });
+        };
+
+        let result = run_cmd.execute().await;
 
         assert!(result.is_ok());
         insta::assert_snapshot!(fs::read_to_string(&temp_path.join("backend/src/lib.rs")).unwrap());
     }
 
-    #[test]
-    fn should_handle_parallel_processing() {
+    #[tokio::test]
+    async fn should_handle_parallel_processing() {
         let config = r###"[scmhook_settings]
 [scmhook_settings.hooks.pre-commit.executions.format-backend]
 type = "command"
@@ -292,7 +304,7 @@ runner = "bash"
             let _ = fs::remove_dir_all(&temp_path);
         }));
 
-        let result = execute(RunScmHookCommand {
+        let cmd = RunScmHookCommand {
             hook: "pre-commit".to_string(),
             cwd: Some(temp_path.clone()),
             file: None,
@@ -300,7 +312,9 @@ runner = "bash"
             run_only_executions: None,
             skip_auto_synchronize: false,
             force: true,
-        });
+        };
+
+        let result = cmd.execute().await;
 
         assert!(result.is_ok());
         insta::assert_snapshot!(fs::read_to_string(&temp_path.join("backend/src/lib.rs")).unwrap());
@@ -317,7 +331,7 @@ runner = "bash"
             .expect("write doctavious.toml");
 
         let scm = GitScmRepository::init(&temp_path).expect("init git");
-        scm.add_all();
+        scm.add_all().expect("Should add all files to SCM");
 
         temp_path
     }

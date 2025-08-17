@@ -2,7 +2,6 @@ use std::path::PathBuf;
 
 use clap::Parser;
 use doctavious_cli::cmd::til;
-use doctavious_cli::errors::CliResult;
 
 /// New TIL
 #[derive(Parser, Debug)]
@@ -28,8 +27,16 @@ pub struct NewTil {
     pub post: String,
 }
 
-pub fn execute(cmd: NewTil) -> CliResult<Option<String>> {
-    let output = til::new(cmd.cwd.as_deref(), cmd.post, cmd.tags, cmd.toc)?;
-
-    Ok(Some(output.to_string_lossy().to_string()))
+#[async_trait::async_trait]
+impl crate::commands::Command for NewTil {
+    async fn execute(&self) -> anyhow::Result<Option<String>> {
+        // let cwd = self.resolve_cwd(self.cwd.as_ref())?;
+        let output = til::new(
+            self.cwd.as_deref(),
+            self.post.clone(),
+            self.tags.clone(),
+            self.toc.clone(),
+        )?;
+        Ok(Some(output.to_string_lossy().to_string()))
+    }
 }

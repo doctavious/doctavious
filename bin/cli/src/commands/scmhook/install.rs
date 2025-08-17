@@ -2,7 +2,6 @@ use std::path::PathBuf;
 
 use clap::Parser;
 use doctavious_cli::cmd::scm_hooks::install::install;
-use doctavious_cli::errors::CliResult;
 
 /// Synchronize SCM hooks with your configuration.
 #[derive(Parser, Debug)]
@@ -16,12 +15,13 @@ pub(crate) struct InstallScmHook {
     pub force: bool,
 }
 
-pub(crate) fn execute(command: InstallScmHook) -> CliResult<Option<String>> {
-    let path = command.cwd.unwrap_or(std::env::current_dir()?);
-
-    install(&path, command.force)?;
-
-    Ok(None)
+#[async_trait::async_trait]
+impl crate::commands::Command for InstallScmHook {
+    async fn execute(&self) -> anyhow::Result<Option<String>> {
+        let cwd = self.resolve_cwd(self.cwd.as_ref())?;
+        install(&cwd, self.force)?;
+        Ok(None)
+    }
 }
 
 #[cfg(test)]
@@ -38,12 +38,13 @@ mod tests {
     use tempfile::TempDir;
     use testing::cleanup::CleanUp;
 
-    use crate::commands::scmhook::install::{InstallScmHook, execute};
+    use crate::commands::Command;
+    use crate::commands::scmhook::install::InstallScmHook;
 
     // TODO: should_install_without_doctavious_config
 
-    #[test]
-    fn should_install_with_existing_doctavious_config() {
+    #[tokio::test]
+    async fn should_install_with_existing_doctavious_config() {
         let config = r###"[scmhook_settings]
 [scmhook_settings.hooks.pre-commit.executions.format-backend]
 type = "command"
@@ -59,10 +60,12 @@ run = "echo 'Done!'"
             let _ = fs::remove_dir_all(&temp_path);
         }));
 
-        let result = execute(InstallScmHook {
+        let cmd = InstallScmHook {
             cwd: Some(temp_path.clone()),
             force: false,
-        });
+        };
+
+        let result = cmd.execute().await;
 
         let hooks_path = scm.hooks_path().unwrap();
         assert!(result.is_ok());
@@ -80,8 +83,8 @@ run = "echo 'Done!'"
         );
     }
 
-    #[test]
-    fn should_install_with_existing_hooks() {
+    #[tokio::test]
+    async fn should_install_with_existing_hooks() {
         let config = r###"[scmhook_settings]
 [scmhook_settings.hooks.pre-commit.executions.format-backend]
 type = "command"
@@ -101,10 +104,12 @@ run = "echo 'Done!'"
         let pre_commit_path = scm_hooks_path.join("pre-commit");
         fs::write(&pre_commit_path, "some hook content").unwrap();
 
-        let result = execute(InstallScmHook {
+        let cmd = InstallScmHook {
             cwd: Some(temp_path.clone()),
             force: false,
-        });
+        };
+
+        let result = cmd.execute().await;
 
         let hooks_path = scm.hooks_path().unwrap();
         assert!(result.is_ok());
@@ -130,8 +135,8 @@ run = "echo 'Done!'"
         );
     }
 
-    #[test]
-    fn should_install_with_existing_doctavious_hooks() {
+    #[tokio::test]
+    async fn should_install_with_existing_doctavious_hooks() {
         let config = r###"[scmhook_settings]
 [scmhook_settings.hooks.pre-commit.executions.format-backend]
 type = "command"
@@ -151,10 +156,12 @@ run = "echo 'Done!'"
         let pre_commit_path = scm_hooks_path.join("pre-commit");
         fs::write(&pre_commit_path, HOOK_TEMPLATE).unwrap();
 
-        let result = execute(InstallScmHook {
+        let cmd = InstallScmHook {
             cwd: Some(temp_path.clone()),
             force: false,
-        });
+        };
+
+        let result = cmd.execute().await;
 
         let hooks_path = scm.hooks_path().unwrap();
         assert!(result.is_ok());
@@ -168,8 +175,8 @@ run = "echo 'Done!'"
         assert!(!hooks_path.join("pre-commit.old").exists());
     }
 
-    #[test]
-    fn should_update_stale_synchronization_file() {
+    #[tokio::test]
+    async fn should_update_stale_synchronization_file() {
         for (hook_template_checksum, settings_checksum) in vec![
             ("123abc", "ae6e1c36d1f298f4692eed15be33a2ae"), // stale hook template checksum
             (HOOK_TEMPLATE_CHECKSUM.as_str(), "123abc"),    // stale settings checksum
@@ -196,10 +203,12 @@ run = "echo 'Done!'"
             let synchronization_file = scm.info_path().unwrap().join("doctavious.synchronization");
             fs::write(&synchronization_file, "123|").unwrap();
 
-            let result = execute(InstallScmHook {
+            let cmd = InstallScmHook {
                 cwd: Some(temp_path.clone()),
                 force: false,
-            });
+            };
+
+            let result = cmd.execute().await;
 
             let hooks_path = scm.hooks_path().unwrap();
             assert!(result.is_ok());
@@ -223,8 +232,8 @@ run = "echo 'Done!'"
         }
     }
 
-    #[test]
-    fn should_fail_with_existing_hook_and_old() {
+    #[tokio::test]
+    async fn should_fail_with_existing_hook_and_old() {
         let config = r###"[scmhook_settings]
 [scmhook_settings.hooks.pre-commit.executions.format-backend]
 type = "command"
@@ -247,10 +256,12 @@ run = "echo 'Done!'"
         fs::write(&pre_commit_path, "some hook content").unwrap();
         fs::write(&old_pre_commit_path, "some old hook content").unwrap();
 
-        let result = execute(InstallScmHook {
+        let cmd = InstallScmHook {
             cwd: Some(temp_path.clone()),
             force: false,
-        });
+        };
+
+        let result = cmd.execute().await;
 
         assert!(result.is_err());
         assert_eq!(
@@ -270,8 +281,8 @@ run = "echo 'Done!'"
         );
     }
 
-    #[test]
-    fn should_install_with_existing_hook_and_old_with_force() {
+    #[tokio::test]
+    async fn should_install_with_existing_hook_and_old_with_force() {
         let config = r###"[scmhook_settings]
 [scmhook_settings.hooks.pre-commit.executions.format-backend]
 type = "command"
@@ -294,10 +305,12 @@ run = "echo 'Done!'"
         fs::write(&pre_commit_path, "some hook content").unwrap();
         fs::write(&old_pre_commit_path, "some old hook content").unwrap();
 
-        let result = execute(InstallScmHook {
+        let cmd = InstallScmHook {
             cwd: Some(temp_path.clone()),
             force: true,
-        });
+        };
+
+        let result = cmd.execute().await;
 
         assert!(result.is_ok());
 
@@ -341,7 +354,7 @@ run = "echo 'Done!'"
         }
 
         let scm = GitScmRepository::init(&temp_path).expect("init git");
-        scm.add_all();
+        scm.add_all().expect("Should add all files to SCM");
 
         (temp_path, scm)
     }

@@ -2,7 +2,6 @@ use std::path::PathBuf;
 
 use clap::Parser;
 use doctavious_cli::cmd::design_decisions::adr;
-use doctavious_cli::errors::CliResult;
 use markup::MarkupFormat;
 use strum::VariantNames;
 
@@ -35,8 +34,11 @@ pub struct ReserveADR {
     pub format: Option<MarkupFormat>,
 }
 
-pub fn execute(cmd: ReserveADR) -> CliResult<Option<String>> {
-    let cwd = cmd.cwd.unwrap_or(std::env::current_dir()?);
-    let _ = adr::reserve(&cwd, cmd.number, cmd.title, cmd.format)?;
-    Ok(Some(String::new()))
+#[async_trait::async_trait]
+impl crate::commands::Command for ReserveADR {
+    async fn execute(&self) -> anyhow::Result<Option<String>> {
+        let cwd = self.resolve_cwd(self.cwd.as_ref())?;
+        let _ = adr::reserve(&cwd, self.number, self.title.clone(), self.format)?;
+        Ok(None)
+    }
 }

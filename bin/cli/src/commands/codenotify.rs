@@ -1,29 +1,28 @@
 mod notify;
 
-use clap::{Args, Parser, Subcommand};
-use doctavious_cli::errors::{CliResult, DoctaviousCliError};
+use clap::{Parser, Subcommand};
 
 use crate::commands::codenotify::notify::NotifyCommand;
 
+// TODO: determine why we need clap Subcommand import in this case
 #[derive(Parser, Debug)]
 #[command()]
-pub struct CodeNotifyCli {
+pub struct CodeNotifyCommand {
     #[command(subcommand)]
-    command: Commands,
+    sub_commands: CodeNotifySubCommands,
 }
 
 #[remain::sorted]
 #[derive(Debug, Subcommand)]
-enum Commands {
+enum CodeNotifySubCommands {
     Notify(NotifyCommand),
 }
 
-pub async fn execute(cli: CodeNotifyCli) -> CliResult<Option<String>> {
-    // TODO: map_err is a hack. need to determine if I want to use anyhow through this stack
-    match cli.command {
-        Commands::Notify(cmd) => notify::execute(cmd).await,
+#[async_trait::async_trait]
+impl crate::commands::Command for CodeNotifyCommand {
+    async fn execute(&self) -> anyhow::Result<Option<String>> {
+        match &self.sub_commands {
+            CodeNotifySubCommands::Notify(cmd) => cmd.execute().await,
+        }
     }
-    .map_err(|e| DoctaviousCliError::GeneralError(e.to_string()))?;
-
-    Ok(Some(String::new()))
 }

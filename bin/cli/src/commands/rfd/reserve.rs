@@ -2,7 +2,6 @@ use std::path::PathBuf;
 
 use clap::Parser;
 use doctavious_cli::cmd::design_decisions::rfd;
-use doctavious_cli::errors::CliResult;
 use markup::MarkupFormat;
 use strum::VariantNames;
 
@@ -35,8 +34,11 @@ pub struct ReserveRFD {
     pub format: Option<MarkupFormat>,
 }
 
-pub fn execute(cmd: ReserveRFD) -> CliResult<Option<String>> {
-    let cwd = cmd.cwd.unwrap_or(std::env::current_dir()?);
-    let _ = rfd::reserve(&cwd, cmd.number, cmd.title, cmd.format)?;
-    Ok(Some(String::new()))
+#[async_trait::async_trait]
+impl crate::commands::Command for ReserveRFD {
+    async fn execute(&self) -> anyhow::Result<Option<String>> {
+        let cwd = self.resolve_cwd(self.cwd.as_ref())?;
+        let _ = rfd::reserve(&cwd, self.number, self.title.clone(), self.format)?;
+        Ok(None)
+    }
 }

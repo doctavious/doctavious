@@ -2,7 +2,6 @@ use std::path::PathBuf;
 
 use clap::Parser;
 use doctavious_cli::cmd::til;
-use doctavious_cli::errors::CliResult;
 use markup::MarkupFormat;
 use strum::VariantNames;
 
@@ -34,8 +33,11 @@ pub struct InitTil {
     // TODO: should we have toc details?
 }
 
-pub fn execute(cmd: InitTil) -> CliResult<Option<String>> {
-    til::init(cmd.cwd.as_deref(), cmd.format, cmd.local)?;
-
-    Ok(Some(String::new()))
+#[async_trait::async_trait]
+impl crate::commands::Command for InitTil {
+    async fn execute(&self) -> anyhow::Result<Option<String>> {
+        // let cwd = self.resolve_cwd(self.cwd.as_ref())?;
+        til::init(self.cwd.as_deref(), self.format, self.local)?;
+        Ok(None)
+    }
 }

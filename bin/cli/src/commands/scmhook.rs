@@ -1,5 +1,4 @@
 use clap::Parser;
-use doctavious_cli::errors::CliResult;
 
 use crate::commands::scmhook::add::AddScmHook;
 use crate::commands::scmhook::install::InstallScmHook;
@@ -28,13 +27,14 @@ pub enum ScmHookSubCommand {
     Uninstall(UninstallScmHook),
 }
 
-pub fn execute(command: ScmHookCommand) -> CliResult<Option<String>> {
-    match command.sub_command {
-        ScmHookSubCommand::Add(cmd) => add::execute(cmd),
-        ScmHookSubCommand::Install(cmd) => install::execute(cmd),
-        ScmHookSubCommand::Run(cmd) => run::execute(cmd),
-        ScmHookSubCommand::Uninstall(cmd) => uninstall::execute(cmd),
-    }?;
-
-    Ok(Some(String::new()))
+#[async_trait::async_trait]
+impl crate::commands::Command for ScmHookCommand {
+    async fn execute(&self) -> anyhow::Result<Option<String>> {
+        match &self.sub_command {
+            ScmHookSubCommand::Add(cmd) => cmd.execute().await,
+            ScmHookSubCommand::Install(cmd) => cmd.execute().await,
+            ScmHookSubCommand::Run(cmd) => cmd.execute().await,
+            ScmHookSubCommand::Uninstall(cmd) => cmd.execute().await,
+        }
+    }
 }

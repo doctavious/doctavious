@@ -1,5 +1,4 @@
 use clap::Parser;
-use doctavious_cli::errors::CliResult;
 
 use crate::commands::changelog::init::InitCommand;
 use crate::commands::changelog::release::ReleaseCommand;
@@ -22,11 +21,12 @@ pub enum ChangelogSubCommands {
     Release(ReleaseCommand),
 }
 
-pub fn execute(command: ChangelogCommand) -> CliResult<Option<String>> {
-    match command.sub_command {
-        ChangelogSubCommands::Init(cmd) => init::execute(cmd),
-        ChangelogSubCommands::Release(cmd) => release::execute(cmd),
-    }?;
-
-    Ok(Some(String::new()))
+#[async_trait::async_trait]
+impl crate::commands::Command for ChangelogCommand {
+    async fn execute(&self) -> anyhow::Result<Option<String>> {
+        match &self.sub_command {
+            ChangelogSubCommands::Init(cmd) => cmd.execute().await,
+            ChangelogSubCommands::Release(cmd) => cmd.execute().await,
+        }
+    }
 }

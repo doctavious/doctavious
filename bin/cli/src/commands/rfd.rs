@@ -5,7 +5,6 @@ mod new;
 mod reserve;
 
 use clap::{Parser, Subcommand};
-use doctavious_cli::errors::CliResult;
 
 use crate::commands::rfd::generate::GenerateRFDs;
 use crate::commands::rfd::init::InitRFD;
@@ -33,14 +32,15 @@ pub enum RFDSubCommand {
     // TODO: Templates (add/delete. global vs local)
 }
 
-pub fn execute(command: RFDCommand) -> CliResult<Option<String>> {
-    match command.sub_command {
-        RFDSubCommand::Init(cmd) => init::execute(cmd),
-        RFDSubCommand::Generate(cmd) => generate::execute(cmd),
-        RFDSubCommand::List(cmd) => list::execute(cmd),
-        RFDSubCommand::New(cmd) => new::execute(cmd),
-        RFDSubCommand::Reserve(cmd) => reserve::execute(cmd),
-    }?;
-
-    Ok(Some(String::new()))
+#[async_trait::async_trait]
+impl crate::commands::Command for RFDCommand {
+    async fn execute(&self) -> anyhow::Result<Option<String>> {
+        match &self.sub_command {
+            RFDSubCommand::Generate(cmd) => cmd.execute().await,
+            RFDSubCommand::Init(cmd) => cmd.execute().await,
+            RFDSubCommand::List(cmd) => cmd.execute().await,
+            RFDSubCommand::New(cmd) => cmd.execute().await,
+            RFDSubCommand::Reserve(cmd) => cmd.execute().await,
+        }
+    }
 }

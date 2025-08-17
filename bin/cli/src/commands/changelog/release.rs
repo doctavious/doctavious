@@ -1,24 +1,18 @@
 use std::path::PathBuf;
-use std::str::FromStr;
 
 use changelog::changelog::ChangelogOutputType;
 use changelog::settings::ChangelogCommitSort;
-use clap::{Parser, ValueEnum};
+use clap::Parser;
 use doctavious_cli::changelog::release::cmd::release;
 use doctavious_cli::changelog::release::configuration::{
     BumpOption, ChangelogRange, ChangelogReleaseOptions, StrippableChangelogSection,
 };
-use doctavious_cli::errors::CliResult;
-use doctavious_cli::settings::{Settings, load_settings};
 use glob::Pattern;
 use markup::MarkupFormat;
-use regex::Regex;
 use scm::drivers::git::TagSort;
-use serde::{Deserialize, Serialize};
 use strum::VariantNames;
 
 use crate::clap_enum_variants;
-
 // TODO: handling single vs individual changelogs
 // 1. could base if off output where if directory write individual otherwise write single.
 // if nothing is provided it defaults to single with file name being changelog.md
@@ -235,35 +229,38 @@ impl ReleaseCommand {
     }
 }
 
-pub fn execute(command: ReleaseCommand) -> CliResult<Option<String>> {
-    let path = command.cwd.unwrap_or(std::env::current_dir()?);
-    let output_type = if command.individual {
-        ChangelogOutputType::Individual
-    } else {
-        ChangelogOutputType::Single
-    };
+#[async_trait::async_trait]
+impl crate::commands::Command for ReleaseCommand {
+    async fn execute(&self) -> anyhow::Result<Option<String>> {
+        let cwd = self.resolve_cwd(self.cwd.as_ref())?;
+        let output_type = if self.individual {
+            ChangelogOutputType::Individual
+        } else {
+            ChangelogOutputType::Single
+        };
 
-    release(ChangelogReleaseOptions {
-        cwd: &path,
-        config_path: command.config.as_ref().map(|c| c.as_path()),
-        repositories: command.repositories,
-        output: command.output,
-        output_type,
-        prepend: command.prepend,
-        range: command.range,
-        include_paths: command.include_paths,
-        exclude_paths: command.exclude_paths,
-        tag_sort: Some(command.tag_sort),
-        commit_sort: command.commit_sort,
-        tag_patterns: command.tag_patterns,
-        skip_tag_patterns: command.skip_tag_patterns,
-        ignore_tag_patterns: command.ignore_tag_patterns,
-        tag: command.tag,
-        ignore_commits: command.ignore_commits,
-        strip: command.strip,
-    })?;
+        release(ChangelogReleaseOptions {
+            cwd: &cwd,
+            config_path: self.config.as_ref().map(|c| c.as_path()),
+            repositories: self.repositories.clone(),
+            output: self.output.clone(),
+            output_type,
+            prepend: self.prepend.clone(),
+            range: self.range.clone(),
+            include_paths: self.include_paths.clone(),
+            exclude_paths: self.exclude_paths.clone(),
+            tag_sort: Some(self.tag_sort),
+            commit_sort: self.commit_sort,
+            tag_patterns: self.tag_patterns.clone(),
+            skip_tag_patterns: self.skip_tag_patterns.clone(),
+            ignore_tag_patterns: self.ignore_tag_patterns.clone(),
+            tag: self.tag.clone(),
+            ignore_commits: self.ignore_commits.clone(),
+            strip: self.strip,
+        })?;
 
-    Ok(None)
+        Ok(None)
+    }
 }
 
 #[cfg(test)]

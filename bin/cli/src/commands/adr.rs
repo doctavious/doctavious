@@ -6,7 +6,6 @@ mod new;
 mod reserve;
 
 use clap::Parser;
-use doctavious_cli::errors::CliResult;
 
 use crate::commands::adr::generate::GenerateADRs;
 use crate::commands::adr::init::InitADR;
@@ -36,30 +35,16 @@ pub enum ADRSubCommand {
     // TODO: Templates (add/delete. global vs local)
 }
 
-// impl crate::commands::Command for ADRCommand {
-//     async fn execute(&self, ctx: &Context) -> anyhow::Result<Option<String>> {
-//         match &self.sub_command {
-//             ADRSubCommand::Init(cmd) => init::execute(cmd),
-//             ADRSubCommand::Generate(cmd) => generate::execute(cmd),
-//             ADRSubCommand::List(cmd) => list::execute(cmd),
-//             ADRSubCommand::Link(cmd) => link::execute(cmd),
-//             ADRSubCommand::New(cmd) => new::execute(cmd),
-//             ADRSubCommand::Reserve(cmd) => reserve::execute(cmd),
-//         }?;
-//
-//         Ok(Some(String::new()))
-//     }
-// }
-
-pub fn execute(command: ADRCommand) -> CliResult<Option<String>> {
-    match command.sub_command {
-        ADRSubCommand::Init(cmd) => init::execute(cmd),
-        ADRSubCommand::Generate(cmd) => generate::execute(cmd),
-        ADRSubCommand::List(cmd) => list::execute(cmd),
-        ADRSubCommand::Link(cmd) => link::execute(cmd),
-        ADRSubCommand::New(cmd) => new::execute(cmd),
-        ADRSubCommand::Reserve(cmd) => reserve::execute(cmd),
-    }?;
-
-    Ok(Some(String::new()))
+#[async_trait::async_trait]
+impl crate::commands::Command for ADRCommand {
+    async fn execute(&self) -> anyhow::Result<Option<String>> {
+        match &self.sub_command {
+            ADRSubCommand::Init(cmd) => cmd.execute().await,
+            ADRSubCommand::Generate(cmd) => cmd.execute().await,
+            ADRSubCommand::List(cmd) => cmd.execute().await,
+            ADRSubCommand::Link(cmd) => cmd.execute().await,
+            ADRSubCommand::New(cmd) => cmd.execute().await,
+            ADRSubCommand::Reserve(cmd) => cmd.execute().await,
+        }
+    }
 }

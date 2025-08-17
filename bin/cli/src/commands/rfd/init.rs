@@ -2,7 +2,6 @@ use std::path::PathBuf;
 
 use clap::Parser;
 use doctavious_cli::cmd::design_decisions::rfd;
-use doctavious_cli::errors::CliResult;
 use doctavious_cli::file_structure::FileStructure;
 use markup::MarkupFormat;
 use strum::VariantNames;
@@ -39,14 +38,17 @@ pub struct InitRFD {
     pub format: MarkupFormat,
 }
 
-pub fn execute(cmd: InitRFD) -> CliResult<Option<String>> {
-    let cwd = cmd.cwd.unwrap_or(std::env::current_dir()?);
-    let output = rfd::init(
-        cwd.as_path(),
-        Some(cmd.directory),
-        cmd.structure,
-        cmd.format,
-    )?;
+#[async_trait::async_trait]
+impl crate::commands::Command for InitRFD {
+    async fn execute(&self) -> anyhow::Result<Option<String>> {
+        let cwd = self.resolve_cwd(self.cwd.as_ref())?;
+        let output = rfd::init(
+            cwd.as_path(),
+            Some(self.directory.clone()),
+            self.structure,
+            self.format,
+        )?;
 
-    Ok(Some(output.to_string_lossy().to_string()))
+        Ok(Some(output.to_string_lossy().to_string()))
+    }
 }

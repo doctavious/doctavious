@@ -2,7 +2,6 @@ use std::path::PathBuf;
 
 use clap::Parser;
 use clap::builder::PossibleValuesParser;
-use doctavious_cli::errors::CliResult;
 use markup::MarkupFormat;
 
 /// Gathers generate RFD commands
@@ -28,6 +27,18 @@ pub enum GenerateRFDsCommand {
     Graph(RFDGraph),
 }
 
+#[async_trait::async_trait]
+impl crate::commands::Command for GenerateRFDs {
+    async fn execute(&self) -> anyhow::Result<Option<String>> {
+        match &self.sub_command {
+            GenerateRFDsCommand::Toc(cmd) => cmd.execute().await,
+            GenerateRFDsCommand::Csv(cmd) => cmd.execute().await,
+            GenerateRFDsCommand::File(cmd) => cmd.execute().await,
+            GenerateRFDsCommand::Graph(cmd) => cmd.execute().await,
+        }
+    }
+}
+
 // optional file means to stdout
 // add overwrite flag to not modify existing
 // remote? commit message?
@@ -51,6 +62,13 @@ pub struct RFDCsv {
     pub overwrite: bool,
 }
 
+#[async_trait::async_trait]
+impl crate::commands::Command for RFDCsv {
+    async fn execute(&self) -> anyhow::Result<Option<String>> {
+        unimplemented!()
+    }
+}
+
 /// Generates RFD File
 #[derive(Parser, Debug)]
 #[command()]
@@ -70,6 +88,13 @@ pub struct RFDFile {
     /// If not present ToC will be written to stdout
     #[arg(long, short, value_parser)]
     pub path: PathBuf, // where to write file to. required
+}
+
+#[async_trait::async_trait]
+impl crate::commands::Command for RFDFile {
+    async fn execute(&self) -> anyhow::Result<Option<String>> {
+        unimplemented!()
+    }
 }
 
 /// Generates RFD table of contents (Toc) to stdout
@@ -109,6 +134,13 @@ pub struct RFDToc {
     pub format: Option<MarkupFormat>,
 }
 
+#[async_trait::async_trait]
+impl crate::commands::Command for RFDToc {
+    async fn execute(&self) -> anyhow::Result<Option<String>> {
+        unimplemented!()
+    }
+}
+
 /// Create RFD Graph
 #[derive(Parser, Debug)]
 #[command()]
@@ -125,11 +157,9 @@ pub struct RFDGraph {
     pub link_prefix: Option<String>,
 }
 
-pub fn execute(command: GenerateRFDs) -> CliResult<Option<String>> {
-    match command.sub_command {
-        GenerateRFDsCommand::Toc(_) => unimplemented!(),
-        GenerateRFDsCommand::Csv(_) => unimplemented!(),
-        GenerateRFDsCommand::File(_) => unimplemented!(),
-        GenerateRFDsCommand::Graph(_) => unimplemented!(),
+#[async_trait::async_trait]
+impl crate::commands::Command for RFDGraph {
+    async fn execute(&self) -> anyhow::Result<Option<String>> {
+        unimplemented!()
     }
 }

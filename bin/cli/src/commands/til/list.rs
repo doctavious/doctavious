@@ -2,7 +2,6 @@ use std::path::PathBuf;
 
 use clap::Parser;
 use doctavious_cli::cmd::til::list;
-use doctavious_cli::errors::CliResult;
 
 /// List TILs
 #[derive(Parser, Debug)]
@@ -12,14 +11,17 @@ pub struct ListTils {
     pub cwd: Option<PathBuf>,
 }
 
-pub fn execute(cmd: ListTils) -> CliResult<Option<String>> {
-    let cwd = cmd.cwd.unwrap_or(std::env::current_dir()?);
-    let output = list(&cwd)?;
-    Ok(Some(
-        output
-            .iter()
-            .map(|p| p.to_string_lossy())
-            .collect::<Vec<_>>()
-            .join("\n"),
-    ))
+#[async_trait::async_trait]
+impl crate::commands::Command for ListTils {
+    async fn execute(&self) -> anyhow::Result<Option<String>> {
+        let cwd = self.resolve_cwd(self.cwd.as_ref())?;
+        let output = list(&cwd)?;
+        Ok(Some(
+            output
+                .iter()
+                .map(|p| p.to_string_lossy())
+                .collect::<Vec<_>>()
+                .join("\n"),
+        ))
+    }
 }

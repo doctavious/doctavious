@@ -16,6 +16,15 @@ pub struct OpenTil {
     pub post: String,
 }
 
+#[async_trait::async_trait]
+impl crate::commands::Command for OpenTil {
+    async fn execute(&self) -> anyhow::Result<Option<String>> {
+        // let cwd = self.resolve_cwd(self.cwd.as_ref())?;
+        open(self.cwd.as_deref(), self.post.clone())?;
+        Ok(None)
+    }
+}
+
 pub fn execute(cmd: OpenTil) -> CliResult<Option<String>> {
     open(cmd.cwd.as_deref(), cmd.post)?;
     Ok(Some(String::new()))

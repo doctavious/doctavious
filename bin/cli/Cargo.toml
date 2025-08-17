@@ -43,4 +43,4 @@ testing = { path = "../../lib/testing" }
 
 
 [build-dependencies]
-built = "0.8.0"
+built = { version = "0.8.0", features = ["git2"] }
