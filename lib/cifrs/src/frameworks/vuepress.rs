@@ -56,8 +56,8 @@ mod tests {
     fn test_vuepress() {
         for path in [
             "tests/fixtures/framework_configs/vuepress/config.js",
-            "tests/fixtures/framework_configs/vuepress/config.toml",
             "tests/fixtures/framework_configs/vuepress/config.ts",
+            "tests/fixtures/framework_configs/vuepress/config.toml",
         ] {
             let config = VuePressConfig::get_config(path).unwrap();
             assert_eq!(config.settings.output_dir, Some(String::from("build")))

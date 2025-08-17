@@ -249,7 +249,6 @@ pub struct FrameworkConfigFileSettings {
     pub output_dir: Option<String>,
 }
 
-
 pub trait FrameworkConfiguration: for<'a> Deserialize<'a> + Debug {
     // TODO(Sean): Can default to Self when associated type defaults is a stable feature.
     // Perahps this is a bad idea?
@@ -265,13 +264,13 @@ pub trait FrameworkConfiguration: for<'a> Deserialize<'a> + Debug {
 
     fn get_config<P: AsRef<Path>>(path: P) -> CifrsResult<FrameworkConfigFile> {
         let path = path.as_ref();
+        println!("path: [{:?}]", path);
         let format = FrameworkConfigurationFormat::from_path(path)?;
+        println!("format: [{:?}]", format);
         let config = <Self as FrameworkConfiguration>::read_config(&format)?;
+        println!("config: [{:?}]", config);
         let settings = <Self as FrameworkConfiguration>::get_config_file_settings(&config);
-        println!(
-            "path: [{:?}] format: [{:?}] config: [{:?}] settings: [{:?}]",
-            path, format, config, &settings
-        );
+        println!("settings: [{:?}]", &settings);
         Ok(FrameworkConfigFile {
             path: path.to_path_buf(),
             settings,
@@ -320,9 +319,15 @@ impl FrameworkConfigurationFormat {
                     }
                     Some("py") => Ok(Self::Python(content)),
                     // TODO (Sean): we should just skip or warn
-                    _ => Err(CifrsError::UnknownFrameworkFormat(
-                        extension.to_string_lossy().to_string(),
-                    )),
+                    _ => {
+                        println!(
+                            "Unknown format: {}",
+                            extension.to_string_lossy().to_string()
+                        );
+                        Err(CifrsError::UnknownFrameworkFormat(
+                            extension.to_string_lossy().to_string(),
+                        ))
+                    }
                 };
             }
         }
