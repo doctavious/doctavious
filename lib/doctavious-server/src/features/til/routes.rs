@@ -20,8 +20,8 @@ pub fn get_routes() -> Router {
         .route("/tils", post(new_til))
         // maybe we'll just group search together under one endpoint
         .route("/tils/:category", get(get_tils_by_category))
-        .route("/:user_name/tils", get(get_tils))
-        .route("/:user_name/tils/:path", get(get_til))
+        .route("/{user_name}/tils", get(get_tils))
+        .route("/{user_name}/tils/{path}", get(get_til))
 }
 
 async fn new_til() {

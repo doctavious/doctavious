@@ -1,5 +1,4 @@
 use std::collections::HashMap;
-use std::error::Error;
 use std::io;
 use std::path::PathBuf;
 
@@ -267,14 +266,15 @@ impl ContinuousIntegrationProvider {
     ) -> ContinuousIntegrationResult<Option<Box<dyn ScmPlatformRepositoryBoundedClient>>> {
         match self {
             ContinuousIntegrationProvider::GitHubActions => {
-                let token = std::env::var("GITHUB_TOKEN")?;
                 if let Some((owner, repo_name)) =
                     context.repository.as_ref().unwrap().split_once('/')
                 {
+                    let token = std::env::var("GITHUB_TOKEN")?;
                     let p = GithubRepositoryBoundedProvider::new(
                         owner.to_string(),
                         repo_name.to_string(),
                         &token,
+                        std::env::var("GITHUB_API_URL").ok().as_deref(),
                     )?;
                     Ok(Some(Box::new(p)))
                 } else {

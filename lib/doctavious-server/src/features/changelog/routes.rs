@@ -1,10 +1,7 @@
-use axum::{
-    extract::Path,
-    http::StatusCode,
-    Json,
-    Router,
-    routing::{get, post},
-};
+use axum::extract::Path;
+use axum::http::StatusCode;
+use axum::routing::{get, post};
+use axum::{Json, Router};
 
 // TODO: not sure if we'll keep these specific routes but a placeholder
 // We might want to provoide options for changelog format
@@ -24,18 +21,9 @@ use axum::{
 pub fn get_routes() -> Router {
     Router::new()
         .route("/projects/:project_id/changelog", post(new_changelog))
-        .route("/projects/:project_id/changelog/:id", get(get_changelog))
+        .route("/projects/:project_id/changelog/{id}", get(get_changelog))
 }
 
-async fn new_changelog(
-    Path(project_id): Path<u64>
-) {
+async fn new_changelog(Path(project_id): Path<u64>) {}
 
-}
-
-async fn get_changelog(
-    Path(project_id): Path<u64>,
-    Path(id): Path<u64>
-) {
-
-}
+async fn get_changelog(Path(project_id): Path<u64>, Path(id): Path<u64>) {}

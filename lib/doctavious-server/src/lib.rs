@@ -4,14 +4,14 @@ mod features;
 use std::time::Duration;
 
 use anyhow::Result;
+use axum::Router;
 use axum::extract::Request;
 use axum::http::{StatusCode, Uri};
 use axum::routing::get;
-use axum::Router;
 use hyper::body::Incoming;
 use hyper_util::rt::TokioIo;
-use opendal::services::Fs;
 use opendal::Operator;
+use opendal::services::Fs;
 use tokio::net::TcpListener;
 use tokio::signal;
 use tokio::sync::watch;
@@ -177,11 +177,10 @@ async fn main() {
 
 // TODO: swap for configuration built storage that returns appropriate storage provider
 fn get_storage() -> Result<Operator> {
-    let mut builder = Fs::default();
     // Set the root for fs, all operations will happen under this root.
     //
     // NOTE: the root must be absolute path.
-    builder.root("/Users/seancarroll");
+    let builder = Fs::default();
 
     // `Accessor` provides the low level APIs, we will use `Operator` normally.
     let op: Operator = Operator::new(builder)?.finish();
