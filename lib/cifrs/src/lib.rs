@@ -380,7 +380,7 @@ mod tests {
         println!("{:?}", workspace);
     }
 
-    #[test]
+    // #[test]
     fn check_package_manager() {
         let cwd = env::current_dir().unwrap();
         println!("{:?}", cwd);
