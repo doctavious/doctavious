@@ -3,4 +3,3 @@ source: bin/cli/src/commands/scmhook/run.rs
 expression: "fs::read_to_string(&temp_path.join(\"test_specified_files.txt\")).unwrap()"
 ---
 /backend/src/lib.rs
-

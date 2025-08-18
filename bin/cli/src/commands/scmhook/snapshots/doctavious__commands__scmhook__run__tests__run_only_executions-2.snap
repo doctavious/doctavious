@@ -1,6 +1,0 @@
----
-source: bin/cli/src/commands/scmhook/run.rs
-expression: "fs::read_to_string(&temp_path.join(\"script_output.txt\")).unwrap()"
----
-from a script
-
