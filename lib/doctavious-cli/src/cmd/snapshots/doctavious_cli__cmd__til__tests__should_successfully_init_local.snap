@@ -4,4 +4,3 @@ expression: "fs::read_to_string(&files[0]).unwrap()"
 ---
 [til]
 template_format = "md"
-
