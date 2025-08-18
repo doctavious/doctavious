@@ -1,7 +1,7 @@
 use std::borrow::Cow;
 use std::fmt::Debug;
-use std::fs;
 use std::path::{Path, PathBuf};
+use std::{env, fs};
 
 use lazy_static::lazy_static;
 use serde::Deserialize;
@@ -251,7 +251,7 @@ pub struct FrameworkConfigFileSettings {
 
 pub trait FrameworkConfiguration: for<'a> Deserialize<'a> + Debug {
     // TODO(Sean): Can default to Self when associated type defaults is a stable feature.
-    // Perahps this is a bad idea?
+    // Perhaps this is a bad idea
     type Config: FrameworkConfiguration + Debug;
 
     fn from_js_module(_program: &Program) -> CifrsResult<Self> {
@@ -332,7 +332,11 @@ impl FrameworkConfigurationFormat {
                     }
                 };
             } else {
-                println!("could not get file content...");
+                println!(
+                    "could not get file content for [{:?}]  current cwd [{:?}]",
+                    path.as_ref(),
+                    env::current_dir().unwrap()
+                );
             }
         }
 

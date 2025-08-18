@@ -49,8 +49,11 @@ impl FrameworkConfiguration for VuePressConfig {
 
 #[cfg(test)]
 mod tests {
-    use crate::frameworks::FrameworkConfiguration;
+    use std::env;
+
+    use crate::CifrsResult;
     use crate::frameworks::vuepress::VuePressConfig;
+    use crate::frameworks::{FrameworkConfiguration, FrameworkConfigurationFormat};
 
     #[test]
     fn test_vuepress() {
@@ -59,6 +62,21 @@ mod tests {
             "tests/fixtures/framework_configs/vuepress/config.ts",
             "tests/fixtures/framework_configs/vuepress/config.toml",
         ] {
+            match FrameworkConfigurationFormat::from_path(path) {
+                Ok(_) => println!(
+                    "found format from path [{:?}] current cwd [{:?}]",
+                    &path,
+                    env::current_dir().unwrap()
+                ),
+                Err(_) => {
+                    println!(
+                        "failed to find format from path [{:?}] current cwd [{:?}]",
+                        &path,
+                        env::current_dir().unwrap()
+                    )
+                }
+            }
+
             let config = VuePressConfig::get_config(path).unwrap();
             assert_eq!(config.settings.output_dir, Some(String::from("build")))
         }

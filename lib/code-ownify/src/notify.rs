@@ -258,11 +258,9 @@ mod tests {
         };
 
         // let mut writer = Vec::<u8>::new();
-        // codenotify.notify_with_writer(&mut writer).unwrap();
         let output = codenotify.notify().unwrap();
 
         assert_eq!(
-            // str::from_utf8(&writer).unwrap(),
             output.message,
             format!("{}...{}\n@markdown -> file.md\n", &br, &hr)
         );

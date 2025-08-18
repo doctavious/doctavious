@@ -8,6 +8,7 @@ pub struct CwdGuard {
     original_dir: PathBuf,
 }
 
+// TODO: this needs more thought (and probably a mutex) to be usable
 impl CwdGuard {
     pub fn new<P: AsRef<Path>>(new_dir: P) -> io::Result<Self> {
         let original_dir = env::current_dir()?;
@@ -58,7 +59,6 @@ impl Drop for TempDirGuard {
     }
 }
 
-// with_directory(path, || { closure })
 // static SERIAL_TEST: Lazy<Mutex<()>> = Lazy::new(Default::default);
 // pub fn with_dir<P, F, R>(path: &P, closure: F) -> io::Result<R>
 // where

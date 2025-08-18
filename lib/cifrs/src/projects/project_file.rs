@@ -258,7 +258,42 @@ impl ProjectFile {
                     }
                     Self::PyProject => {
                         let root: toml::Value = toml::from_str(project_file_content.as_str())?;
-                        root["tool.poetry.dependencies"][dependency].is_str()
+                        // TODO: improve this...support more
+                        if let Some(tool) = root.get("tool") {
+                            tool.get("poetry")
+                                .and_then(|p| p.get("dependencies"))
+                                .and_then(|dependencies| dependencies.get(dependency))
+                                .is_some_and(|dependency| dependency.is_str())
+                        } else if let Some(project) = root.get("project") {
+                            // UV structure
+                            if let Some(dependencies) = project.get("dependencies") {
+                                if let Some(dep_array) = dependencies.as_array() {
+                                    dep_array.iter().any(|dep| {
+                                        if let Some(dep_str) = dep.as_str() {
+                                            // Strip at first occurrence of <, >, =, ;
+                                            let mut cutoff = dep_str.len();
+                                            for sep in ['<', '>', '=', ';'] {
+                                                if let Some(pos) = dep_str.find(sep) {
+                                                    cutoff = cutoff.min(pos);
+                                                }
+                                            }
+                                            let name = dep_str[..cutoff].trim().to_string();
+                                            name == dependency
+                                        } else {
+                                            false
+                                        }
+                                    })
+                                } else {
+                                    // TODO: log unexpected dependencies value. expected array
+                                    false
+                                }
+                            } else {
+                                false
+                            }
+                        } else {
+                            // TODO: log that we couldnt parse and to let us known to support...
+                            false
+                        }
                     }
                     RequirementsTxt => project_file_content
                         .lines()
@@ -281,144 +316,54 @@ impl ProjectFile {
 
 #[cfg(test)]
 mod tests {
-    use std::fs::File;
-    use std::io::Write;
-    use std::panic::{RefUnwindSafe, UnwindSafe};
-    use std::path::Path;
-    use std::sync::Mutex;
-    use std::{env, fs, io, panic};
+    use std::fs;
 
-    use once_cell::sync::Lazy;
-    use serial_test::serial;
-    use swc::atoms::once_cell;
     use tempfile::TempDir;
 
-    use crate::CifrsResult;
     use crate::projects::project_file::ProjectFile;
-    // use crate::commands::build::project_file::ProjectFile;
-
-    static SERIAL_TEST: Lazy<Mutex<()>> = Lazy::new(Default::default);
 
     #[test]
-    fn test_pyproject() {
-        let content = r#"
-[tool.poetry]
-name = "poetry-demo"
-version = "0.1.0"
-description = ""
-authors = ["Sébastien Eustace <sebastien@eustace.io>"]
-readme = "README.md"
-packages = [{include = "poetry_demo"}]
-
-[tool.poetry.dependencies]
-python = "^3.7"
-        "#;
-    }
-
-    #[test]
-    #[serial]
-    fn test_msbuild_proj() -> CifrsResult<()> {
-        let content = r#"
-<Project Sdk="Microsoft.NET.Sdk">
-
-  <PropertyGroup>
-    <TargetFramework>net7.0</TargetFramework>
-    <ImplicitUsings>enable</ImplicitUsings>
-    <Nullable>enable</Nullable>
-    <OutputType>Exe</OutputType>
-    <ServerGarbageCollection>true</ServerGarbageCollection>
-  </PropertyGroup>
-
-  <ItemGroup>
-    <PackageReference Include="Microsoft.Extensions.Hosting" Version="7.0.0" />
-    <PackageReference Include="Microsoft.Extensions.Logging.Console" Version="7.0.0" />
-    <PackageReference Include="Microsoft.Orleans.Server" Version="7.0.0" />
-    <PackageReference Include="Microsoft.Orleans.Streaming" Version="7.0.0" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <ProjectReference Include="..\ChatRoom.Common\ChatRoom.Common.csproj" />
-  </ItemGroup>
-
-</Project>"#;
-
+    fn test_pyproject_poetry() {
         let tmp_dir = TempDir::new().unwrap();
-        let file_path = tmp_dir.path().join("docs.csproj");
-        let mut tmp_file = File::create(file_path).unwrap();
-        writeln!(tmp_file, "{}", content)?;
+        fs::copy(
+            "./tests/fixtures/projects/python/pyproject_poetry.toml",
+            tmp_dir.path().join("pyproject.toml"),
+        )
+        .unwrap();
 
-        // println!("{:?}", tmp_dir);
-        // println!("cur dir is  {:?}", env::current_dir()?);
-        let a = with_dir(&tmp_dir, || {
-            match env::current_dir() {
-                Ok(p) => {
-                    println!("path...{:?}", p);
-                }
-                Err(e) => {
-                    println!("error with cwd...{}", e);
-                }
-            }
-
-            let paths = fs::read_dir(&tmp_dir).unwrap();
-            for path in paths {
-                println!("path name: {}", path.unwrap().path().display())
-            }
-
-            let found = ProjectFile::MsBuild
-                .has_dependency(&tmp_dir, "Microsoft.Orleans.Server")
-                .unwrap();
-            println!("dependency found: {}", found);
-            assert!(found);
-            Ok(())
-        });
-
-        match a {
-            Ok(_) => {}
-            Err(e) => {
-                println!("error was {}", e);
-            }
-        }
-
-        // let found = ProjectFile::CSProj.has_dependency("Microsoft.Orleans.Server")?;
-        // assert!(found);
-
-        Ok(())
+        let found = ProjectFile::PyProject
+            .has_dependency(&tmp_dir, "python")
+            .unwrap();
+        assert!(found);
     }
 
-    // with_directory(path, || { closure })
+    #[test]
+    fn test_pyproject_uv() {
+        let tmp_dir = TempDir::new().unwrap();
+        fs::copy(
+            "./tests/fixtures/projects/python/pyproject_uv.toml",
+            tmp_dir.path().join("pyproject.toml"),
+        )
+        .unwrap();
 
-    pub fn with_dir<P, F, R>(path: &P, closure: F) -> io::Result<R>
-    where
-        P: AsRef<Path>,
-        F: Fn() -> io::Result<R> + UnwindSafe + RefUnwindSafe,
-    {
-        let guard = SERIAL_TEST.lock().unwrap();
-        let original_dir = env::current_dir()?;
-        match env::set_current_dir(path) {
-            Ok(_) => {
-                println!("success");
-            }
-            Err(e) => {
-                println!("error...{:?}", e);
-            }
-        }
+        let found = ProjectFile::PyProject
+            .has_dependency(&tmp_dir, "requests")
+            .unwrap();
+        assert!(found);
+    }
 
-        // println!("current...{:?}", env::current_dir()?);
-        let a = match panic::catch_unwind(closure) {
-            Ok(result) => {
-                println!("original dir...{:?}", original_dir);
-                env::set_current_dir(original_dir)?;
-                // drop(path); // not sure if we need do drop this here
-                result
-            }
-            Err(err) => {
-                println!("error occurred original dir...{:?}", original_dir);
-                env::set_current_dir(original_dir)?;
-                // drop(path);
-                drop(guard);
-                panic::resume_unwind(err);
-            }
-        };
-        a
+    #[test]
+    fn test_msbuild_proj() {
+        let tmp_dir = TempDir::new().unwrap();
+        fs::copy(
+            "./tests/fixtures/projects/msbuild/docs.csproj",
+            tmp_dir.path().join("docs.csproj"),
+        )
+        .unwrap();
+
+        let found = ProjectFile::MsBuild
+            .has_dependency(&tmp_dir, "Microsoft.Orleans.Server")
+            .unwrap();
+        assert!(found);
     }
 }
