@@ -224,6 +224,7 @@ mod tests {
     use std::collections::HashMap;
     use std::fs;
     use std::path::PathBuf;
+
     use git2::Signature;
     use scm::commit::{ScmCommitRange, ScmSignature};
     use scm::drivers::git::GitScmRepository;

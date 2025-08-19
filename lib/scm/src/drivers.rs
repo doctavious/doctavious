@@ -1,5 +1,6 @@
 use std::fs;
 use std::path::{Path, PathBuf};
+
 use git2::Signature;
 use glob::Pattern;
 use indexmap::IndexMap;

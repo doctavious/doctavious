@@ -3,7 +3,11 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
-use git2::{BranchType, Commit as Git2Commit, Config, DescribeFormatOptions, DescribeOptions, Direction, IndexAddOption, Oid as Git2Oid, Repository as Git2Repository, Signature as Git2Signature, Signature, StatusOptions};
+use git2::{
+    BranchType, Commit as Git2Commit, Config, DescribeFormatOptions, DescribeOptions, Direction,
+    IndexAddOption, Oid as Git2Oid, Repository as Git2Repository, Signature as Git2Signature,
+    Signature, StatusOptions,
+};
 use glob::Pattern;
 use indexmap::IndexMap;
 use lazy_static::lazy_static;
@@ -314,7 +318,11 @@ impl GitScmRepository {
         // Ok(self.inner.head()?.resolve()?.peel_to_commit()?)
     }
 
-    fn commit(&self, message: &str, signature: Option<Signature>) -> ScmResult<crate::drivers::git::Oid> {
+    fn commit(
+        &self,
+        message: &str,
+        signature: Option<Signature>,
+    ) -> ScmResult<crate::drivers::git::Oid> {
         let oid = self.inner.index()?.write_tree()?;
         let tree = self.inner.find_tree(oid)?;
         let signature = signature.unwrap_or(self.inner.signature()?);

@@ -223,7 +223,7 @@ fn reserve_scm(repo: &Scm, number: u32, adr_path: &Path, title: String) -> CliRe
             repo.write(
                 adr_path,
                 format!("{}: Adding placeholder for ADR {}", number, title).as_str(),
-                None
+                None,
             )?;
         }
         _ => unimplemented!(),
