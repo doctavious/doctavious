@@ -6,7 +6,7 @@ use doctavious_cli::cmd::scm_hooks::install::install;
 /// Synchronize SCM hooks with your configuration.
 #[derive(Parser, Debug)]
 #[command()]
-pub(crate) struct InstallScmHook {
+pub struct InstallScmHook {
     #[arg(long, short)]
     pub cwd: Option<PathBuf>,
 

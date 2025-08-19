@@ -6,7 +6,7 @@ use doctavious_cli::cmd::scm_hooks::uninstall::uninstall;
 /// Clear hooks related to Doctavious configuration
 #[derive(Parser, Debug)]
 #[command()]
-pub(crate) struct UninstallScmHook {
+pub struct UninstallScmHook {
     #[arg(long, short)]
     pub cwd: Option<PathBuf>,
 

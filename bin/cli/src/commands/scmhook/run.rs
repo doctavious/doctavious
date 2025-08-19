@@ -9,7 +9,7 @@ use doctavious_cli::cmd::scm_hooks::run::{ScmHookRunFiles, run};
 /// You can also provide your own hooks that can only be called manually.
 #[derive(Parser, Debug)]
 #[command()]
-pub(crate) struct RunScmHookCommand {
+pub struct RunScmHookCommand {
     /// Name of the hook to run
     #[arg(index = 1)]
     pub hook: String,

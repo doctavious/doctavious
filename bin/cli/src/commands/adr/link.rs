@@ -31,7 +31,6 @@ pub struct LinkADRs {
 #[async_trait::async_trait]
 impl crate::commands::Command for LinkADRs {
     async fn execute(&self) -> anyhow::Result<Option<String>> {
-        // let cwd = cmd.cwd.unwrap_or(std::env::current_dir()?);
         let cwd = self.resolve_cwd(self.cwd.as_ref())?;
         let _ = adr::link(
             &cwd,

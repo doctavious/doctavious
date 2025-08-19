@@ -1,4 +1,3 @@
-use std::borrow::Cow;
 use std::fs;
 use std::path::Path;
 
@@ -9,7 +8,7 @@ use tracing::{debug, error};
 
 use crate::cmd::scm_hooks::is_doctavious_scm_hook_file;
 use crate::errors::CliResult;
-use crate::settings::{SettingErrors, Settings, load_settings, persist_settings};
+use crate::settings::{Settings, load_settings, persist_settings};
 
 /// Deletes hooks.
 ///

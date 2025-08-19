@@ -39,9 +39,9 @@ pub(crate) fn branch_exists(repo: &Repository, reserve_number: u32) -> CliResult
 }
 
 pub(crate) fn checkout_branch(repo: &Repository, branch_name: &str) -> CliResult<()> {
-    let head = repo.head().unwrap();
+    let head = repo.head()?;
     let oid = head.target().unwrap();
-    let commit = repo.find_commit(oid).unwrap();
+    let commit = repo.find_commit(oid)?;
 
     let branch = repo.branch(branch_name, &commit, false)?;
 

@@ -1,4 +1,4 @@
-use clap::{Parser, Subcommand};
+use clap::Parser;
 
 /// Show the username of the user currently logged into Doctavious CLI.
 #[derive(Parser, Debug)]

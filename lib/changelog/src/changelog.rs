@@ -1,32 +1,26 @@
 use std::cmp::Ordering;
-use std::collections::HashMap;
-use std::fmt::Display;
 use std::fs;
-use std::fs::{File, OpenOptions};
+use std::fs::File;
 use std::io::Write;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 use doctavious_std::regex::convert_to_regex;
 use doctavious_templating::{TemplateContext, Templates};
-use git_conventional::{Commit as GitConventionalCommit, Error};
+use git_conventional::Commit as GitConventionalCommit;
 use markup::MarkupFormat;
-use regex::{Regex, RegexBuilder};
 use scm::commit::ScmCommit;
 use serde_derive::{Deserialize, Serialize};
-use somever::{Calver, Somever, VersioningScheme};
-use strum::{Display, EnumIter, EnumString, IntoEnumIterator, VariantNames};
-use tracing::{debug, trace, warn};
+use somever::Somever;
+use strum::{Display, EnumString, VariantNames};
+use tracing::{debug, warn};
 
 use crate::commits::ScmTaggedCommits;
 use crate::conventional::ConventionalCommit;
-use crate::entries::{ChangelogCommit, ChangelogEntry, Link};
+use crate::entries::{ChangelogCommit, ChangelogEntry};
 use crate::errors::{ChangelogErrors, ChangelogResult};
 use crate::release::{Release, Releases};
-use crate::release_notes::{ReleaseNote, ReleaseNotes};
-use crate::settings::{
-    ChangelogCommitSettings, ChangelogSettings, CommitProcessor, CommitStyleSettings, GroupParser,
-    LinkParser,
-};
+use crate::release_notes::ReleaseNotes;
+use crate::settings::{ChangelogSettings, CommitProcessor, CommitStyleSettings};
 
 // Not sure about the name but essentially controls if changelog should write details to a single
 // file or if they should be separated.
@@ -402,7 +396,7 @@ impl Changelog {
 
     // Increments the version for the unreleased changes
     pub fn bump_version(&self) {
-        if let Some(mut release) = self.releases.first() {
+        if let Some(release) = self.releases.first() {
             if let Some(version) = &release.version {}
         }
     }

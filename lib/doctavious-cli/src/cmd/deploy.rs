@@ -39,7 +39,7 @@ pub fn execute(dir: Option<PathBuf>, prebuilt: bool) -> CliResult<Option<String>
     };
 
     let tree = cas::tree::MerkleTree::from_path(build_dir)?;
-    println!("{}", serde_json::to_string(&tree).unwrap());
+    println!("{}", serde_json::to_string(&tree)?);
 
     // TODO: see if project is linked and if not setup
     // example of how vercel does setup/linking as part of deploy

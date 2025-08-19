@@ -321,22 +321,20 @@ impl GitScmRepository {
     fn commit(
         &self,
         message: &str,
-        signature: Option<Signature>,
+        signature: Option<&Signature>,
     ) -> ScmResult<crate::drivers::git::Oid> {
         let oid = self.inner.index()?.write_tree()?;
         let tree = self.inner.find_tree(oid)?;
-        println!("commit signature is present [{}]", signature.is_some());
         let signature = match signature {
             Some(sig) => sig,
-            None => self.inner.signature()?
+            None => &self.inner.signature()?,
         };
-        println!("committing with signature [{}]", signature);
         let parent_commit = self.find_last_commit()?;
         let commit_oid = if let Some(parent_commit) = parent_commit {
             self.inner.commit(
                 Some("HEAD"),
-                &signature,
-                &signature,
+                signature,
+                signature,
                 message,
                 &tree,
                 &[&parent_commit],
@@ -422,13 +420,8 @@ impl GitScmRepository {
     }
 
     /// Add and commit files
-    pub fn am(&self, message: &str, signature: Option<Signature>) -> ScmResult<()> {
-        println!("add_all");
+    pub fn am(&self, message: &str, signature: Option<&Signature>) -> ScmResult<()> {
         self.add_all()?;
-        println!(
-            "added. committing... signature is provided [{}]",
-            signature.is_some()
-        );
         self.commit(message, signature)?;
         Ok(())
     }
@@ -478,14 +471,14 @@ impl ScmRepository for GitScmRepository {
     //     Ok(self.commit(message)?)
     // }
 
-    fn write(&self, path: &Path, message: &str, signature: Option<Signature>) -> ScmResult<()> {
+    fn write(&self, path: &Path, message: &str, signature: Option<&Signature>) -> ScmResult<()> {
         let mut index = self.inner.index()?;
         index.add_path(path)?;
         self.commit(message, signature)?;
         self.push()
     }
 
-    fn commit(&self, message: &str, signature: Option<Signature>) -> ScmResult<()> {
+    fn commit(&self, message: &str, signature: Option<&Signature>) -> ScmResult<()> {
         self.commit(message, signature)?;
         Ok(())
     }

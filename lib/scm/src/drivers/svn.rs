@@ -33,11 +33,11 @@ impl ScmRepository for SvnScmRepository {
         todo!()
     }
 
-    fn write(&self, path: &Path, message: &str, signature: Option<Signature>) -> ScmResult<()> {
+    fn write(&self, path: &Path, message: &str, signature: Option<&Signature>) -> ScmResult<()> {
         todo!()
     }
 
-    fn commit(&self, message: &str, signature: Option<Signature>) -> ScmResult<()> {
+    fn commit(&self, message: &str, signature: Option<&Signature>) -> ScmResult<()> {
         todo!()
     }
 

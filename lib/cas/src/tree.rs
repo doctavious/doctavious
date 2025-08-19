@@ -1,5 +1,4 @@
 use std::collections::HashMap;
-use std::error::Error;
 use std::fs;
 use std::fs::{DirEntry, File};
 use std::io::{BufReader, Read};
@@ -111,11 +110,11 @@ impl MerkleTree {
         }
 
         let directory_hash = hasher.finalize();
-        return Ok(TreeNode {
+        Ok(TreeNode {
             hash: directory_hash.to_string(),
             path: MerkleTree::normalize(path),
             children,
-        });
+        })
     }
 
     // pub fn d<'a>(&self, other: &'a MerkleTree) -> Vec<&'a MerkleTreeNode> {

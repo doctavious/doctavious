@@ -7,13 +7,9 @@ use changelog::settings::{
     ChangelogSettings, TemplateSettings,
 };
 use directories::ProjectDirs;
-use doctavious_std::command;
 use indexmap::IndexMap;
 use markup::MarkupFormat;
-use regex::Regex;
-use scm::drivers::git::TagSort;
 use scm::hooks::ScmHook;
-use scm::platforms::ScmPlatform;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use tracing::warn;

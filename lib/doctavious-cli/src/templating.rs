@@ -1,7 +1,4 @@
-use std::error::Error;
 use std::path::PathBuf;
-
-use serde::Serialize;
 
 use crate::settings::{
     DEFAULT_ADR_INIT_TEMPLATE_PATH, DEFAULT_ADR_RECORD_TEMPLATE_PATH,

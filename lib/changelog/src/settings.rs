@@ -3,8 +3,6 @@ use std::env;
 use std::path::PathBuf;
 
 use doctavious_std::command;
-use doctavious_templating::Templates;
-use glob::Pattern;
 use markup::MarkupFormat;
 use regex::Regex;
 use scm::drivers::git::TagSort;
@@ -15,7 +13,6 @@ use somever::VersioningScheme;
 use strum::{Display, EnumIter, EnumString, VariantNames};
 use tracing::warn;
 
-use crate::changelog::{Changelog, ChangelogOutputType};
 use crate::entries::ChangelogCommit;
 use crate::errors::{ChangelogErrors, ChangelogResult};
 

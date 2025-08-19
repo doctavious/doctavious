@@ -31,7 +31,7 @@ pub trait ScmRepository {
     // better to have a specific trait for those use cases
     fn branch_exists(&self, branch_name: &str) -> ScmResult<bool>;
 
-    fn write(&self, path: &Path, message: &str, signature: Option<Signature>) -> ScmResult<()>;
+    fn write(&self, path: &Path, message: &str, signature: Option<&Signature>) -> ScmResult<()>;
 
     // get_commit -> ScmCommit
 
@@ -96,7 +96,7 @@ pub trait ScmRepository {
 
     fn diff_paths(&self, range: Option<&ScmCommitRange>) -> ScmResult<Vec<PathBuf>>;
 
-    fn commit(&self, message: &str, signature: Option<Signature>) -> ScmResult<()>;
+    fn commit(&self, message: &str, signature: Option<&Signature>) -> ScmResult<()>;
 }
 
 impl Scm {
@@ -159,7 +159,7 @@ impl ScmRepository for Scm {
     }
 
     // TODO: Rethink this. I dont like the name...do we even need it?
-    fn write(&self, path: &Path, message: &str, signature: Option<Signature>) -> ScmResult<()> {
+    fn write(&self, path: &Path, message: &str, signature: Option<&Signature>) -> ScmResult<()> {
         match self {
             Scm::Git(r) => r.write(path, message, signature),
             Scm::Hg(r) => r.write(path, message, signature),
@@ -326,7 +326,7 @@ impl ScmRepository for Scm {
         }
     }
 
-    fn commit(&self, message: &str, signature: Option<Signature>) -> ScmResult<()> {
+    fn commit(&self, message: &str, signature: Option<&Signature>) -> ScmResult<()> {
         match self {
             Scm::Git(r) => r.commit(message, signature),
             Scm::Hg(r) => r.commit(message, signature),

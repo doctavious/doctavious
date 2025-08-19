@@ -1,5 +1,4 @@
 use std::fs::File;
-use std::ops::Deref;
 use std::time::{SystemTime, UNIX_EPOCH};
 use std::{fs, io};
 

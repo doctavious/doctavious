@@ -94,7 +94,7 @@ fn print_summary(results: Vec<ScmHookRunnerResult<ScmHookRunnerOutcome>>) {
         match result {
             Ok(r) => {
                 // TODO: color green
-                info!("✔️  {}", "name")
+                info!("✔️  {}", r.name)
             }
             Err(e) => {
                 // TODO: color red

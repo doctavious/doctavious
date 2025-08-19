@@ -1,4 +1,4 @@
-use std::fmt::{Display, Formatter, Pointer};
+use std::fmt::{Display, Formatter};
 use std::fs;
 use std::io::ErrorKind;
 use std::path::{Path, PathBuf};
@@ -191,18 +191,16 @@ pub(crate) fn get_allocated_numbers(dir: &Path, file_structure: FileStructure) -
 // using vec for now
 pub(crate) fn get_allocated_numbers_via_nested(dir: &Path) -> Vec<u32> {
     match fs::read_dir(dir) {
-        Ok(files) => {
-            return files
-                .filter_map(Result::ok)
-                .filter_map(|e| {
-                    if e.path().is_dir() {
-                        e.file_name().to_string_lossy().parse::<u32>().ok()
-                    } else {
-                        None
-                    }
-                })
-                .collect();
-        }
+        Ok(files) => files
+            .filter_map(Result::ok)
+            .filter_map(|e| {
+                if e.path().is_dir() {
+                    e.file_name().to_string_lossy().parse::<u32>().ok()
+                } else {
+                    None
+                }
+            })
+            .collect(),
         Err(e) if e.kind() == ErrorKind::NotFound => {
             return Vec::new();
         }
