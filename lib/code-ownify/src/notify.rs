@@ -224,8 +224,8 @@ mod tests {
     use std::collections::HashMap;
     use std::fs;
     use std::path::PathBuf;
-
-    use scm::commit::ScmCommitRange;
+    use git2::Signature;
+    use scm::commit::{ScmCommitRange, ScmSignature};
     use scm::drivers::git::GitScmRepository;
     use testing::guard::TempDirGuard;
 
@@ -239,11 +239,16 @@ mod tests {
         fs::write(temp_dir.join("file.md"), "").unwrap();
 
         let scm = GitScmRepository::init(&temp_dir).expect("init git");
-        scm.am("init").unwrap();
+        // let mut git_config = scm.get_config().unwrap();
+        // git_config.set_str("user.name", "Test User").expect("Update git user.name");
+        // git_config.set_str("user.email", "test@example.com").expect("Update git user.email");
+        // TODO: avoid signature clone
+        let signature = Signature::now("test", "test@doctavious.com").unwrap();
+        scm.am("init", Some(signature.clone())).unwrap();
         let br = scm.get_commit_hash("HEAD").unwrap();
 
         fs::write(temp_dir.join("file.md"), "foo").unwrap();
-        scm.am("hr").unwrap();
+        scm.am("hr", Some(signature.clone())).unwrap();
         let hr = scm.get_commit_hash("HEAD").unwrap();
 
         let codenotify = CodeNotify {

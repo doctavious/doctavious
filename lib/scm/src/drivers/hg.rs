@@ -1,5 +1,5 @@
 use std::path::{Path, PathBuf};
-
+use git2::Signature;
 use glob::Pattern;
 use indexmap::IndexMap;
 use regex::Regex;
@@ -36,11 +36,11 @@ impl ScmRepository for HgScmRepository {
         todo!()
     }
 
-    fn write(&self, path: &Path, message: &str) -> ScmResult<()> {
+    fn write(&self, path: &Path, message: &str, signature: Option<Signature>) -> ScmResult<()> {
         todo!()
     }
 
-    fn commit(&self, message: &str) -> ScmResult<()> {
+    fn commit(&self, message: &str, signature: Option<Signature>) -> ScmResult<()> {
         todo!()
     }
 

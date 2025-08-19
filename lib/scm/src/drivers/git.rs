@@ -3,11 +3,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
-use git2::{
-    BranchType, Commit as Git2Commit, DescribeFormatOptions, DescribeOptions, Direction,
-    IndexAddOption, Oid as Git2Oid, Repository as Git2Repository, Signature as Git2Signature,
-    StatusOptions,
-};
+use git2::{BranchType, Commit as Git2Commit, Config, DescribeFormatOptions, DescribeOptions, Direction, IndexAddOption, Oid as Git2Oid, Repository as Git2Repository, Signature as Git2Signature, Signature, StatusOptions};
 use glob::Pattern;
 use indexmap::IndexMap;
 use lazy_static::lazy_static;
@@ -318,10 +314,10 @@ impl GitScmRepository {
         // Ok(self.inner.head()?.resolve()?.peel_to_commit()?)
     }
 
-    fn commit(&self, message: &str) -> ScmResult<crate::drivers::git::Oid> {
+    fn commit(&self, message: &str, signature: Option<Signature>) -> ScmResult<crate::drivers::git::Oid> {
         let oid = self.inner.index()?.write_tree()?;
         let tree = self.inner.find_tree(oid)?;
-        let signature = self.inner.signature()?;
+        let signature = signature.unwrap_or(self.inner.signature()?);
         let parent_commit = self.find_last_commit()?;
 
         let commit_oid = if let Some(parent_commit) = parent_commit {
@@ -414,10 +410,15 @@ impl GitScmRepository {
     }
 
     /// Add and commit files
-    pub fn am(&self, message: &str) -> ScmResult<()> {
+    pub fn am(&self, message: &str, signature: Option<Signature>) -> ScmResult<()> {
         self.add_all()?;
-        self.commit(message)?;
+        self.commit(message, signature)?;
         Ok(())
+    }
+
+    pub fn get_config(&self) -> ScmResult<Config> {
+        let config = self.inner.config()?;
+        Ok(config)
     }
 }
 
@@ -460,15 +461,15 @@ impl ScmRepository for GitScmRepository {
     //     Ok(self.commit(message)?)
     // }
 
-    fn write(&self, path: &Path, message: &str) -> ScmResult<()> {
+    fn write(&self, path: &Path, message: &str, signature: Option<Signature>) -> ScmResult<()> {
         let mut index = self.inner.index()?;
         index.add_path(path)?;
-        self.commit(message)?;
+        self.commit(message, signature)?;
         self.push()
     }
 
-    fn commit(&self, message: &str) -> ScmResult<()> {
-        self.commit(message)?;
+    fn commit(&self, message: &str, signature: Option<Signature>) -> ScmResult<()> {
+        self.commit(message, signature)?;
         Ok(())
     }
 
