@@ -325,10 +325,10 @@ impl GitScmRepository {
     ) -> ScmResult<crate::drivers::git::Oid> {
         let oid = self.inner.index()?.write_tree()?;
         let tree = self.inner.find_tree(oid)?;
+        println!("commit signature is present [{}]", signature.is_some());
         let signature = signature.unwrap_or(self.inner.signature()?);
-        let parent_commit = self.find_last_commit()?;
-
         println!("committing with signature [{}]", signature);
+        let parent_commit = self.find_last_commit()?;
         let commit_oid = if let Some(parent_commit) = parent_commit {
             self.inner.commit(
                 Some("HEAD"),
