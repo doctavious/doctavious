@@ -328,6 +328,7 @@ impl GitScmRepository {
         let signature = signature.unwrap_or(self.inner.signature()?);
         let parent_commit = self.find_last_commit()?;
 
+        println!("committing with signature [{}]", signature);
         let commit_oid = if let Some(parent_commit) = parent_commit {
             self.inner.commit(
                 Some("HEAD"),
@@ -419,7 +420,12 @@ impl GitScmRepository {
 
     /// Add and commit files
     pub fn am(&self, message: &str, signature: Option<Signature>) -> ScmResult<()> {
+        println!("add_all");
         self.add_all()?;
+        println!(
+            "added. committing... signature is provided [{}]",
+            signature.is_some()
+        );
         self.commit(message, signature)?;
         Ok(())
     }
