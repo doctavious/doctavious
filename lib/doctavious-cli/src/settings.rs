@@ -445,7 +445,7 @@ pub fn get_global_settings_dir() -> PathBuf {
         .to_path_buf()
 }
 
-pub(crate) fn get_global_settings_file() -> PathBuf {
+pub fn get_global_settings_file() -> PathBuf {
     let file_name = if cfg!(test) {
         "doctavious-test.toml"
     } else {

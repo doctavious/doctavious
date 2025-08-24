@@ -373,7 +373,8 @@ mod tests {
 
     use crate::cmd::til::{init, list, new, open};
     use crate::files::get_all_files;
-    use crate::settings::Config;
+    use crate::settings;
+    use crate::settings::{Config, Settings};
 
     #[test]
     fn should_successfully_init_local() {
@@ -399,15 +400,13 @@ mod tests {
         dir.close().unwrap();
     }
 
-    // TODO: setup for CI flag
     #[test]
-    // #[cfg(ci)]
     fn should_successfully_init_global() {
         let dir = TempDir::new().unwrap();
         let global_config = BaseDirs::new()
             .unwrap()
             .config_dir()
-            .join("com.doctavious.cli/doctavious-test.toml");
+            .join(settings::get_global_settings_dir().join("doctavious-test.toml"));
 
         let _c = CleanUp::new(Box::new(|| {
             let _ = fs::remove_dir_all(&dir);
