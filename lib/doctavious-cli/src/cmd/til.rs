@@ -428,6 +428,8 @@ mod tests {
 
                 let config = Config::get_global().unwrap();
                 assert!(!config.is_default_settings);
+                println!("config path: [{:?}]", config.path);
+                println!("global config path: [{:?}]", global_config);
                 assert!(
                     config
                         .path
