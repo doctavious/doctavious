@@ -2,7 +2,7 @@
 source: lib/doctavious-cli/src/cmd/til.rs
 expression: "&config"
 ---
-path: /Users/seancarroll/Library/Application Support/com.doctavious.cli/doctavious-test.toml
+path: [CONFIG_PATH]/doctavious-test.toml
 settings:
   til:
     dir: [DIR]

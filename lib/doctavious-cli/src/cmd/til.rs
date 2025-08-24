@@ -427,8 +427,6 @@ mod tests {
 
                 let config = Config::get_global().unwrap();
                 assert!(!config.is_default_settings);
-                println!("config path: [{:?}]", config.path);
-                println!("global config path: [{:?}]", global_config);
                 assert!(
                     config
                         .path
@@ -437,6 +435,7 @@ mod tests {
                 );
 
                 insta::with_settings!({filters => vec![
+                    (config.path.parent().unwrap().to_str().unwrap(), "[CONFIG_PATH]"),
                     (dir.path().to_str().unwrap(), "[DIR]"),
                     (r"\d{4}-\d{2}-\d{2}", "[DATE]")
                 ]}, {
