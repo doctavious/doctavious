@@ -859,21 +859,23 @@ mod tests {
         }
     }
 
-    #[test]
-    fn git_cliff_tags() {
-        println!("{:?}", env::current_dir().unwrap());
-        let scm = GitScmRepository::new("../../../../git-cliff").unwrap();
-        let commits = scm.tags(None, None, TagSort::Version, None).unwrap();
-        for c in commits {
-            println!("{:?}", &c);
-        }
-    }
+    // TODO: need to implement something that works in CI
+    // #[test]
+    // fn git_cliff_tags() {
+    //     println!("{:?}", env::current_dir().unwrap());
+    //     let scm = GitScmRepository::new("../../../../git-cliff").unwrap();
+    //     let commits = scm.tags(None, None, TagSort::Version, None).unwrap();
+    //     for c in commits {
+    //         println!("{:?}", &c);
+    //     }
+    // }
 
-    #[test]
-    fn latest_tags() {
-        println!("{:?}", env::current_dir().unwrap());
-        let scm = GitScmRepository::new("../../../../gitlab-ce").unwrap();
-        let latest = scm.latest_tag().unwrap();
-        println!("{:?}", &latest);
-    }
+    // TODO: need to implement something that works in CI
+    // #[test]
+    // fn latest_tags() {
+    //     println!("{:?}", env::current_dir().unwrap());
+    //     let scm = GitScmRepository::new("../../../../gitlab-ce").unwrap();
+    //     let latest = scm.latest_tag().unwrap();
+    //     println!("{:?}", &latest);
+    // }
 }
