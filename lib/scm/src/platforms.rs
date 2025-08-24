@@ -6,7 +6,6 @@ use std::hash::Hash;
 use std::path::PathBuf;
 
 use chrono::{DateTime, Utc};
-use gitlab_client::merge_requests::MergeRequestNoteAuthor;
 use serde_derive::{Deserialize, Serialize};
 use strum::{EnumIter, EnumString, VariantNames};
 

@@ -1,14 +1,12 @@
 use std::collections::HashSet;
-use std::fmt::{Debug, Display};
+use std::fmt::Debug;
 use std::path::{Path, PathBuf};
 use std::process::Command;
-use std::str::FromStr;
 
 use glob::PatternError;
 use thiserror::Error;
 use tracing::error;
 
-use crate::framework_detection::Detectable;
 use crate::frameworks::{FrameworkBuildArg, FrameworkInfo};
 use crate::package_manager::PackageManagerInfo;
 use crate::workspaces::Workspace;

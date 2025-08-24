@@ -5,7 +5,7 @@ use std::process::Command;
 
 use glob_match::glob_match;
 use rayon::prelude::{IntoParallelIterator, ParallelIterator};
-use regex::{Error, Regex, RegexBuilder};
+use regex::{Regex, RegexBuilder};
 use scm::drivers::{Scm, ScmRepository};
 use scm::errors::ScmError;
 use scm::hooks::{

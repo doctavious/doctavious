@@ -9,9 +9,8 @@
 // (<MAJOR>\d).(<MINOR>\d)(?<MICRO>.\d)(?<MODIFIER>.+)
 
 use std::fmt::{Display, Formatter};
-use std::str::FromStr;
 
-use chrono::{Datelike, NaiveDate, TimeZone, Utc};
+use chrono::{Datelike, NaiveDate, Utc};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 

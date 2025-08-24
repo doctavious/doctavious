@@ -1,9 +1,7 @@
-use std::env;
 use std::path::PathBuf;
 
 use cifrs::Cifrs;
 
-use crate::cmd::design_decisions::adr;
 use crate::errors::CliResult;
 
 // TODO: I think we can remove this. Seems unnecessary

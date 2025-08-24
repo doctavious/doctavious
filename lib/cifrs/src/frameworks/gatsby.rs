@@ -8,7 +8,7 @@
 use serde::Deserialize;
 use swc_ecma_ast::Program;
 
-use crate::frameworks::{FrameworkConfigFile, FrameworkConfigFileSettings, FrameworkConfiguration};
+use crate::frameworks::{FrameworkConfigFileSettings, FrameworkConfiguration};
 use crate::js_module::{
     find_array_element, get_array_property, get_assignment_obj, get_obj_property,
     get_string_property_value,

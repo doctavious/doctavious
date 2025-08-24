@@ -472,7 +472,6 @@ mod tests {
         add_custom_template, generate_toc, init, link, list, new,
     };
     use crate::file_structure::FileStructure;
-    use crate::settings::DOCTAVIOUS_ENV_SETTINGS_PATH;
     use crate::templating::AdrTemplateType;
 
     #[test]
